@@ -1,0 +1,4 @@
+# Web profile row: host half (exports ".") serves /api/dsh-s3 and the s3_* tools; client half (exports "./client") renders the panel.
+- insert:
+    - id: s3
+      name: '@onenightcarnival/dsh-s3'

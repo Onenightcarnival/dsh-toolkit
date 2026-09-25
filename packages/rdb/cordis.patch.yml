@@ -1,0 +1,4 @@
+# Web profile row: host half (exports ".") serves /api/dsh-rdb and the db_* tools; client half (exports "./client") renders the panel.
+- insert:
+    - id: rdb
+      name: '@onenightcarnival/dsh-rdb'

@@ -1,0 +1,66 @@
+# Tag-driven release.
+#
+#   node scripts/version.mjs set 0.5.1 && git commit -am "v0.5.1"
+#   git tag v0.5.1 && git push origin main v0.5.1
+#
+# Gate:   the tag equals the committed version (scripts/version.mjs check).
+# Build:  pnpm install → typecheck → build → test → scripts/package.mjs
+# Output: GitHub Release "v<version>" with everything in dist/:
+#           onenightcarnival-dsh-{rdb,s3,otel,bridge-browser,toolkit}-<version>.tgz
+#           dsh-browser-extension-chrome-<version>.zip
+#           SHA256SUMS.txt
+#         A prerelease label (v0.5.1-rc.1) marks the Release as pre-release.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Check tag against committed version
+        run: node scripts/version.mjs check "${GITHUB_REF_NAME#v}"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Package
+        run: |
+          node scripts/package.mjs
+          ls -l dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          args=(--title "$GITHUB_REF_NAME" --generate-notes)
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/* "${args[@]}"

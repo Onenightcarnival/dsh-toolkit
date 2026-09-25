@@ -1,0 +1,71 @@
+{
+  "name": "@onenightcarnival/dsh-toolkit",
+  "version": "0.5.0",
+  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser)",
+  "author": "Yuxiang Lin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Onenightcarnival/dsh-toolkit.git",
+    "directory": "packages/toolkit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "database",
+    "s3",
+    "opentelemetry",
+    "browser"
+  ],
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.1.5-rc.2"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "platform": "web"
+    }
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./typert": "./lib/typert.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@onenightcarnival/dsh-bridge-browser": "workspace:*",
+    "@onenightcarnival/dsh-otel": "workspace:*",
+    "@onenightcarnival/dsh-rdb": "workspace:*",
+    "@onenightcarnival/dsh-s3": "workspace:*",
+    "@types/node": "^22.20.0",
+    "@types/react": "~18.3.1",
+    "esbuild": "^0.25.0",
+    "typescript": "~5.7.2"
+  }
+}

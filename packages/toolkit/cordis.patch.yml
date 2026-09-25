@@ -1,0 +1,13 @@
+# Web profile row: one host plugin mounting rdb, s3, otel and the browser bridge; one client bundle mounting their panels.
+# A module set to `false` stays out of the composition (host and client).
+- insert:
+    - id: toolkit
+      name: '@onenightcarnival/dsh-toolkit'
+      config:
+        browser:
+          token: !!js process.env.DSH_EXT_TOKEN
+          sessionWorkspacePath: !!js process.env.DSH_BROWSER_SESSION_WORKSPACE
+          toolTimeoutMs: 90000
+          snapshotMaxChars: 200000
+          maxInteractiveItems: 400
+          discoveryPort: 43189

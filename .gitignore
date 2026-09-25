@@ -1,0 +1,8 @@
+node_modules/
+**/lib/
+!benchmark/lib/
+**/dist/
+**/dist-firefox/
+**/coverage/
+*.tgz
+.DS_Store

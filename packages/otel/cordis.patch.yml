@@ -1,0 +1,4 @@
+# Web profile row: the observability service (exports ".") and its settings tab (exports "./client").
+- insert:
+    - id: dsh-otel
+      name: '@onenightcarnival/dsh-otel'

@@ -1,0 +1,36 @@
+{
+  "name": "dsh-browser-extension",
+  "description": "Chrome and Firefox MV3 extension: sidebar chat with a local dsh instance and text-only read/operate of a user-controlled tab through the dsh browser bridge",
+  "version": "0.5.0",
+  "author": "Yuxiang Lin",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:firefox": "node scripts/build.mjs --firefox",
+    "dev": "node scripts/build.mjs --watch",
+    "dev:firefox": "node scripts/build.mjs --firefox --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.13",
+    "marked": "^18.0.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tldts": "^6.1.86"
+  },
+  "devDependencies": {
+    "@onenightcarnival/dsh-bridge-browser": "workspace:^",
+    "@types/chrome": "^0.0.268",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.0.0",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.11"
+  }
+}

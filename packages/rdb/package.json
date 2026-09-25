@@ -1,0 +1,79 @@
+{
+  "name": "@onenightcarnival/dsh-rdb",
+  "version": "0.5.0",
+  "description": "Relational database workbench for DeepSeek Harness (dsh): SQLite, PostgreSQL and GaussDB connections, schema browser, data grid with inline editing, SQL editor — with an optional db_* agent toolset.",
+  "author": "Yuxiang Lin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Onenightcarnival/dsh-toolkit.git",
+    "directory": "packages/rdb"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "database",
+    "sqlite",
+    "postgresql",
+    "mysql",
+    "mariadb",
+    "gaussdb",
+    "sql"
+  ],
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.1.2-rc.1"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-renderer"
+      ],
+      "platform": "web"
+    }
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-host-webserver": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-tools": "0.1.5-rc.2",
+    "@types/node": "^22.20.0",
+    "@types/pg": "^8.15.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "^18.3.5",
+    "esbuild": "^0.25.0",
+    "gaussdb-node": "^0.2.2",
+    "mysql2": "^3.24.4",
+    "pg": "^8.16.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.7.2"
+  }
+}

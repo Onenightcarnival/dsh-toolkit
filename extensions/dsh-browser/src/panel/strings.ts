@@ -1,0 +1,721 @@
+import type { BridgeState } from '../background/bridge.ts'
+import type { UiLocale } from '../i18n.ts'
+
+export interface PanelCopy {
+  documentTitle: string
+  status: Record<BridgeState, string>
+  approval: {
+    eyebrow: string
+    readTitle: string
+    actionTitle: string
+    request: string
+    origins: string
+    unknownOrigin: string
+    deny: string
+    allowOnce: string
+    alwaysAllowReads: string
+    trustSession: string
+    readFootnote: string
+    actionFootnote: string
+  }
+  tool: {
+    running: string
+    complete: string
+    inProgress: string
+    completed: string
+    done: string
+    labels: Record<string, string>
+    overflow: (shown: string[], total: number) => string
+  }
+  tabHandoff: {
+    eyebrow: string
+    assistant: string
+    you: string
+    unknownTab: string
+    closedTab: string
+    questionTitle: string
+    questionBody: (controlled: string, active: string) => string
+    keep: string
+    keepAlways: string
+    follow: string
+    backgroundTitle: (controlled: string) => string
+    backgroundBody: (active: string) => string
+    pinnedBody: (active: string) => string
+    askAgain: string
+    followCurrent: string
+    lostTitle: string
+    lostBody: string
+    useCurrent: string
+  }
+  question: {
+    eyebrow: string
+    title: string
+    customAlternative: string
+    customAnswer: string
+    dismiss: string
+    answer: string
+    answering: string
+    alreadyAnswered: string
+    answerRejected: string
+  }
+  settings: {
+    back: string
+    eyebrow: string
+    title: string
+    bridgeAddress: string
+    bridgeHelp: string
+    bridgePlaceholder: string
+    tokenHelp: string
+    tokenPlaceholder: string
+    pageSharing: string
+    pageSharingHelp: string
+    sharingAuto: string
+    sharingAsk: string
+    sharingOff: string
+    unrestrictedBrowserAccess: string
+    unrestrictedBrowserAccessHelp: string
+    approvalNotifications: string
+    approvalNotificationsHelp: string
+    allowScreenshots: string
+    allowScreenshotsHelp: string
+    trustedInput: string
+    trustedInputHelp: string
+    autoResumeSession: string
+    autoResumeSessionHelp: string
+    trustedOrigins: string
+    trustedOriginsHelp: string
+    trustedOriginInput: string
+    add: string
+    invalidOrigin: string
+    noTrustedOrigins: string
+    remove: string
+    removeOrigin: (origin: string) => string
+    save: string
+    cancel: string
+    snapshotHint: (maxChars: number) => string
+    relaySection: string
+    relayHelp: string
+    relayName: string
+    relayNamePlaceholder: string
+    relayProtocol: string
+    relayProtocolClaude: string
+    relayProtocolOpenai: string
+    relayProtocolCodex: string
+    relayBaseUrl: string
+    relayToken: string
+    relayTokenPlaceholder: (configured: boolean) => string
+    relayModels: string
+    relayModelsHelp: string
+    relayModelsPlaceholder: string
+    relayAdd: string
+    relayRemove: string
+    relaySetDefault: string
+    relaySetDefaultHelp: string
+    relayFetchModels: string
+    relayFetching: string
+    relayFetchOk: (count: number) => string
+    relayNeedBaseUrl: string
+    relayOpenaiListingNote: string
+    relayTest: string
+    relayTesting: string
+    relayTestOk: (count: number, names: string) => string
+    relayTestFailed: (reason: string) => string
+    relayTestManualOnly: string
+    relaySavedOk: string
+    relaySaveFailed: (reason: string) => string
+    relayEmpty: string
+    relayInvalidName: string
+  }
+  update: {
+    eyebrow: string
+    title: string
+    idleTitle: string
+    idleBody: string
+    checking: string
+    checkingBody: string
+    currentTitle: string
+    currentBody: (latestVersion: string) => string
+    availableTitle: (latestVersion: string) => string
+    availableBody: string
+    reloadReminder: string
+    errorTitle: string
+    errorBody: string
+    check: string
+    openReleases: string
+  }
+  textSize: {
+    open: string
+    title: string
+    smaller: string
+    larger: string
+    reset: string
+    value: (percent: string) => string
+  }
+  model: {
+    open: string
+    title: string
+    unknown: string
+    loading: string
+    empty: string
+    groupEmpty: string
+    unroutable: string
+    reasoning: string
+    loadFailed: (reason: string) => string
+    selectFailed: (reason: string) => string
+    failures: (providers: string) => string
+  }
+  app: {
+    openSettings: string
+    settings: string
+    openSessions: string
+    sessions: string
+    newSession: string
+    sessionPickerLoading: string
+    sessionPickerEmpty: string
+    deleteSession: string
+    deleteSessionConfirm: (title: string) => string
+    deleteSessionFailed: (reason: string) => string
+    deleteSessionDeferred: string
+    deletePurgeFailed: (reason: string) => string
+    emptyTitle: string
+    emptyDescription: string
+    overviewPage: string
+    overviewPrompt: string
+    assistant: string
+    assistantWorking: string
+    organizingResults: string
+    thinking: string
+    connectedPlaceholder: string
+    disconnectedPlaceholder: string
+    composerHelp: string
+    sendMessage: string
+    stopTurn: string
+    stoppingTurn: string
+    addImages: string
+    imageUnavailable: string
+    removeImage: (name: string) => string
+    image: string
+    imageLoading: string
+    imageLoadFailed: string
+    openImage: string
+    openNamedImage: (name: string) => string
+    imagePreview: string
+    closeImage: string
+    imageUnsupported: (name: string) => string
+    imageTooMany: (max: number) => string
+    imageTooLarge: (name: string, max: string) => string
+    imageMessageTooLarge: (max: string) => string
+    imageDimensionTooLarge: (name: string, max: number) => string
+    imagePixelsTooLarge: (name: string, max: number) => string
+    imageDecodeFailed: (name: string) => string
+    imageModelUnsupported: string
+    imageSubagentUnsupported: string
+    imageSendFailed: (reason: string) => string
+    selectionChip: string
+    selectionAttached: string
+    selectionTruncated: string
+    removeSelection: string
+  }
+}
+
+const EN: PanelCopy = {
+  documentTitle: 'dsh Browser Assistant',
+  status: {
+    connected: 'Connected',
+    connecting: 'Connecting…',
+    reconnecting: 'Reconnecting…',
+    stopped: 'Disconnected',
+  },
+  approval: {
+    eyebrow: 'Security check',
+    readTitle: 'Allow page access?',
+    actionTitle: 'Allow page action?',
+    request: 'Request',
+    origins: 'Origins involved',
+    unknownOrigin: 'Unknown origin',
+    deny: 'Deny',
+    allowOnce: 'Allow once',
+    alwaysAllowReads: 'Always allow reads',
+    trustSession: 'Trust this domain for this session',
+    readFootnote: 'Esc to deny · You can disable automatic reading in Settings at any time',
+    actionFootnote: 'Esc to deny · Temporary trust ends when the side panel closes · Typed content is never shown',
+  },
+  tool: {
+    running: 'Working on page',
+    complete: 'Page action',
+    inProgress: 'In progress',
+    completed: 'Completed',
+    done: 'Done',
+    labels: {
+      browser_snapshot: 'Read page',
+      browser_click: 'Click element',
+      browser_type: 'Enter text',
+      browser_press: 'Press key',
+      browser_scroll: 'Scroll page',
+      browser_navigate: 'Open page',
+      browser_open_tab: 'Open new tab',
+      browser_list_tabs: 'List open tabs',
+      browser_follow_tab: 'Follow tab',
+      browser_close_tab: 'Close tab',
+      browser_back: 'Go back',
+      browser_forward: 'Go forward',
+      browser_reload: 'Reload page',
+      browser_get_text: 'Extract text',
+      browser_wait: 'Wait for page',
+      browser_find: 'Find elements',
+      browser_hover: 'Hover element',
+      browser_form_input: 'Fill form',
+      browser_wait_for: 'Wait for condition',
+      browser_screenshot: 'Take screenshot',
+      browser_batch: 'Run several steps',
+      browser_drag: 'Drag element',
+      browser_upload: 'Upload files',
+      browser_handle_dialog: 'Answer page dialog',
+      browser_console: 'Read console output',
+      browser_network: 'Read network requests',
+      browser_evaluate: 'Run JavaScript',
+    },
+    overflow: (shown, total) => `${shown.join(' → ')} → ${total - shown.length} more`,
+  },
+  tabHandoff: {
+    eyebrow: 'Page handoff',
+    assistant: 'Assistant',
+    you: 'You',
+    unknownTab: 'Untitled tab',
+    closedTab: 'Closed tab',
+    questionTitle: 'Follow your current page?',
+    questionBody: (controlled, active) => `It is still bound to “${controlled}”, while you moved to “${active}”. Browser actions are paused until you choose.`,
+    keep: 'Stay on original',
+    keepAlways: 'Stay & stop asking',
+    follow: 'Follow current page',
+    backgroundTitle: () => 'Assistant stays on the original page',
+    backgroundBody: (active) => `You are viewing “${active}”. Future browser actions still run on the original page.`,
+    pinnedBody: (active) => `You are viewing “${active}”. Future browser actions still run on the original page, and switching tabs will not ask again.`,
+    askAgain: 'Ask on tab switch',
+    followCurrent: 'Follow current page',
+    lostTitle: 'The controlled tab was closed',
+    lostBody: 'Browser actions are paused to avoid operating the wrong page.',
+    useCurrent: 'Use current page',
+  },
+  question: {
+    eyebrow: 'Waiting for your answer',
+    title: 'The assistant needs your input',
+    customAlternative: 'Or type a different answer',
+    customAnswer: 'Type your answer',
+    dismiss: 'Dismiss',
+    answer: 'Answer',
+    answering: 'Answering…',
+    alreadyAnswered: 'This question was already handled in another window.',
+    answerRejected: 'The answer was not accepted. Review it and try again.',
+  },
+  settings: {
+    back: 'Back to chat',
+    eyebrow: 'Browser assistant',
+    title: 'Settings',
+    bridgeAddress: 'Bridge address',
+    bridgeHelp: 'Leave blank to detect a local service automatically',
+    bridgePlaceholder: 'Auto-detect 3080 / 3081 / 3090 / 14389 / 43189',
+    tokenHelp: 'Required by Firefox and remote deployments',
+    tokenPlaceholder: 'Required for Firefox / remote deployments',
+    pageSharing: 'Page content sharing',
+    pageSharingHelp: 'Control when the assistant can read page text',
+    sharingAuto: 'Share automatically (default)',
+    sharingAsk: 'Ask every time',
+    sharingOff: 'Off',
+    unrestrictedBrowserAccess: 'Allow unrestricted browser control',
+    unrestrictedBrowserAccessHelp: 'Let the model read every HTTP(S) page, inspect all open tab titles and URLs, and perform actions—including following and closing tabs—without confirmation. Browser-protected page content remains inaccessible.',
+    approvalNotifications: 'Browser approval notifications',
+    approvalNotificationsHelp: 'Notify you when an approval arrives while the side panel is closed',
+    allowScreenshots: 'Allow screenshots',
+    allowScreenshotsHelp: 'Let the model capture the controlled tab with browser_screenshot. Screenshots follow the page-content sharing setting, but passwords typed into the page cannot be masked in an image.',
+    trustedInput: 'High-fidelity input (debugger)',
+    trustedInputHelp: 'Send coordinate clicks and key presses through Chrome\'s debugger so pages receive real input events (needed for canvas apps, keyboard navigation, and some editors). Chrome shows a “started debugging” bar on the tab while it is in use.',
+    autoResumeSession: "Resume this page's conversation",
+    autoResumeSessionHelp: 'Reopen the conversation associated with this tab and page path; other pages start a new conversation',
+    trustedOrigins: 'Always-allowed domains',
+    trustedOriginsHelp: 'The approval dialog can trust a domain for the current side-panel session only. Domains added here permanently skip action confirmation when every known origin is trusted. Wildcards include the base domain and subdomains, and stay scoped to their scheme and port; `*.example.com` defaults to HTTPS.',
+    trustedOriginInput: 'Domain to always trust (e.g. https://example.com or https://*.example.com)',
+    add: 'Add',
+    invalidOrigin: 'Enter an http:// or https:// origin, or a wildcard such as https://*.example.com.',
+    noTrustedOrigins: 'No domains are currently trusted.',
+    remove: 'Remove',
+    removeOrigin: (origin) => `Remove ${origin}`,
+    save: 'Save & Connect',
+    cancel: 'Cancel',
+    snapshotHint: (maxChars) => `Page snapshots are limited to ${maxChars} characters and longer content is truncated. Change snapshotMaxChars in the dsh plugin to adjust this limit.`,
+    relaySection: 'Models & API relay',
+    relayHelp: 'Point the assistant at your own API relay. Each profile becomes one provider route; changes take effect on the next message without a restart.',
+    relayName: 'Profile name',
+    relayNamePlaceholder: 'e.g. my-relay',
+    relayProtocol: 'API format',
+    relayProtocolClaude: 'Claude (Anthropic Messages)',
+    relayProtocolOpenai: 'OpenAI (Chat Completions)',
+    relayProtocolCodex: 'Codex (OpenAI Responses)',
+    relayBaseUrl: 'Base URL',
+    relayToken: 'Token',
+    relayTokenPlaceholder: (configured) => configured ? 'Saved — type to replace' : 'API token for the relay',
+    relayModels: 'Models',
+    relayModelsHelp: 'One model per line as `id, context window` — e.g. `claude-sonnet-4-5, 200000`. The context window is optional.',
+    relayModelsPlaceholder: 'model-id, 128000',
+    relayFetchModels: 'Fetch models',
+    relayFetching: 'Fetching models…',
+    relayFetchOk: (count) => `Filled in ${count} models from the relay.`,
+    relayNeedBaseUrl: 'Enter a base URL first.',
+    relayOpenaiListingNote: ' (listed via the relay\'s OpenAI-compatible endpoint)',
+    relayAdd: 'Add profile',
+    relayRemove: 'Remove profile',
+    relaySetDefault: 'Use as default model',
+    relaySetDefaultHelp: 'New conversations start with the first model of this profile',
+    relayTest: 'Test connection',
+    relayTesting: 'Testing…',
+    relayTestOk: (count, names) => `OK — ${count} model(s): ${names}`,
+    relayTestFailed: (reason) => `Failed: ${reason}`,
+    relayTestManualOnly: 'This protocol does not support listing models; fill them in manually.',
+    relaySavedOk: 'Relay profiles saved.',
+    relaySaveFailed: (reason) => `Saving failed: ${reason}`,
+    relayEmpty: 'No relay profiles yet.',
+    relayInvalidName: 'Enter a profile name.',
+  },
+  update: {
+    eyebrow: 'Release channel',
+    title: 'Updates',
+    idleTitle: 'Ready to check',
+    idleBody: 'Compare this build with the version on GitHub main.',
+    checking: 'Checking…',
+    checkingBody: 'Reading the latest extension manifest from GitHub.',
+    currentTitle: 'No update found',
+    currentBody: (latestVersion) => `Repository version: v${latestVersion}.`,
+    availableTitle: (latestVersion) => `Version ${latestVersion} is available`,
+    availableBody: 'Download the new extension zip and bridge .tgz from GitHub Releases, replace the contents of this extension folder, and reinstall the .tgz.',
+    reloadReminder: 'After replacing the files, open chrome://extensions, find “dsh Browser Assistant,” click the rotating-arrow Reload button on its card, then restart dsh.',
+    errorTitle: 'Could not check for updates',
+    errorBody: 'Check your network connection and try again.',
+    check: 'Check for updates',
+    openReleases: 'Open Releases',
+  },
+  textSize: {
+    open: 'Text size',
+    title: 'Text size',
+    smaller: 'Smaller text',
+    larger: 'Larger text',
+    reset: 'Reset',
+    value: (percent) => `Text size ${percent}`,
+  },
+  model: {
+    open: 'Model',
+    title: 'Model',
+    unknown: 'Model',
+    loading: 'Loading models…',
+    empty: 'No models are configured in dsh. Add a provider in dsh settings first.',
+    groupEmpty: 'No models listed.',
+    unroutable: 'not configured',
+    reasoning: 'Reasoning effort',
+    loadFailed: (reason) => `Could not load the model list: ${reason}`,
+    selectFailed: (reason) => `Could not switch model: ${reason}`,
+    failures: (providers) => `Model lists unavailable for: ${providers}`,
+  },
+  app: {
+    openSettings: 'Open settings',
+    settings: 'Settings',
+    openSessions: 'Session history',
+    sessions: 'Sessions',
+    newSession: 'New chat',
+    sessionPickerLoading: 'Loading…',
+    sessionPickerEmpty: 'No past sessions yet',
+    deleteSession: 'Delete session',
+    deleteSessionConfirm: (title) => `Delete “${title}”? Its conversation history will be removed permanently.`,
+    deleteSessionFailed: (reason) => `Delete failed: ${reason}`,
+    deleteSessionDeferred: 'Deleted from the list. This dsh process still holds the session open, so its files are removed the next time dsh starts.',
+    deletePurgeFailed: (reason) => `Removed from the list, but file cleanup failed (it may reappear after dsh restarts): ${reason}`,
+    emptyTitle: 'Hand me the current page',
+    emptyDescription: 'I can read the page, find information, and click, fill, or navigate for you.',
+    overviewPage: 'Give me an overview',
+    overviewPrompt: 'First give me an overview of the current page, tell me the most important information, and wait for my next instruction.',
+    assistant: 'Assistant',
+    assistantWorking: 'Assistant is working',
+    organizingResults: 'Organizing results',
+    thinking: 'Thinking',
+    connectedPlaceholder: 'Tell me what you want to do on this page…',
+    disconnectedPlaceholder: 'Connect to dsh to get started',
+    composerHelp: 'Enter to send · Shift + Enter for a new line',
+    sendMessage: 'Send message',
+    stopTurn: 'Stop generating',
+    stoppingTurn: 'Stopping…',
+    addImages: 'Add images',
+    imageUnavailable: 'This dsh host does not advertise image input',
+    removeImage: (name) => `Remove ${name}`,
+    image: 'Image',
+    imageLoading: 'Loading…',
+    imageLoadFailed: 'Could not load · Retry',
+    openImage: 'Open original image',
+    openNamedImage: (name) => `Open ${name}`,
+    imagePreview: 'Image preview',
+    closeImage: 'Close image preview',
+    imageUnsupported: (name) => `${name} is not an image format supported by this dsh host.`,
+    imageTooMany: (max) => `You can attach up to ${max} images to one message.`,
+    imageTooLarge: (name, max) => `${name} is larger than the per-image limit of ${max}.`,
+    imageMessageTooLarge: (max) => `The images in this message exceed the combined limit of ${max}.`,
+    imageDimensionTooLarge: (name, max) => `${name} exceeds the maximum width or height of ${max}px.`,
+    imagePixelsTooLarge: (name, max) => `${name} exceeds the ${max.toLocaleString()}-pixel limit.`,
+    imageDecodeFailed: (name) => `${name} could not be decoded as an image.`,
+    imageModelUnsupported: 'The current model does not support images; switch to a model that does.',
+    imageSubagentUnsupported: 'Subagent sessions do not support images yet.',
+    imageSendFailed: (reason) => `Sending images failed (${reason}). Your draft has been restored; try again.`,
+    selectionChip: '1 selection',
+    selectionAttached: 'Selected text',
+    selectionTruncated: '(truncated)',
+    removeSelection: 'Remove the selected text',
+  },
+}
+
+const ZH: PanelCopy = {
+  documentTitle: 'dsh 浏览器助手',
+  status: {
+    connected: '已连接',
+    connecting: '连接中…',
+    reconnecting: '重连中…',
+    stopped: '未连接',
+  },
+  approval: {
+    eyebrow: '安全检查',
+    readTitle: '允许读取页面？',
+    actionTitle: '允许执行页面操作？',
+    request: '请求',
+    origins: '涉及来源',
+    unknownOrigin: '未知来源',
+    deny: '拒绝',
+    allowOnce: '仅允许这一次',
+    alwaysAllowReads: '始终允许读取',
+    trustSession: '本次会话信任此域',
+    readFootnote: 'Esc 拒绝 · 可随时在设置中关闭自动读取',
+    actionFootnote: 'Esc 拒绝 · 关闭侧栏后临时信任失效 · 输入内容不会显示',
+  },
+  tool: {
+    running: '正在操作页面',
+    complete: '页面操作',
+    inProgress: '进行中',
+    completed: '已完成',
+    done: '完成',
+    labels: {
+      browser_snapshot: '读取页面',
+      browser_click: '点击元素',
+      browser_type: '填写内容',
+      browser_press: '按下按键',
+      browser_scroll: '滚动页面',
+      browser_navigate: '打开页面',
+      browser_open_tab: '打开新标签页',
+      browser_list_tabs: '列出标签页',
+      browser_follow_tab: '跟随标签页',
+      browser_close_tab: '关闭标签页',
+      browser_back: '返回上一页',
+      browser_forward: '前进下一页',
+      browser_reload: '刷新页面',
+      browser_get_text: '提取文字',
+      browser_wait: '等待页面',
+      browser_find: '查找元素',
+      browser_hover: '悬停元素',
+      browser_form_input: '填写表单',
+      browser_wait_for: '等待条件',
+      browser_screenshot: '截图',
+      browser_batch: '批量执行步骤',
+      browser_drag: '拖拽元素',
+      browser_upload: '上传文件',
+      browser_handle_dialog: '应答页面弹窗',
+      browser_console: '读取控制台输出',
+      browser_network: '读取网络请求',
+      browser_evaluate: '执行 JavaScript',
+    },
+    overflow: (shown, total) => `${shown.join(' → ')} 等${total}个工具`,
+  },
+  tabHandoff: {
+    eyebrow: '页面交接',
+    assistant: '助手',
+    you: '你',
+    unknownTab: '未命名标签页',
+    closedTab: '已关闭的标签页',
+    questionTitle: '助手要跟随当前页面吗？',
+    questionBody: (controlled, active) => `助手仍绑定“${controlled}”，你刚切到“${active}”。选择前，浏览器操作会暂停。`,
+    keep: '留在原页面',
+    keepAlways: '留在原页面并不再询问',
+    follow: '跟随当前页面',
+    backgroundTitle: () => '助手仍在原页面',
+    backgroundBody: (active) => `你正在查看“${active}”，后续浏览器操作仍会在原页面执行。`,
+    pinnedBody: (active) => `你正在查看“${active}”，后续浏览器操作仍会在原页面执行；切换标签页时不会再询问。`,
+    askAgain: '切换标签页时重新询问',
+    followCurrent: '改为跟随当前页',
+    lostTitle: '受控标签页已关闭',
+    lostBody: '为避免操作错页，浏览器操作已暂停。',
+    useCurrent: '使用当前页面',
+  },
+  question: {
+    eyebrow: '等待你的回答',
+    title: '助手需要你确认',
+    customAlternative: '或输入其他答案',
+    customAnswer: '输入你的答案',
+    dismiss: '放弃',
+    answer: '回答',
+    answering: '回答中…',
+    alreadyAnswered: '这个问题已在另一个窗口中处理。',
+    answerRejected: '回答未被接受，请检查后重试。',
+  },
+  settings: {
+    back: '返回对话',
+    eyebrow: '浏览器助手',
+    title: '设置',
+    bridgeAddress: '桥地址',
+    bridgeHelp: '留空时自动检测本机服务',
+    bridgePlaceholder: '自动检测 3080 / 3081 / 3090 / 14389 / 43189',
+    tokenHelp: 'Firefox 和远程部署需要填写',
+    tokenPlaceholder: 'Firefox / 远程部署时填写',
+    pageSharing: '页面内容共享',
+    pageSharingHelp: '控制助手何时可以读取页面文字',
+    sharingAuto: '自动共享（默认）',
+    sharingAsk: '每次询问',
+    sharingOff: '关闭',
+    unrestrictedBrowserAccess: '允许模型完全控制浏览器',
+    unrestrictedBrowserAccessHelp: '模型无需确认即可读取所有 HTTP(S) 页面、查看全部已打开标签页的标题和链接，并执行包括跟随、关闭标签页在内的所有操作。浏览器受保护页面的内容仍不可访问。',
+    approvalNotifications: '浏览器审批通知',
+    approvalNotificationsHelp: '侧栏关闭时收到审批请求，通过系统通知提醒你',
+    allowScreenshots: '允许截图',
+    allowScreenshotsHelp: '允许模型用 browser_screenshot 截取受控标签页。截图遵循页面内容共享设置，但图片里无法给密码框打码。',
+    trustedInput: '高保真输入（调试器）',
+    trustedInputHelp: '坐标点击和按键经 Chrome 调试器发送，页面收到的是真实输入事件（canvas 应用、键盘导航和部分编辑器需要）。使用期间标签页顶部会显示"正在调试"提示条。',
+    autoResumeSession: '续接当前页面会话',
+    autoResumeSessionHelp: '重新打开当前标签页此页面的会话；其他页面会新建会话',
+    trustedOrigins: '永久免确认域名',
+    trustedOriginsHelp: '审批框可只信任本次侧栏会话。这里添加的域名仅在所有已知来源均受信任时免除操作确认。通配符包含主域及其子域，并严格区分协议和端口；`*.example.com` 默认使用 HTTPS。',
+    trustedOriginInput: '要永久信任的域名（如 https://example.com 或 https://*.example.com）',
+    add: '添加',
+    invalidOrigin: '请输入 http://、https:// 来源或 https://*.example.com 形式的通配符。',
+    noTrustedOrigins: '尚未信任任何域名。',
+    remove: '移除',
+    removeOrigin: (origin) => `移除 ${origin}`,
+    save: '保存并连接',
+    cancel: '取消',
+    snapshotHint: (maxChars) => `页面快照上限为 ${maxChars} 字符，超出内容会被截断。可在 dsh 插件中调整 snapshotMaxChars。`,
+    relaySection: '模型与中转服务',
+    relayHelp: '把助手接到你自己的 API 中转站。每个档案对应一条提供方路由，保存后下一条消息即生效，无需重启。',
+    relayName: '档案名称',
+    relayNamePlaceholder: '例如 my-relay',
+    relayProtocol: '接口格式',
+    relayProtocolClaude: 'Claude（Anthropic Messages）',
+    relayProtocolOpenai: 'OpenAI（Chat Completions）',
+    relayProtocolCodex: 'Codex（OpenAI Responses）',
+    relayBaseUrl: '中转地址 Base URL',
+    relayToken: '令牌 Token',
+    relayTokenPlaceholder: (configured) => configured ? '已保存 — 输入可替换' : '中转站的 API 令牌',
+    relayModels: '模型列表',
+    relayModelsHelp: '每行一个模型，格式 `模型ID, 上下文窗口` — 如 `claude-sonnet-4-5, 200000`。上下文窗口可省略。',
+    relayModelsPlaceholder: 'model-id, 128000',
+    relayFetchModels: '获取模型列表',
+    relayFetching: '正在获取模型列表…',
+    relayFetchOk: (count) => `已从中转站填入 ${count} 个模型。`,
+    relayNeedBaseUrl: '请先填写中转地址 Base URL。',
+    relayOpenaiListingNote: '（经中转站的 OpenAI 兼容接口列出）',
+    relayAdd: '添加档案',
+    relayRemove: '删除档案',
+    relaySetDefault: '设为默认模型',
+    relaySetDefaultHelp: '新会话将默认使用该档案的第一个模型',
+    relayTest: '测试连接',
+    relayTesting: '测试中…',
+    relayTestOk: (count, names) => `连接成功 — ${count} 个模型：${names}`,
+    relayTestFailed: (reason) => `连接失败：${reason}`,
+    relayTestManualOnly: '该协议不支持在线列出模型，请手动填写模型列表。',
+    relaySavedOk: '中转配置已保存。',
+    relaySaveFailed: (reason) => `保存失败：${reason}`,
+    relayEmpty: '还没有中转档案。',
+    relayInvalidName: '请填写档案名称。',
+  },
+  update: {
+    eyebrow: '发布通道',
+    title: '软件更新',
+    idleTitle: '可以检查新版本',
+    idleBody: '与 GitHub main 上的扩展版本进行比较。',
+    checking: '正在检查…',
+    checkingBody: '正在读取 GitHub 上的最新扩展清单。',
+    currentTitle: '未发现更新',
+    currentBody: (latestVersion) => `仓库版本：v${latestVersion}。`,
+    availableTitle: (latestVersion) => `发现新版本 ${latestVersion}`,
+    availableBody: '到 GitHub Releases 下载新的扩展 zip 和桥插件 .tgz，用 zip 内容替换本扩展目录，并重新安装 .tgz。',
+    reloadReminder: '替换文件后，打开 chrome://extensions，找到“dsh 浏览器助手”，点击卡片上的“重新加载”旋转箭头，然后重启 dsh。',
+    errorTitle: '暂时无法检查更新',
+    errorBody: '请检查网络连接，然后重试。',
+    check: '检查更新',
+    openReleases: '打开 Releases',
+  },
+  textSize: {
+    open: '字号',
+    title: '字号',
+    smaller: '缩小字号',
+    larger: '放大字号',
+    reset: '恢复默认',
+    value: (percent) => `字号 ${percent}`,
+  },
+  model: {
+    open: '模型',
+    title: '模型',
+    unknown: '模型',
+    loading: '正在加载模型列表…',
+    empty: 'dsh 里还没有配置模型，请先在 dsh 设置中添加提供方。',
+    groupEmpty: '没有可用模型。',
+    unroutable: '未配置',
+    reasoning: '推理强度',
+    loadFailed: (reason) => `模型列表加载失败：${reason}`,
+    selectFailed: (reason) => `切换模型失败：${reason}`,
+    failures: (providers) => `以下提供方的模型列表不可用：${providers}`,
+  },
+  app: {
+    openSettings: '打开设置',
+    settings: '设置',
+    openSessions: '历史会话',
+    sessions: '会话',
+    newSession: '新对话',
+    sessionPickerLoading: '加载中…',
+    sessionPickerEmpty: '暂无历史会话',
+    deleteSession: '删除会话',
+    deleteSessionConfirm: (title) => `确定删除「${title}」吗？对话历史将被永久移除。`,
+    deleteSessionFailed: (reason) => `删除失败：${reason}`,
+    deleteSessionDeferred: '已从列表移除。当前 dsh 进程仍持有该会话，文件会在下次启动 dsh 时清除。',
+    deletePurgeFailed: (reason) => `已从列表移除，但文件清理失败（dsh 重启后可能再次出现）：${reason}`,
+    emptyTitle: '把当前页面交给我',
+    emptyDescription: '我可以阅读页面、查找信息，也可以替你点击、填写和导航。',
+    overviewPage: '先概览这个页面',
+    overviewPrompt: '请先概览当前页面，告诉我最重要的信息，并等待我的下一步指令。',
+    assistant: '助手',
+    assistantWorking: '助手正在处理',
+    organizingResults: '正在整理结果',
+    thinking: '正在思考',
+    connectedPlaceholder: '告诉我想在这个页面做什么…',
+    disconnectedPlaceholder: '连接 dsh 后即可开始',
+    composerHelp: 'Enter 发送 · Shift + Enter 换行',
+    sendMessage: '发送消息',
+    stopTurn: '停止生成',
+    stoppingTurn: '正在停止…',
+    addImages: '添加图片',
+    imageUnavailable: '当前 dsh 宿主未声明图片输入能力',
+    removeImage: (name) => `移除 ${name}`,
+    image: '图片',
+    imageLoading: '加载中…',
+    imageLoadFailed: '加载失败 · 重试',
+    openImage: '查看原图',
+    openNamedImage: (name) => `查看 ${name}`,
+    imagePreview: '图片预览',
+    closeImage: '关闭图片预览',
+    imageUnsupported: (name) => `${name} 不是当前 dsh 宿主支持的图片格式。`,
+    imageTooMany: (max) => `每条消息最多可添加 ${max} 张图片。`,
+    imageTooLarge: (name, max) => `${name} 超过单张图片 ${max} 的限制。`,
+    imageMessageTooLarge: (max) => `本条消息的图片总大小超过 ${max}。`,
+    imageDimensionTooLarge: (name, max) => `${name} 的宽或高超过 ${max}px。`,
+    imagePixelsTooLarge: (name, max) => `${name} 超过 ${max.toLocaleString()} 像素的限制。`,
+    imageDecodeFailed: (name) => `无法将 ${name} 解码为图片。`,
+    imageModelUnsupported: '当前模型不支持图片，请切换到支持图片的模型。',
+    imageSubagentUnsupported: '子智能体会话暂不支持图片。',
+    imageSendFailed: (reason) => `图片发送失败（${reason}）。草稿已恢复，请重试。`,
+    selectionChip: '1 处选中内容',
+    selectionAttached: '选中的网页内容',
+    selectionTruncated: '（已截断）',
+    removeSelection: '移除选中内容',
+  },
+}
+
+export const PANEL_COPY: Record<UiLocale, PanelCopy> = { en: EN, zh: ZH }
