@@ -52,13 +52,16 @@
     "README.zh.md"
   ],
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-host-webserver": "0.1.5-rc.2",
     "@onenightcarnival/dsh-bridge-browser": "workspace:*",
     "@onenightcarnival/dsh-otel": "workspace:*",
     "@onenightcarnival/dsh-rdb": "workspace:*",

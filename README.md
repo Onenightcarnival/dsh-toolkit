@@ -92,7 +92,7 @@ pnpm --filter @onenightcarnival/dsh-rdb run build      # one package
 pnpm --filter dsh-browser-extension run build:firefox
 ```
 
-Each plugin's host bundle inlines its third-party dependencies (`@deepseek-ai/*` stay external, provided by the dsh runtime), so a tarball installs without reaching the npm registry. The toolkit bundles straight from the four packages' sources; the packages typecheck themselves and the toolkit has no typecheck of its own.
+Each plugin's host bundle inlines its third-party dependencies (`@deepseek-ai/*` stay external, provided by the dsh runtime), so a tarball installs without reaching the npm registry. The toolkit bundles straight from the four packages' sources; its typecheck covers those sources too, on the single dsh line the workspace pins in `pnpm-workspace.yaml`.
 
 Install check: `DSH_HOME=<temp dir> dsh plugin --profile web add file:<tgz>` into a temporary profile, start `dsh web --no-open --port 0`, exchange the ready line's token URL for the cookie, then call `/api/dsh-toolkit/modules`, `/api/dsh-rdb/profiles`, `/api/dsh-s3/profiles`, `/ext/bridge-config`. A token exchanges once; pnpm reuses the store copy of a `file:` package with an unchanged version, so `plugin remove` before re-adding.
 

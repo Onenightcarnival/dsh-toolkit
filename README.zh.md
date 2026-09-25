@@ -91,7 +91,7 @@ pnpm --filter @onenightcarnival/dsh-rdb run build      # 单个包
 pnpm --filter dsh-browser-extension run build:firefox
 ```
 
-各插件 host 半的构建把第三方依赖全部打进 `lib/index.js`（`@deepseek-ai/*` 由 dsh 运行时提供，保持 external），tgz 安装不访问 npm registry。全家桶直接从四个子包的源码打包，不依赖子包的构建产物；子包各自 typecheck，全家桶不单独 typecheck。
+各插件 host 半的构建把第三方依赖全部打进 `lib/index.js`（`@deepseek-ai/*` 由 dsh 运行时提供，保持 external），tgz 安装不访问 npm registry。全家桶直接从四个子包的源码打包，不依赖子包的构建产物；它的 typecheck 覆盖四个子包的源码，整个 workspace 只有一条 dsh 版本线（`pnpm-workspace.yaml` 的 overrides）。
 
 安装验证：`DSH_HOME=<临时目录> dsh plugin --profile web add file:<tgz>` 装进临时 profile，`dsh web --no-open --port 0` 启动后用就绪行里的 token URL 换 cookie，再打 `/api/dsh-toolkit/modules`、`/api/dsh-rdb/profiles`、`/api/dsh-s3/profiles`、`/ext/bridge-config`。同一个 token 只能换一次 cookie；pnpm 对同版本号的 file: 包复用 store 里的旧内容，迭代时先 `plugin remove` 再 add。
 

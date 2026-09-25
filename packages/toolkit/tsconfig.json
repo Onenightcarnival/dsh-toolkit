@@ -1,0 +1,10 @@
+{
+  "extends": "../rdb/tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "rootDir": "../..",
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "../rdb/src/types.d.ts", "../s3/src/types.d.ts"]
+}
