@@ -1,10 +1,10 @@
-# Tag-driven release.
+# Tag-driven release: the tag is the version.
 #
-#   node scripts/version.mjs set 0.5.1 && git commit -am "v0.5.1"
-#   git tag v0.5.1 && git push origin main v0.5.1
+#   git tag v0.5.1 && git push origin v0.5.1
 #
-# Gate:   the tag equals the committed version (scripts/version.mjs check).
-# Build:  pnpm install → typecheck → build → test → scripts/package.mjs
+# Version: scripts/version.mjs set <tag> writes it into every package before the build,
+#          so the committed version may lag behind the tag.
+# Build:   pnpm install → typecheck → build → test → scripts/package.mjs
 # Output: GitHub Release "v<version>" with everything in dist/:
 #           onenightcarnival-dsh-{rdb,s3,otel,bridge-browser,toolkit}-<version>.tgz
 #           dsh-browser-extension-chrome-<version>.zip
@@ -35,11 +35,11 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Check tag against committed version
-        run: node scripts/version.mjs check "${GITHUB_REF_NAME#v}"
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Take the version from the tag
+        run: node scripts/version.mjs set "${GITHUB_REF_NAME#v}"
 
       - name: Typecheck
         run: pnpm run typecheck

@@ -6,7 +6,7 @@
  *   node scripts/version.mjs check 0.5.0   exit 1 unless every file already carries it
  *
  * Browser manifests reject prerelease labels and take the numeric part only.
- * Release: set → commit → tag v<version> → push; the workflow runs `check` against the tag.
+ * Release: the workflow runs `set` with the pushed tag, so the committed version may lag behind it.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'

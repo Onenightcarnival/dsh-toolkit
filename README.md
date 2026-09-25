@@ -98,14 +98,13 @@ Install check: `DSH_HOME=<temp dir> dsh plugin --profile web add file:<tgz>` int
 
 ## Release
 
-One version, written by `scripts/version.mjs` into every package, both extension manifests and otel's `PLUGIN_VERSION`:
+The tag is the version:
 
 ```sh
-node scripts/version.mjs set 0.5.1
-git commit -am "v0.5.1" && git tag v0.5.1 && git push origin main v0.5.1
+git tag v0.5.1 && git push origin v0.5.1
 ```
 
-The pushed tag triggers `.github/workflows/release.yml`: a tag that differs from the committed version fails; otherwise install, typecheck, build, test, package, and attach everything in `dist/` to the GitHub Release of the same name. A prerelease suffix (`v0.5.1-rc.1`) marks the release as pre-release; browser manifests take the numeric part only.
+The pushed tag triggers `.github/workflows/release.yml`: `scripts/version.mjs set` writes the tag's version into every package, both extension manifests and otel's `PLUGIN_VERSION`, then install, typecheck, build, test, package, and attach everything in `dist/` to the GitHub Release of the same name. The committed version may lag behind the tag; artifacts always carry the tag's. To keep the repository in step, run the same `set` locally and commit. A prerelease suffix (`v0.5.1-rc.1`) marks the release as pre-release; browser manifests take the numeric part only.
 
 ## License
 

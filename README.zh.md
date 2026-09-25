@@ -97,14 +97,13 @@ pnpm --filter dsh-browser-extension run build:firefox
 
 ## 发版
 
-版本号只有一个，由 `scripts/version.mjs` 写进全部包、扩展 manifest 与 otel 的 `PLUGIN_VERSION`：
+tag 即版本号：
 
 ```sh
-node scripts/version.mjs set 0.5.1
-git commit -am "v0.5.1" && git tag v0.5.1 && git push origin main v0.5.1
+git tag v0.5.1 && git push origin v0.5.1
 ```
 
-推送 tag 触发 `.github/workflows/release.yml`：tag 与提交的版本号不一致即失败；一致则安装、typecheck、构建、测试、打包，把 `dist/` 里的全部文件挂到同名 GitHub Release。带预发布后缀的 tag（`v0.5.1-rc.1`）标为 pre-release，浏览器 manifest 只取数字部分。GitHub Desktop 里的操作：History 中右键目标 commit → Create Tag → 再 Push origin 一次。
+推送 tag 触发 `.github/workflows/release.yml`：先用 `scripts/version.mjs set` 把 tag 的版本号写进全部包、扩展 manifest 与 otel 的 `PLUGIN_VERSION`，再安装、typecheck、构建、测试、打包，把 `dist/` 里的全部文件挂到同名 GitHub Release。仓库里提交的版本号可以落后于 tag，产物一律以 tag 为准；想让仓库同步，本地执行同一条 `set` 再提交即可。带预发布后缀的 tag（`v0.5.1-rc.1`）标为 pre-release，浏览器 manifest 只取数字部分。GitHub Desktop 里的操作：History 中右键目标 commit → Create Tag → 再 Push origin 一次。
 
 ## 许可
 
