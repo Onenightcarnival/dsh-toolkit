@@ -2,9 +2,9 @@
 
 [English](README.md) | 中文
 
-dsh 的**浏览器操作桥**：在宿主 webserver 上挂载一个 **token 认证的 WebSocket 通道**（`/ext/bridge`），供 Chrome 扩展连接；把扩展调用投影到 dsh 0.1.5 Typert Remotes、按连接跟随 Session 与 Remote Event 流，并注册 `browser_*` 工具集（结构化文本为主，`browser_screenshot` 返回标注截图）——经扩展在真实浏览器中读取页面、点击元素、填写表单、滚动与导航，登录态保留。侧边栏是对话入口，工具才是产品本体。
+dsh 的**浏览器操作桥**：在宿主 webserver 上挂载一个 **token 认证的 WebSocket 通道**（`/ext/bridge`），供 Chrome 扩展连接；把扩展调用投影到 dsh 0.1.7 Typert Remotes、按连接跟随 Session 与 Remote Event 流，并注册 `browser_*` 工具集（结构化文本为主，`browser_screenshot` 返回标注截图）——经扩展在真实浏览器中读取页面、点击元素、填写表单、滚动与导航，登录态保留。侧边栏是对话入口，工具才是产品本体。
 
-**纯文本浏览器工具，多模态对话透传**：页面快照仍是结构化文本（标题、正文、带编号的交互清单、敏感值打码的表单字段），所有浏览器动作按稳定编号寻址。通用 RPC 通道也会透传 dsh 0.1.5 的图片消息和持久附件读取；延迟创建的新会话只在宿主确实挂载附件服务时声明图片限制。
+**纯文本浏览器工具，多模态对话透传**：页面快照仍是结构化文本（标题、正文、带编号的交互清单、敏感值打码的表单字段），所有浏览器动作按稳定编号寻址。通用 RPC 通道也会透传 dsh 0.1.7 的图片消息和持久附件读取；延迟创建的新会话只在宿主确实挂载附件服务时声明图片限制。
 
 ## 配置
 
@@ -25,11 +25,11 @@ dsh 的**浏览器操作桥**：在宿主 webserver 上挂载一个 **token 认�
 把 Release 的 `.tgz` 装进 dsh `web` profile：
 
 - DeepSeek Harness Desktop：「插件 → 配置中心… → 插件 → 从 .tgz 安装」，然后重启应用。
-- dsh 命令行：`npx @deepseek-ai/dsh@0.1.5-rc.2 plugin --profile web add file:<.tgz 路径>`，然后 `npx @deepseek-ai/dsh@0.1.5-rc.2 web`。
+- dsh 命令行：`npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<.tgz 路径>`，然后 `npx @deepseek-ai/dsh@0.1.7-rc.2 web`。
 
 两种方式都会注册本包的 `dsh.bundle` 层（[`cordis.patch.yml`](cordis.patch.yml)），`dsh web` 无需额外参数即可挂载桥。源码 checkout 在仓库根目录运行 `pnpm run package` 可得到同一份 `.tgz`。
 
-当前工作区固定使用 dsh 0.1.5-rc.2，也是最低支持版本；不再支持旧版 DSH。
+当前工作区固定使用 dsh 0.1.7-rc.2，也是最低支持版本；不再支持旧版 DSH。
 
 扩展另从 Release 的 zip 安装（见[根 README](../../README.zh.md#安装)）。扩展会自动发现回环连接，无需输入 token；非回环部署仍需要配置的 bearer token。
 

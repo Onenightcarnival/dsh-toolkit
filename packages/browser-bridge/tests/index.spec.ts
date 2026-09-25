@@ -97,7 +97,7 @@ describe('apply', () => {
     const get = ctx.get.bind(ctx)
     vi.spyOn(ctx, 'get').mockImplementation((key) => key === 'typertGateway' ? gateway : get(key))
     const register = vi.spyOn(ctx.webServer, 'registerUpgrade')
-    await expect(apply(ctx, { token: 'fixed-token', ...VALID })).rejects.toThrow(/dsh 0\.1\.5-rc\.2.*wireStream unavailable/)
+    await expect(apply(ctx, { token: 'fixed-token', ...VALID })).rejects.toThrow(/dsh 0\.1\.7-rc\.2.*wireStream unavailable/)
     expect(register).not.toHaveBeenCalled()
   })
 

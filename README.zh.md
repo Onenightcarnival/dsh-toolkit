@@ -13,7 +13,7 @@
 | [`@onenightcarnival/dsh-toolkit`](packages/toolkit) | 以上四个打进一个包 | 同上 |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.zh.md) | Chrome / Firefox MV3 扩展，与浏览器桥配对 | 浏览器侧边栏 |
 
-当前对应 dsh `0.1.5-rc.2`，即 [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop) 内置的版本。
+当前对应 dsh `0.1.7-rc.2`，即 [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop) 内置的版本。版本线一一对应：0.6.x 装 dsh 0.1.7，0.5.x 装 dsh 0.1.5-rc.2；装错版本线的包会让 typert 校验失败、整个界面不可用。
 
 ## 安装
 

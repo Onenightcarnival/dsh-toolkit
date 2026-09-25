@@ -13,7 +13,7 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | [`@onenightcarnival/dsh-toolkit`](packages/toolkit) | All four in one package | As above |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.md) | Chrome / Firefox MV3 extension paired with the bridge | Browser side panel |
 
-Built against dsh `0.1.5-rc.2`, the runtime bundled by [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop).
+Built against dsh `0.1.7-rc.2`, the runtime bundled by [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop). Lines pair one to one: 0.6.x installs on dsh 0.1.7, 0.5.x on dsh 0.1.5-rc.2; a package from the wrong line fails typert validation and takes the whole UI down.
 
 ## Installation
 

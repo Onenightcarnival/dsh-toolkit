@@ -46,7 +46,7 @@ afterEach(async () => {
 })
 
 /**
- * Minimal structural implementation of the dsh 0.1.5 Host seams. Focused
+ * Minimal structural implementation of the dsh 0.1.7 Host seams. Focused
  * Remote-adapter tests pin the argument and stream contracts separately; this
  * fixture verifies Loader injection, real sockets, and real Session storage.
  */
@@ -56,7 +56,7 @@ const RemoteApiHost = {
   apply(ctx: Context, config: { cwd: string }): void {
     const gateway = {
       wireStream: {
-        async open(endpoint: string, _payload: unknown, signal: AbortSignal): Promise<AsyncIterable<unknown>> {
+        async open(endpoint: string, _payload: unknown, _uplink: AsyncIterable<unknown>, _peer: undefined, signal: AbortSignal): Promise<AsyncIterable<unknown>> {
           if (endpoint === '$events') {
             return {
               async *[Symbol.asyncIterator]() {
@@ -249,7 +249,7 @@ describe('real Loader composition', () => {
     }
 
     // This snapshot arrives before async creation publishes the Agent. The
-    // bridge's real session-start listener must flush it into the new inbox.
+    // bridge's real agent/created listener must flush it into the new inbox.
     await followPage('before-create', 'Page: provisional tab')
     const agent = await ctx.agentLoop.create(sessionId, { provider: 'test', model: 'test' })
     expect(ctx.agents.get(sessionId)).toBe(agent)

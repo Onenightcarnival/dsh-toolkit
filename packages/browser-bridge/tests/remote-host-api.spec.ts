@@ -21,7 +21,7 @@ function harness(options: {
   fetch?: (request: Request) => Promise<Response>
 } = {}) {
   const invoke = vi.fn(options.invoke ?? (async () => ({ accepted: true })))
-  const open = vi.fn(options.open ?? (async (_endpoint, _payload, signal) => ({
+  const open = vi.fn(options.open ?? (async (_endpoint, _payload, _uplink, _peer, signal) => ({
     async *[Symbol.asyncIterator]() { await abortWait(signal) },
   })))
   const fetch = vi.fn(options.fetch ?? (async (request: Request) => {
@@ -48,7 +48,7 @@ function harness(options: {
   return { api: createRemoteHostApi(gateway, connection), invoke, open, fetch }
 }
 
-describe('dsh 0.1.5 Remote Host adapter', () => {
+describe('dsh 0.1.7 Remote Host adapter', () => {
   it('preserves V3 durable streams and orders reconnect baselines before transient frames without advancing the durable cursor', async () => {
     const baseline = {
       revision: 2,
@@ -71,7 +71,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
     }
     const { api, invoke } = harness({
       invoke: async () => ({ records: [], hasMore: false }),
-      open: async (endpoint, _payload, signal) => ({
+      open: async (endpoint, _payload, _uplink, _peer, signal) => ({
         async *[Symbol.asyncIterator]() {
           if (endpoint === '$events') yield { type: 'ready', clientId: 'client-1' }
           else {
@@ -147,7 +147,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
 
   it('uses a session/follow snapshot for history and keeps that iterator for live events', async () => {
     const { api, open } = harness({
-      open: async (endpoint, _payload, signal) => {
+      open: async (endpoint, _payload, _uplink, _peer, signal) => {
         if (endpoint === '$events') {
           return {
             async *[Symbol.asyncIterator]() {
@@ -188,7 +188,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
     const abort = new AbortController()
     const events = api.events(abort.signal)[Symbol.asyncIterator]()
     const live = events.next()
-    await vi.waitFor(() => { expect(open).toHaveBeenCalledWith('$events', { args: {} }, expect.any(AbortSignal)) })
+    await vi.waitFor(() => { expect(open).toHaveBeenCalledWith('$events', { args: {} }, expect.anything(), undefined, expect.any(AbortSignal)) })
 
     await expect(api.call(call('session.history', {
       sessionId: 'session-1',
@@ -240,7 +240,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
           assistantStream: true,
         },
       },
-    }, expect.any(AbortSignal))
+    }, expect.anything(), undefined, expect.any(AbortSignal))
     abort.abort()
     await events.return?.()
   })
@@ -272,7 +272,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
           assistantStream: true,
         },
       },
-    }, expect.any(AbortSignal))
+    }, expect.anything(), undefined, expect.any(AbortSignal))
   })
 
   it('rejects invalid history pagination before calling the Host', async () => {
@@ -338,7 +338,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
     })
     expect(open).toHaveBeenCalledWith('session/follow', {
       args: { request: { address: { kind: 'session', sessionId: 'session-1' }, assistantStream: true } },
-    }, expect.any(AbortSignal))
+    }, expect.anything(), undefined, expect.any(AbortSignal))
     expect(invoke).toHaveBeenCalledOnce()
     const pageArgs = invoke.mock.calls[0]?.[0]?.args as { request: { throughSeq: number } }
     expect(pageArgs.request.throughSeq).toBe(42)
@@ -420,7 +420,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
     const staleGate = new Promise<void>((resolve) => { releaseStale = resolve })
     const freshGate = new Promise<void>((resolve) => { releaseFresh = resolve })
     const { api } = harness({
-      open: async (endpoint, payload, signal) => {
+      open: async (endpoint, payload, _uplink, _peer, signal) => {
         if (endpoint === '$events') {
           return {
             async *[Symbol.asyncIterator]() {
@@ -496,13 +496,13 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
       ok: true,
       value: { items: [{ workspaceId: 'w1' }], archivedSessionIds: ['s1'] },
     })
-    expect(open).toHaveBeenCalledWith('workspace/follow', { args: {} }, expect.any(AbortSignal))
+    expect(open).toHaveBeenCalledWith('workspace/follow', { args: {} }, expect.anything(), undefined, expect.any(AbortSignal))
   })
 
   it('bridges user questions through $events/result and unwraps the extension answer', async () => {
     let releaseCancel: (() => void) | undefined
     const { api, fetch } = harness({
-      open: async (endpoint, _payload, signal) => {
+      open: async (endpoint, _payload, _uplink, _peer, signal) => {
         if (endpoint === 'session/follow') {
           return {
             async *[Symbol.asyncIterator]() {
@@ -590,7 +590,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
 
   it('declines Desktop user-question waterfalls so the native UI can answer', async () => {
     const { api, fetch } = harness({
-      open: async (endpoint, _payload, signal) => {
+      open: async (endpoint, _payload, _uplink, _peer, signal) => {
         if (endpoint !== '$events') throw new Error(endpoint)
         return {
           async *[Symbol.asyncIterator]() {
@@ -623,7 +623,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
     const error = Object.assign(new Error('rejected'), { code: 'bad-request', details: {} })
     const { api, fetch } = harness({
       invoke: async () => { throw error },
-      open: async (endpoint, _payload, signal) => {
+      open: async (endpoint, _payload, _uplink, _peer, signal) => {
         if (endpoint === 'session/follow') {
           return {
             async *[Symbol.asyncIterator]() {
@@ -673,7 +673,7 @@ describe('dsh 0.1.5 Remote Host adapter', () => {
     const error = Object.assign(new Error('gone'), { code: 'session-not-found', details: { sessionId: 's1' } })
     const { api, fetch } = harness({
       invoke: async () => { throw error },
-      open: async (endpoint, _payload, signal) => ({
+      open: async (endpoint, _payload, _uplink, _peer, signal) => ({
         async *[Symbol.asyncIterator]() {
           if (endpoint === '$events') {
             yield { type: 'ready', clientId: 'client-1', host: { home: '/home/test' } }

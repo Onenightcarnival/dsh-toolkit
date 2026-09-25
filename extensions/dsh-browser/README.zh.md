@@ -53,12 +53,12 @@ pnpm --filter dsh-browser-extension run test
 
 ## 安装与使用
 
-1. **安装 Release 文件**：到 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases) 下载。桥插件 `.tgz` 装进 dsh `web` profile（DeepSeek Harness Desktop：「插件 → 配置中心… → 插件 → 从 .tgz 安装」；命令行：`npx @deepseek-ai/dsh@0.1.5-rc.2 plugin --profile web add file:<路径>`）；Chrome zip 解压后在 `chrome://extensions` 开启开发者模式并「加载已解压的扩展程序」。步骤见[根 README](../../README.zh.md#安装)。
+1. **安装 Release 文件**：到 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases) 下载。桥插件 `.tgz` 装进 dsh `web` profile（DeepSeek Harness Desktop：「插件 → 配置中心… → 插件 → 从 .tgz 安装」；命令行：`npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<路径>`）；Chrome zip 解压后在 `chrome://extensions` 开启开发者模式并「加载已解压的扩展程序」。步骤见[根 README](../../README.zh.md#安装)。
 
 2. **启动 dsh 并挂载桥插件**。DeepSeek Harness Desktop 启动时自动完成。源码 checkout 在仓库根目录运行 `pnpm start`，或使用受支持的精确公开版本：
 
    ```sh
-   npx @deepseek-ai/dsh@0.1.5-rc.2 web
+   npx @deepseek-ai/dsh@0.1.7-rc.2 web
    ```
 
    两种方式都从本机 `web` profile 加载同一个 bundle。默认端口为 3080；如被占用，可追加 `--port <port>`。自动探测覆盖 3080/3081/3090、桥插件的发现信标窗口 43189–43192（随机端口的桌面版就靠它被找到）和旧版桌面端口 14389；其它地址在侧栏设置里填 `http://127.0.0.1:<端口>`。

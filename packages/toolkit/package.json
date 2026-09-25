@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-toolkit",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser)",
   "author": "Yuxiang Lin",
   "license": "MIT",
@@ -23,7 +23,7 @@
   ],
   "dsh": {
     "engines": {
-      "dsh": ">=0.1.5-rc.2"
+      "dsh": ">=0.1.7-rc.2"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -60,8 +60,8 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/dsh-host-webserver": "0.1.5-rc.2",
+    "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/dsh-host-webserver": "0.1.7-rc.2",
     "@onenightcarnival/dsh-bridge-browser": "workspace:*",
     "@onenightcarnival/dsh-otel": "workspace:*",
     "@onenightcarnival/dsh-rdb": "workspace:*",

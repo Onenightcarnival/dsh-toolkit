@@ -19,7 +19,7 @@ Installation: [Install](#install). Desktop specifics: [Using with DeepSeek Harne
 Browser operation is text-first with screenshots on demand: pages become a numbered inventory of interactive elements (piercing open shadow DOM and iframes, with select options and states), the model addresses elements by number, and `browser_screenshot` captures the viewport with those numbers drawn on the image so a multimodal model can pick targets visually. The tool set follows Claude in Chrome's shape: read page (snapshot or Markdown), find, screenshot, click/type/hover/drag/batch form input, file upload, dialog handling, conditional wait, batched steps, tab management, and — behind the full-control setting — console, network, and JavaScript evaluation. The side panel also accepts PNG, JPEG, WebP, and GIF attachments when the host advertises image support.
 
 > [!IMPORTANT]
-> The workspace pins dsh 0.1.5-rc.2, the minimum supported runtime. Older DSH releases are not supported.
+> The workspace pins dsh 0.1.7-rc.2, the minimum supported runtime. Older DSH releases are not supported.
 
 ## Install
 
@@ -32,7 +32,7 @@ Each [release](https://github.com/Onenightcarnival/dsh-toolkit/releases) ships t
 
 1. **Bridge plugin**
    - DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」, pick the `.tgz`, restart when prompted.
-   - dsh CLI: `npx @deepseek-ai/dsh@0.1.5-rc.2 plugin --profile web add file:<path to .tgz>`, then start (or restart) `dsh web`.
+   - dsh CLI: `npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<path to .tgz>`, then start (or restart) `dsh web`.
 2. **Chrome extension**: unzip into a folder you will keep, open `chrome://extensions`, enable Developer mode, choose "Load unpacked" and select that folder.
 3. Open any `http(s)` page and click the DeepSeek whale icon. The side panel shows **Connected**.
 
@@ -51,7 +51,7 @@ Install both files as described in [Install](#install).
 
 ### Compatibility
 
-The bridge is pinned to dsh 0.1.5-rc.2, the desktop app's bundled version. A desktop release on a new dsh line needs a rebased bridge and a reinstall.
+The bridge is pinned to dsh 0.1.7-rc.2, the desktop app's bundled version. A desktop release on a new dsh line needs a rebased bridge and a reinstall.
 
 ### Troubleshooting
 
@@ -148,7 +148,7 @@ The bridge address is still auto-discovered. Firefox's `moz-extension://` UUID d
 From a source checkout, run `pnpm start` in the repository root. The exact supported public runtime is:
 
 ```sh
-npx @deepseek-ai/dsh@0.1.5-rc.2 web
+npx @deepseek-ai/dsh@0.1.7-rc.2 web
 ```
 
 Local Chrome use requires no configuration; Firefox requires the local bridge token described above. Open a page, click the DeepSeek whale icon, and wait for **Connected**. Existing HTTP(S) tabs are instrumented on the first action. On browser-protected pages and extension stores, the model can read tab metadata and use browser-level HTTP(S) navigation, back, forward, and reload, but it cannot inspect or operate the protected page DOM.

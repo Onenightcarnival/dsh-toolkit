@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-rdb",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Relational database workbench for DeepSeek Harness (dsh): SQLite, PostgreSQL and GaussDB connections, schema browser, data grid with inline editing, SQL editor — with an optional db_* agent toolset.",
   "author": "Yuxiang Lin",
   "license": "MIT",
@@ -26,7 +26,7 @@
   ],
   "dsh": {
     "engines": {
-      "dsh": ">=0.1.2-rc.1"
+      "dsh": ">=0.1.7-rc.2"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -59,11 +59,11 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/dsh-host-webserver": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-system-prompt": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-tools": "0.1.5-rc.2",
+    "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/dsh-host-webserver": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-llm": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-tools": "0.1.7-rc.2",
     "@types/node": "^22.20.0",
     "@types/pg": "^8.15.0",
     "@types/react": "~18.3.1",

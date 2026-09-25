@@ -53,12 +53,12 @@ Run these commands from the repository root. Chrome outputs to `extensions/dsh-b
 
 ## Install and use
 
-1. **Install the release files** from [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases): the bridge `.tgz` into the dsh `web` profile (DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」; CLI: `npx @deepseek-ai/dsh@0.1.5-rc.2 plugin --profile web add file:<path>`), and the Chrome zip unpacked via `chrome://extensions` → Developer mode → Load unpacked. Steps: [root README](../../README.md#install).
+1. **Install the release files** from [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases): the bridge `.tgz` into the dsh `web` profile (DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」; CLI: `npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<path>`), and the Chrome zip unpacked via `chrome://extensions` → Developer mode → Load unpacked. Steps: [root README](../../README.md#install).
 
 2. **Start dsh with the bridge plugin mounted**. DeepSeek Harness Desktop does this on launch. From a source checkout run `pnpm start` in the repository root, or use the exact supported public runtime:
 
    ```sh
-   npx @deepseek-ai/dsh@0.1.5-rc.2 web
+   npx @deepseek-ai/dsh@0.1.7-rc.2 web
    ```
 
    Both load the same bundle from the local `web` profile. Port 3080 is used by default; append `--port <port>` when it is occupied. Auto-discovery covers 3080/3081/3090, the bridge's discovery-beacon window 43189–43192 (how a desktop app on a random port is found) and the legacy desktop port 14389; any other address goes into the side-panel settings as `http://127.0.0.1:<port>`.

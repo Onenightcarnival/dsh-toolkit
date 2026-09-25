@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { once } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -137,13 +138,14 @@ async function start(reopen) {
   const beaconOther = await fetch(`http://127.0.0.1:${discoveryPort}/ext/bridge`, { signal: AbortSignal.timeout(2_000) })
   assert.equal(beaconOther.status, 404, 'beacon must serve nothing but the config route')
   console.log(`Discovery beacon on 127.0.0.1:${discoveryPort} -> ${beacon.wsUrl}`)
-  // Inspect what the actual profile Loader resolves, not just workspace hoists.
-  const resolve = createRequire(join(home, 'profiles/web/package.json'))
+  // The profile carries plugins only; every dsh package resolves from the runtime that runs the CLI.
+  assert.ok(!existsSync(join(home, 'profiles/web/node_modules/@deepseek-ai')), 'profile must not carry its own dsh copy')
+  const resolve = createRequire(cli)
   for (const name of ['dsh-session-query', 'dsh-session-projection-cache']) {
     const path = resolve.resolve(`@deepseek-ai/${name}/package.json`)
     const { version } = JSON.parse(await readFile(path, 'utf8'))
     console.log(`Host ${name}@${version}: ${path}`)
-    assert.equal(version, expectedVersion, `Profile resolved an incompatible ${name} at ${path}`)
+    assert.equal(version, expectedVersion, `Runtime resolved an incompatible ${name} at ${path}`)
   }
   // Firefox-style origin requires a valid token even on loopback.
   socket = new WebSocket(config.wsUrl, { origin: 'moz-extension://runtime-smoke', handshakeTimeout: 10_000 })

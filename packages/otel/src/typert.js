@@ -12,7 +12,7 @@ export function typertFor(pkg) {
   package: pkg,
   face: "host",
   schemas: [
-    { name: "otelError", schema: otelErrorSchema }
+    { name: "otelError", create: () => otelErrorSchema }
   ],
   invocations: descriptorsFor(pkg),
   model: {

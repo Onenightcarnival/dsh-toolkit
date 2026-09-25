@@ -2,9 +2,9 @@
 
 English | [中文](README.zh.md)
 
-The **browser-operation bridge** for dsh: mounts a token-authenticated WebSocket carrier (`/ext/bridge`) that the Chrome extension connects to, projects its calls onto dsh 0.1.5 Typert Remotes, follows Session and Remote Event streams per connection, and registers the `browser_*` tool set (structured text first; `browser_screenshot` returns an annotated image) that reads and operates the user's active tab through the extension — click elements, fill forms, scroll, and navigate in the real browser, login state preserved. The side panel is the conversation entry; the tools are the product.
+The **browser-operation bridge** for dsh: mounts a token-authenticated WebSocket carrier (`/ext/bridge`) that the Chrome extension connects to, projects its calls onto dsh 0.1.7 Typert Remotes, follows Session and Remote Event streams per connection, and registers the `browser_*` tool set (structured text first; `browser_screenshot` returns an annotated image) that reads and operates the user's active tab through the extension — click elements, fill forms, scroll, and navigate in the real browser, login state preserved. The side panel is the conversation entry; the tools are the product.
 
-**Text-only browser tools, multimodal chat passthrough**: page snapshots stay structured text (title, main content, numbered interactive inventory, and masked form fields), and every browser action uses stable inventory numbers. The generic RPC carrier also passes dsh 0.1.5 image prompts and durable attachment reads; deferred new sessions expose image limits only when the host actually mounts the attachment service.
+**Text-only browser tools, multimodal chat passthrough**: page snapshots stay structured text (title, main content, numbered interactive inventory, and masked form fields), and every browser action uses stable inventory numbers. The generic RPC carrier also passes dsh 0.1.7 image prompts and durable attachment reads; deferred new sessions expose image limits only when the host actually mounts the attachment service.
 
 ## Config
 
@@ -25,11 +25,11 @@ Workspace grouping is best-effort. If the composition has no workspace domain, d
 Install the release `.tgz` into the dsh `web` profile:
 
 - DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」, then restart the app.
-- dsh CLI: `npx @deepseek-ai/dsh@0.1.5-rc.2 plugin --profile web add file:<path to .tgz>`, then `npx @deepseek-ai/dsh@0.1.5-rc.2 web`.
+- dsh CLI: `npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<path to .tgz>`, then `npx @deepseek-ai/dsh@0.1.7-rc.2 web`.
 
 Both register the package's `dsh.bundle` layer ([`cordis.patch.yml`](cordis.patch.yml)), so `dsh web` mounts the bridge without further options. A checkout produces the same `.tgz` with `pnpm run package` at the repository root.
 
-The workspace pins dsh 0.1.5-rc.2, the minimum supported runtime. Older DSH releases are not supported.
+The workspace pins dsh 0.1.7-rc.2, the minimum supported runtime. Older DSH releases are not supported.
 
 The extension is installed separately from the release zip (see the [root README](../../README.md#install)). Loopback connections are discovered automatically and require no token entry; non-loopback deployments still require the configured bearer token.
 

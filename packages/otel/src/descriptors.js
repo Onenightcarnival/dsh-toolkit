@@ -21,13 +21,13 @@ function def(PACKAGE, method, requestSchema, requestType, resultSchema, resultTy
         name: "request",
         wire: "request",
         source: "json",
-        codec: { mode: "strict", typeSymbol: `${PACKAGE}/types#${requestType}`, schema: requestSchema }
+        codec: { mode: "strict", typeSymbol: `${PACKAGE}/types#${requestType}`, create: () => requestSchema }
       }
     ],
     result: {
       mode: "strict",
       typeSymbol: `${PACKAGE}/types#${resultType}`,
-      schema: resultSchema
+      create: () => resultSchema
     },
     sourceLocation: { file: "src/index.js", line: 1, column: 1 }
   };
