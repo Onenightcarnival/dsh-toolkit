@@ -225,7 +225,7 @@ function imagePayloadOf(result: unknown): ImagePayload | undefined {
 /** Normalize the extension's result payload to the canonical `{ text }` shape. */
 function normalizeTextResult(result: unknown, name: string): TextResult {
   if (typeof result === 'object' && result !== null && typeof (result as { text?: unknown }).text === 'string') {
-    return { text: (result as { text: string }).text.toWellFormed() }
+    return { text: (result as { text: string }).text.replace(/\p{Surrogate}/gu, '\uFFFD') }
   }
   return { text: `${name} returned no text: ${JSON.stringify(result)}` }
 }
