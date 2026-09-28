@@ -114,6 +114,8 @@ interface RelayProfileDraft {
   token: string
   tokenConfigured: boolean
   modelsText: string
+  /** Models of this route accept image input; pi-ai's installed catalog still wins for models it knows. */
+  imageInput: boolean
   setDefault: boolean
 }
 
@@ -615,6 +617,49 @@ const ToolActivity = memo(function ToolActivity({ row, copy }: { row: Row; copy:
   )
 })
 
+/** Transcript items: single rows, and runs of consecutive tool rows folded into one group keyed by their first seq. */
+type TranscriptItem = { type: 'row'; row: Row } | { type: 'tools'; key: number; rows: Row[] }
+
+export function groupToolRows(rows: readonly Row[]): TranscriptItem[] {
+  const items: TranscriptItem[] = []
+  for (const row of rows) {
+    const last = items[items.length - 1]
+    if (row.kind !== 'tool') { items.push({ type: 'row', row }); continue }
+    if (last !== undefined && last.type === 'tools') last.rows.push(row)
+    else items.push({ type: 'tools', key: row.seq, rows: [row] })
+  }
+  return items
+}
+
+/**
+ * One turn's page actions behind a single line. A group still running stays
+ * open so progress is visible; a finished group folds unless the user opened it.
+ */
+const ToolGroup = memo(function ToolGroup({ rows, open, onToggle, copy }: {
+  rows: readonly Row[]
+  open: boolean
+  onToggle: () => void
+  copy: PanelCopy
+}): React.JSX.Element {
+  const running = rows[rows.length - 1]?.status === 'running'
+  const expanded = open || running
+  return (
+    <div className={`tool-group ${expanded ? 'open' : 'closed'}`}>
+      <button type="button" className="tool-group-toggle" onClick={onToggle} aria-expanded={expanded}>
+        <span className="tool-group-chevron" aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+        <span className="tool-group-title">{running ? copy.tool.running : copy.tool.steps(rows.length)}</span>
+        {!expanded && <span className="tool-group-preview">{rows[rows.length - 1]?.text}</span>}
+        {running && <span className="spinner" />}
+      </button>
+      {expanded && (
+        <div className="tool-group-body">
+          {rows.map((row) => <ToolActivity key={row.seq} row={row} copy={copy} />)}
+        </div>
+      )}
+    </div>
+  )
+})
+
 export function App(): React.JSX.Element {
   const locale = useMemo(() => getUiLocale(), [])
   const copy = PANEL_COPY[locale]
@@ -629,6 +674,9 @@ export function App(): React.JSX.Element {
   const draftImages = draft.images
   const [selection, setSelection] = useState<PageSelection | null>(null)
   const [imageLimits, setImageLimits] = useState<ImageAttachmentLimits | null>(null)
+  /** Tool groups the user expanded, by their first row's seq. */
+  const [openToolGroups, setOpenToolGroups] = useState<ReadonlySet<number>>(() => new Set())
+  const transcript = useMemo(() => groupToolRows(rows), [rows])
   const [addingImages, setAddingImages] = useState(false)
   const [busy, setBusy] = useState(false)
   const [working, setWorking] = useState(false)
@@ -1515,26 +1563,8 @@ export function App(): React.JSX.Element {
     }
   }
 
-  /**
-   * The debugger permission is optional in the manifest so installs stay
-   * quiet; enabling trusted input requests it from this user gesture and
-   * turning it off releases it again.
-   */
-  async function toggleTrustedInput(enabled: boolean): Promise<void> {
-    if (enabled) {
-      let granted = false
-      try {
-        granted = await chrome.permissions.request({ permissions: ['debugger'] })
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause))
-      }
-      if (!granted) {
-        setSettings((current) => current === null ? current : { ...current, trustedInput: false })
-        return
-      }
-    } else {
-      try { await chrome.permissions.remove({ permissions: ['debugger'] }) } catch { /* not granted */ }
-    }
+  /** Trusted input rides on the manifest's `debugger` permission (Chrome refuses it as optional), so the toggle is only a setting. */
+  function toggleTrustedInput(enabled: boolean): void {
     setSettings((current) => current === null ? current : { ...current, trustedInput: enabled })
   }
 
@@ -1554,6 +1584,7 @@ export function App(): React.JSX.Element {
           baseURL?: string
           apiKeyEnv?: string
           models?: Array<{ id: string; contextWindow?: number }>
+          defaultInput?: string[]
         }>
         const defaults = (described.namespaces?.find((candidate) => candidate.ns === 'agent-default-model')
           ?.value ?? {}) as { provider?: unknown }
@@ -1592,6 +1623,7 @@ export function App(): React.JSX.Element {
               model.id,
               model.contextWindow === undefined ? '' : String(model.contextWindow),
             ].filter((part) => part !== '').join(', ')).join('\n'),
+            imageInput: Array.isArray(route.defaultInput) && route.defaultInput.includes('image'),
             setDefault: defaults.provider === key,
           }))
         if (!cancelled) setRelayProfiles(drafts)
@@ -1617,6 +1649,7 @@ export function App(): React.JSX.Element {
       token: '',
       tokenConfigured: false,
       modelsText: '',
+      imageInput: false,
       setDefault: false,
     }])
   }
@@ -1729,6 +1762,7 @@ export function App(): React.JSX.Element {
           baseURL: profile.baseUrl.trim(),
           models,
           api: profile.protocol,
+          defaultInput: profile.imageInput ? ['text', 'image'] : ['text'],
         }
         await api.rpc('settings.mutate', {
           ns: 'llm-pi-ai',
@@ -1928,7 +1962,7 @@ export function App(): React.JSX.Element {
               className="setting-toggle-input"
               type="checkbox"
               checked={settings?.trustedInput ?? false}
-              onChange={(event) => { void toggleTrustedInput(event.target.checked) }}
+              onChange={(event) => { toggleTrustedInput(event.target.checked) }}
             />
             <span className="setting-toggle-control" aria-hidden="true"><span /></span>
           </label>
@@ -1999,6 +2033,19 @@ export function App(): React.JSX.Element {
                   placeholder={copy.settings.relayModelsPlaceholder}
                 />
               </div>
+              <label className="setting-toggle">
+                <span className="setting-toggle-copy">
+                  <strong>{copy.settings.relayImageInput}</strong>
+                  <small>{copy.settings.relayImageInputHelp}</small>
+                </span>
+                <input
+                  className="setting-toggle-input"
+                  type="checkbox"
+                  checked={profile.imageInput}
+                  onChange={(event) => updateRelayProfile(index, { imageInput: event.target.checked })}
+                />
+                <span className="setting-toggle-control" aria-hidden="true"><span /></span>
+              </label>
               <label className="setting-toggle">
                 <span className="setting-toggle-copy">
                   <strong>{copy.settings.relaySetDefault}</strong>
@@ -2154,14 +2201,28 @@ export function App(): React.JSX.Element {
             </button>
           </div>
         )}
-        {rows.map((row) => (
-          <div key={row.seq} className={`row ${row.kind}`}>
-            {row.kind === 'assistant' && <span className="assistant-avatar"><img src={whaleUrl} alt={copy.app.assistant} /></span>}
-            {row.kind === 'tool'
-              ? <ToolActivity row={row} copy={copy} />
-              : <MessageBody row={row} sessionId={sessionRef.current ?? ''} api={api} copy={copy} />}
-          </div>
-        ))}
+        {transcript.map((item) => item.type === 'tools'
+          ? (
+            <div key={`tools-${item.key}`} className="row tool">
+              <ToolGroup
+                rows={item.rows}
+                open={openToolGroups.has(item.key)}
+                onToggle={() => setOpenToolGroups((current) => {
+                  const next = new Set(current)
+                  if (next.has(item.key)) next.delete(item.key)
+                  else next.add(item.key)
+                  return next
+                })}
+                copy={copy}
+              />
+            </div>
+          )
+          : (
+            <div key={item.row.seq} className={`row ${item.row.kind}`}>
+              {item.row.kind === 'assistant' && <span className="assistant-avatar"><img src={whaleUrl} alt={copy.app.assistant} /></span>}
+              <MessageBody row={item.row} sessionId={sessionRef.current ?? ''} api={api} copy={copy} />
+            </div>
+          ))}
         {streamRow !== null && (
           <div className="row assistant" aria-live="polite">
             <span className="assistant-avatar"><img src={whaleUrl} alt={copy.app.assistant} /></span>
@@ -2245,6 +2306,16 @@ export function App(): React.JSX.Element {
                 e.preventDefault()
                 void send()
               }
+            }}
+            onPaste={(e) => {
+              // Clipboard images (screenshots, copied pictures) attach like picked files; text pastes as usual.
+              const files = Array.from(e.clipboardData.items)
+                .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+                .map((item) => item.getAsFile())
+                .filter((file): file is File => file !== null)
+              if (files.length === 0) return
+              e.preventDefault()
+              void addImageFiles(files)
             }}
             placeholder={state === 'connected' ? copy.app.connectedPlaceholder : copy.app.disconnectedPlaceholder}
             disabled={!sessionReady || busy}

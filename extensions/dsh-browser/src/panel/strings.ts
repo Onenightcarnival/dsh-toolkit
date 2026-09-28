@@ -24,6 +24,7 @@ export interface PanelCopy {
     inProgress: string
     completed: string
     done: string
+    steps: (count: number) => string
     labels: Record<string, string>
     overflow: (shown: string[], total: number) => string
   }
@@ -109,6 +110,8 @@ export interface PanelCopy {
     relayModelsPlaceholder: string
     relayAdd: string
     relayRemove: string
+    relayImageInput: string
+    relayImageInputHelp: string
     relaySetDefault: string
     relaySetDefaultHelp: string
     relayFetchModels: string
@@ -246,6 +249,7 @@ const EN: PanelCopy = {
     inProgress: 'In progress',
     completed: 'Completed',
     done: 'Done',
+    steps: (count) => count === 1 ? '1 page action' : `${count} page actions`,
     labels: {
       browser_snapshot: 'Read page',
       browser_click: 'Click element',
@@ -364,6 +368,8 @@ const EN: PanelCopy = {
     relayOpenaiListingNote: ' (listed via the relay\'s OpenAI-compatible endpoint)',
     relayAdd: 'Add profile',
     relayRemove: 'Remove profile',
+    relayImageInput: 'Models accept images',
+    relayImageInputHelp: 'Lets you attach images to these models; dsh otherwise treats a model it does not recognize as text-only',
     relaySetDefault: 'Use as default model',
     relaySetDefaultHelp: 'New conversations start with the first model of this profile',
     relayTest: 'Test connection',
@@ -496,6 +502,7 @@ const ZH: PanelCopy = {
     inProgress: '进行中',
     completed: '已完成',
     done: '完成',
+    steps: (count) => `${count} 步页面操作`,
     labels: {
       browser_snapshot: '读取页面',
       browser_click: '点击元素',
@@ -614,6 +621,8 @@ const ZH: PanelCopy = {
     relayOpenaiListingNote: '（经中转站的 OpenAI 兼容接口列出）',
     relayAdd: '添加档案',
     relayRemove: '删除档案',
+    relayImageInput: '模型支持图片输入',
+    relayImageInputHelp: '开启后可向该档案的模型发送图片；dsh 对不认识的模型默认按纯文本处理',
     relaySetDefault: '设为默认模型',
     relaySetDefaultHelp: '新会话将默认使用该档案的第一个模型',
     relayTest: '测试连接',

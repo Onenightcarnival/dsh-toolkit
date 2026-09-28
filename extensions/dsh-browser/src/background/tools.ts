@@ -416,6 +416,26 @@ async function trustedInputDispatch(
 
 
 /**
+ * `captureVisibleTab` refuses a tab the extension holds no capture grant for
+ * (host permission patterns other than `<all_urls>` do not count). With
+ * trusted input on, the CDP screenshot answers instead; otherwise the refusal
+ * surfaces with the browser's own reason.
+ */
+async function captureVisibleOrDebug(tabId: number, windowId: number, trustedInput: boolean): Promise<string> {
+  try {
+    return await chrome.tabs.captureVisibleTab(windowId, { format: 'png' })
+  } catch (error: unknown) {
+    if (!trustedInput) throw error
+    try {
+      await attachDebugger(tabId)
+      return await debuggerScreenshot(tabId)
+    } catch {
+      throw error
+    }
+  }
+}
+
+/**
  * Capture the controlled tab's viewport. The capture API photographs the
  * window, so the controlled tab must be its active tab; otherwise the model
  * is told how to bring it forward instead of receiving a picture of some
@@ -463,7 +483,7 @@ async function screenshotTab(
   if (isCancelled(call, signal)) return cancelled()
   let dataUrl: string
   try {
-    dataUrl = viaDebugger ? await debuggerScreenshot(tab.id) : await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+    dataUrl = viaDebugger ? await debuggerScreenshot(tab.id) : await captureVisibleOrDebug(tab.id, tab.windowId, trustedInput)
   } catch (error: unknown) {
     const detail = error instanceof Error ? error.message : String(error)
     return unavailable(`The browser refused to capture this tab: ${detail}`)

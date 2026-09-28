@@ -26,7 +26,7 @@ if (typeof chrome !== 'undefined' && chrome.debugger?.onDetach !== undefined) {
   })
 }
 
-/** Whether the optional debugger permission is currently granted. */
+/** Whether the debugger permission is available (declared in the manifest; Firefox has none). */
 export async function debuggerPermitted(): Promise<boolean> {
   try {
     return await chrome.permissions.contains({ permissions: ['debugger'] })
