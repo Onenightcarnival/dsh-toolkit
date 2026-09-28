@@ -1,8 +1,8 @@
 {
   "name": "@onenightcarnival/dsh-toolkit",
   "version": "0.6.0",
-  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser)",
-  "author": "Yuxiang Lin",
+  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser); ChatGPT subscription models, web search and image generation",
+  "author": "onenightcarnival",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -53,7 +53,8 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "README.zh.md"
+    "README.zh.md",
+    "THIRD_PARTY_LICENSES.txt"
   ],
   "scripts": {
     "build": "node build.mjs",
@@ -70,6 +71,7 @@
     "@onenightcarnival/dsh-otel": "workspace:*",
     "@onenightcarnival/dsh-rdb": "workspace:*",
     "@onenightcarnival/dsh-s3": "workspace:*",
+    "@onenightcarnival/dsh-subscriptions": "workspace:*",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
     "esbuild": "^0.25.0",

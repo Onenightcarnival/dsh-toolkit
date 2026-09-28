@@ -1,4 +1,4 @@
-# Web profile row: one host plugin mounting rdb, s3, otel and the browser bridge; one client bundle mounting their panels.
+# Web profile row: one host plugin mounting rdb, s3, otel, browser and subscriptions; one client bundle mounting their panels.
 # A module set to `false` stays out of the composition (host and client).
 - insert:
     - id: toolkit

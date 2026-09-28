@@ -6,7 +6,8 @@
  *   onenightcarnival-dsh-s3-<v>.tgz               | `pnpm pack` of each plugin:
  *   onenightcarnival-dsh-otel-<v>.tgz             | dsh plugin --profile web add file:<tgz>
  *   onenightcarnival-dsh-bridge-browser-<v>.tgz   | (desktop app: 配置中心 → 插件 → 从 .tgz 安装)
- *   onenightcarnival-dsh-toolkit-<v>.tgz         /  all four in one package
+ *   onenightcarnival-dsh-subscriptions-<v>.tgz  | ChatGPT subscriptions
+ *   onenightcarnival-dsh-toolkit-<v>.tgz         /  all five in one package
  *   dsh-browser-extension-chrome-<v>.zip          extensions/dsh-browser/dist, entries at the archive root
  *   SHA256SUMS.txt
  *
@@ -19,7 +20,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const PLUGINS = ['packages/rdb', 'packages/s3', 'packages/otel', 'packages/browser-bridge', 'packages/toolkit']
+const PLUGINS = ['packages/rdb', 'packages/s3', 'packages/otel', 'packages/browser-bridge', 'packages/subscriptions', 'packages/toolkit']
 const EXTENSION_DIR = join(ROOT, 'extensions', 'dsh-browser')
 const OUT_DIR = join(ROOT, 'dist')
 const shell = process.platform === 'win32'

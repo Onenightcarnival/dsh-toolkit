@@ -7,6 +7,7 @@ import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import * as rdb from '../../rdb/src/index.ts'
 import * as s3 from '../../s3/src/index.ts'
+import * as subscriptions from '../../subscriptions/src/index.ts'
 import * as bridge from '../../browser-bridge/src/index.ts'
 import otel from '../../otel/src/index.js'
 import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
@@ -19,9 +20,10 @@ export interface Config {
   s3?: s3.Config | false
   otel?: Record<string, unknown> | false
   browser?: bridge.Config | false
+  subscriptions?: subscriptions.Config | false
 }
 
-const PLUGINS: Record<Module, unknown> = { rdb, s3, otel, browser: bridge }
+const PLUGINS: Record<Module, unknown> = { rdb, s3, otel, browser: bridge, subscriptions }
 
 export function apply(ctx: Context, config: Config = {}): void {
   const mounted = Object.fromEntries(MODULES.map(m => [m, config[m] !== false])) as ModuleMap

@@ -70,7 +70,7 @@
     "react": "^18.3.1",
     "zod": "^4.4.3"
   },
-  "author": "Yuxiang Lin",
+  "author": "onenightcarnival",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Onenightcarnival/dsh-toolkit.git",

@@ -4,6 +4,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import * as rdb from '../../rdb/src/client/index.tsx'
 import * as s3 from '../../s3/src/client/index.tsx'
+import * as subscriptions from '../../subscriptions/src/client/index.tsx'
 import * as bridge from '../../browser-bridge/src/client/index.js'
 import { clientFor as otelClient } from '../../otel/src/client/index.jsx'
 import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
@@ -15,6 +16,7 @@ const PLUGINS: Record<Module, unknown> = {
   s3: { name: 's3-client', ...s3 },
   otel: otelClient('@onenightcarnival/dsh-toolkit'),
   browser: { name: 'bridge-browser-client', ...bridge },
+  subscriptions: { name: 'subscriptions-client', ...subscriptions },
 }
 
 async function mountedModules(): Promise<ModuleMap> {

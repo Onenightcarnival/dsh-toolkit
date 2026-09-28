@@ -1,0 +1,3 @@
+- insert:
+    - id: subscriptions
+      name: '@onenightcarnival/dsh-subscriptions'

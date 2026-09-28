@@ -10,7 +10,8 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | [`@onenightcarnival/dsh-s3`](packages/s3/README.md) | S3-compatible object storage browser: MinIO / OSS / COS / R2, `s3_*` tools | Sidebar "S3" |
 | [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI export to Langfuse and other OTLP backends | Settings → Plugins → Observability |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.md) | Browser bridge: `browser_*` tools driving the user's tabs through the Chrome / Firefox extension | Settings → General → Browser bridge address |
-| [`@onenightcarnival/dsh-toolkit`](packages/toolkit) | All four in one package | As above |
+| [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.md) | ChatGPT subscription models, web search, image generation and editing | Sidebar "AI subscriptions" |
+| [`@onenightcarnival/dsh-toolkit`](packages/toolkit) | All five in one package | As above |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.md) | Chrome / Firefox MV3 extension paired with the bridge | Browser side panel |
 
 Built against dsh `0.1.7-rc.2`, the runtime bundled by [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop). Lines pair one to one: 0.6.x installs on dsh 0.1.7, 0.5.x on dsh 0.1.5-rc.2; a package from the wrong line fails typert validation and takes the whole UI down.
@@ -21,8 +22,8 @@ Every [release](https://github.com/Onenightcarnival/dsh-toolkit/releases) carrie
 
 | File | Purpose |
 |---|---|
-| `onenightcarnival-dsh-toolkit-<version>.tgz` | All four plugins in one install |
-| `onenightcarnival-dsh-rdb-<version>.tgz` and the other three | One plugin on its own |
+| `onenightcarnival-dsh-toolkit-<version>.tgz` | All five plugins in one install |
+| `onenightcarnival-dsh-rdb-<version>.tgz` and the other four | One plugin on its own |
 | `dsh-browser-extension-chrome-<version>.zip` | Chrome extension, loaded unpacked |
 | `SHA256SUMS.txt` | Checksums |
 
@@ -64,7 +65,8 @@ packages/rdb              @onenightcarnival/dsh-rdb
 packages/s3               @onenightcarnival/dsh-s3
 packages/otel             @onenightcarnival/dsh-otel
 packages/browser-bridge   @onenightcarnival/dsh-bridge-browser
-packages/toolkit          @onenightcarnival/dsh-toolkit: the host half mounts the four modules and serves
+packages/subscriptions    @onenightcarnival/dsh-subscriptions
+packages/toolkit          @onenightcarnival/dsh-toolkit: the host half mounts the five modules and serves
                           /api/dsh-toolkit/modules, the client half mounts their surfaces from that map,
                           the typert manifest is regenerated under this package's name
 extensions/dsh-browser    Chrome / Firefox extension (vite)
@@ -86,13 +88,13 @@ pnpm install
 pnpm run build        # all packages, in dependency order
 pnpm run typecheck
 pnpm run test
-pnpm run package      # dist/: five tarballs, the extension zip, SHA256SUMS.txt
+pnpm run package      # dist/: six tarballs, the extension zip, SHA256SUMS.txt
 
 pnpm --filter @onenightcarnival/dsh-rdb run build      # one package
 pnpm --filter dsh-browser-extension run build:firefox
 ```
 
-Each plugin's host bundle inlines its third-party dependencies (`@deepseek-ai/*` stay external, provided by the dsh runtime), so a tarball installs without reaching the npm registry. The toolkit bundles straight from the four packages' sources; its typecheck covers those sources too, on the single dsh line the workspace pins in `pnpm-workspace.yaml`.
+Each plugin's host bundle inlines its third-party dependencies (`@deepseek-ai/*` stay external, provided by the dsh runtime), so a tarball installs without reaching the npm registry. The toolkit bundles straight from the five packages' sources; its typecheck covers those sources too, on the single dsh line the workspace pins in `pnpm-workspace.yaml`.
 
 Install check: `DSH_HOME=<temp dir> dsh plugin --profile web add file:<tgz>` into a temporary profile, start `dsh web --no-open --port 0`, exchange the ready line's token URL for the cookie, then call `/api/dsh-toolkit/modules`, `/api/dsh-rdb/profiles`, `/api/dsh-s3/profiles`, `/ext/bridge-config`. A token exchanges once; pnpm reuses the store copy of a `file:` package with an unchanged version, so `plugin remove` before re-adding.
 

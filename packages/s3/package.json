@@ -2,7 +2,7 @@
   "name": "@onenightcarnival/dsh-s3",
   "version": "0.6.0",
   "description": "S3 bucket browser for DeepSeek Harness (dsh): manage S3-compatible buckets in the web GUI, with an optional s3_* agent toolset.",
-  "author": "Yuxiang Lin",
+  "author": "onenightcarnival",
   "license": "MIT",
   "repository": {
     "type": "git",

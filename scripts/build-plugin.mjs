@@ -6,8 +6,9 @@
  *                                                  module id = the package name
  */
 import { build } from 'esbuild'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { createRequire } from 'node:module'
 
 const HOST_EXTERNAL = ['@deepseek-ai/*', 'bufferutil', 'utf-8-validate']
 const CLIENT_EXTERNAL = ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client', '@deepseek-ai/*']
@@ -17,7 +18,12 @@ function manifest(dir) {
 }
 
 function versionOf(dir, name) {
-  return JSON.parse(readFileSync(join(dir, 'node_modules', name, 'package.json'), 'utf8')).version
+  const require = createRequire(join(dir, 'package.json'))
+  // Resolve both isolated and hoisted installs, including packages that hide
+  // package.json behind their exports map (e.g. gaussdb-node).
+  const file = require.resolve.paths(name).map(path => join(path, name, 'package.json')).find(existsSync)
+  if (!file) throw new Error(`Cannot find ${name}/package.json from ${dir}`)
+  return JSON.parse(readFileSync(file, 'utf8')).version
 }
 
 /** @param {{ dir: string, entry: string, outfile?: string, inlined?: string[], plugins?: import('esbuild').Plugin[] }} options */

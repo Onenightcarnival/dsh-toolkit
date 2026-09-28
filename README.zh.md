@@ -10,7 +10,8 @@
 | [`@onenightcarnival/dsh-s3`](packages/s3/README.zh.md) | S3 兼容对象存储浏览器：MinIO / OSS / COS / R2，`s3_*` 工具 | 侧边栏「S3」 |
 | [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI 上报到 Langfuse 等 OTLP 后端 | 设置 → 插件 → 可观测上报 |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.zh.md) | 浏览器桥：`browser_*` 工具经 Chrome / Firefox 扩展操作用户的标签页 | 设置 → 通用设置 → 浏览器桥地址 |
-| [`@onenightcarnival/dsh-toolkit`](packages/toolkit) | 以上四个打进一个包 | 同上 |
+| [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.zh.md) | ChatGPT 订阅模型、联网搜索、生图与图片编辑 | 侧边栏「AI 订阅」 |
+| [`@onenightcarnival/dsh-toolkit`](packages/toolkit) | 以上五个打进一个包 | 同上 |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.zh.md) | Chrome / Firefox MV3 扩展，与浏览器桥配对 | 浏览器侧边栏 |
 
 当前对应 dsh `0.1.7-rc.2`，即 [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop) 内置的版本。版本线一一对应：0.6.x 装 dsh 0.1.7，0.5.x 装 dsh 0.1.5-rc.2；装错版本线的包会让 typert 校验失败、整个界面不可用。
@@ -21,8 +22,8 @@
 
 | 文件 | 用途 |
 |---|---|
-| `onenightcarnival-dsh-toolkit-<版本>.tgz` | 全家桶：四个插件一次装齐 |
-| `onenightcarnival-dsh-rdb-<版本>.tgz` 等四个 | 单独安装某一个插件 |
+| `onenightcarnival-dsh-toolkit-<版本>.tgz` | 全家桶：五个插件一次装齐 |
+| `onenightcarnival-dsh-rdb-<版本>.tgz` 等五个 | 单独安装某一个插件 |
 | `dsh-browser-extension-chrome-<版本>.zip` | Chrome 扩展，解压后以未打包扩展加载 |
 | `SHA256SUMS.txt` | 校验和 |
 
@@ -41,7 +42,7 @@ dsh web
 
 ### 全家桶的模块开关
 
-全家桶在 web profile 里是一行 `toolkit`，四个模块各有一个配置键，设为 `false` 即不挂载（主机与界面同时生效）。在 `~/.dsh/profiles/web/cordis.patch.yml` 覆盖时整段 `config` 会替换，其余键按需一并写出：
+全家桶在 web profile 里是一行 `toolkit`，五个模块各有一个配置键，设为 `false` 即不挂载（主机与界面同时生效）。在 `~/.dsh/profiles/web/cordis.patch.yml` 覆盖时整段 `config` 会替换，其余键按需一并写出：
 
 ```yaml
 - id: toolkit
@@ -64,7 +65,8 @@ packages/rdb              @onenightcarnival/dsh-rdb
 packages/s3               @onenightcarnival/dsh-s3
 packages/otel             @onenightcarnival/dsh-otel
 packages/browser-bridge   @onenightcarnival/dsh-bridge-browser
-packages/toolkit          @onenightcarnival/dsh-toolkit：host 半挂载四个模块并提供 /api/dsh-toolkit/modules，
+packages/subscriptions    @onenightcarnival/dsh-subscriptions
+packages/toolkit          @onenightcarnival/dsh-toolkit：host 半挂载五个模块并提供 /api/dsh-toolkit/modules，
                           client 半按该清单挂载各模块的界面，typert 清单以本包名重新生成
 extensions/dsh-browser    Chrome / Firefox 扩展（vite）
 benchmark                 浏览器操作的 Playwright 对照评测
@@ -85,13 +87,13 @@ pnpm install
 pnpm run build        # 全部包，按依赖顺序
 pnpm run typecheck
 pnpm run test
-pnpm run package      # dist/：五个 tgz、扩展 zip、SHA256SUMS.txt
+pnpm run package      # dist/：六个 tgz、扩展 zip、SHA256SUMS.txt
 
 pnpm --filter @onenightcarnival/dsh-rdb run build      # 单个包
 pnpm --filter dsh-browser-extension run build:firefox
 ```
 
-各插件 host 半的构建把第三方依赖全部打进 `lib/index.js`（`@deepseek-ai/*` 由 dsh 运行时提供，保持 external），tgz 安装不访问 npm registry。全家桶直接从四个子包的源码打包，不依赖子包的构建产物；它的 typecheck 覆盖四个子包的源码，整个 workspace 只有一条 dsh 版本线（`pnpm-workspace.yaml` 的 overrides）。
+各插件 host 半的构建把第三方依赖全部打进 `lib/index.js`（`@deepseek-ai/*` 由 dsh 运行时提供，保持 external），tgz 安装不访问 npm registry。全家桶直接从五个子包的源码打包，不依赖子包的构建产物；它的 typecheck 覆盖五个子包的源码，整个 workspace 只有一条 dsh 版本线（`pnpm-workspace.yaml` 的 overrides）。
 
 安装验证：`DSH_HOME=<临时目录> dsh plugin --profile web add file:<tgz>` 装进临时 profile，`dsh web --no-open --port 0` 启动后用就绪行里的 token URL 换 cookie，再打 `/api/dsh-toolkit/modules`、`/api/dsh-rdb/profiles`、`/api/dsh-s3/profiles`、`/ext/bridge-config`。同一个 token 只能换一次 cookie；pnpm 对同版本号的 file: 包复用 store 里的旧内容，迭代时先 `plugin remove` 再 add。
 

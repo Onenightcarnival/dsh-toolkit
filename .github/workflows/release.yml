@@ -6,7 +6,7 @@
 #          so the committed version may lag behind the tag.
 # Build:   pnpm install → typecheck → build → test → scripts/package.mjs
 # Output: GitHub Release "v<version>" with everything in dist/:
-#           onenightcarnival-dsh-{rdb,s3,otel,bridge-browser,toolkit}-<version>.tgz
+#           onenightcarnival-dsh-{rdb,s3,otel,bridge-browser,subscriptions,toolkit}-<version>.tgz
 #           dsh-browser-extension-chrome-<version>.zip
 #           SHA256SUMS.txt
 #         A prerelease label (v0.5.1-rc.1) marks the Release as pre-release.
