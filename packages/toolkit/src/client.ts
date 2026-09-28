@@ -8,7 +8,7 @@ import * as bridge from '../../browser-bridge/src/client/index.js'
 import { clientFor as otelClient } from '../../otel/src/client/index.jsx'
 import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
 
-export const inject = ['slots', 'locale', 'remote']
+export const inject = ['slots', 'locale', 'remote', 'layout']
 
 const PLUGINS: Record<Module, unknown> = {
   rdb: { name: 'rdb-client', ...rdb },

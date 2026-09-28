@@ -1,21 +1,24 @@
 /**
  * Browser-half entry for dsh-rdb: runs inside the dsh web GUI, registers the
- * locale dictionaries and mounts the sidebar entry row and the database panel.
- * DOM mounting problems are logged, never thrown (a plugin apply that throws
- * fails the whole GUI boot).
+ * locale dictionaries and contributes the sidebar row and the database panel
+ * through the shell's slots. Registration problems are logged, never thrown
+ * (a plugin apply that throws fails the whole GUI boot).
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import { IconDatabaseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { RdbApi } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh } from './locales.ts'
-import { PanelController, mountPanel, mountSidebarEntry } from './mount.tsx'
+import { mountPanel, type LayoutLike, type PanelIconProps, type SlotsLike } from './mount.tsx'
 import { RdbPanel } from './panel/RdbPanel.tsx'
 import css from './styles.css'
 
 const NS = 'dsh-rdb'
 const STYLE_ID = 'dsh-rdb/styles'
+/** Row order among global panels: after the shell's own rows, before S3. */
+const PANEL_ORDER = 40
 
 /** Required services (fiber inject waiting — the runtime must be up first). */
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'layout']
 
 function injectStyles(): void {
   if (typeof document === 'undefined') return
@@ -27,9 +30,18 @@ function injectStyles(): void {
   document.head.appendChild(tag)
 }
 
+function PanelIcon({ size }: PanelIconProps): JSX.Element {
+  return <IconDatabaseOutlineRegular size={size} />
+}
+
 export function apply(ctx: ClientContext): void {
   injectStyles()
-  const locale = (ctx as unknown as { locale?: { register(ns: string, dicts: unknown): () => void; bind(ns: string): (key: string, values?: Record<string, string | number>) => string; subscribe(listener: () => void): () => void } }).locale
+  const services = ctx as unknown as {
+    slots: SlotsLike
+    layout: LayoutLike
+    locale?: { register(ns: string, dicts: unknown): () => void; bind(ns: string): (key: string, values?: Record<string, string | number>) => string }
+  }
+  const locale = services.locale
   ctx.effect(() => {
     try {
       return locale?.register(NS, { zh, en }) ?? (() => {})
@@ -41,20 +53,22 @@ export function apply(ctx: ClientContext): void {
     if (locale !== undefined) setRuntimeTranslate(locale.bind(NS) as typeof tt)
   } catch { /* document-language fallback */ }
 
-  const controller = new PanelController()
   const api = new RdbApi()
-  const disposers: Array<() => void> = []
-  try {
-    disposers.push(mountSidebarEntry(controller, locale))
-    disposers.push(mountPanel({
-      controller,
-      locale,
-      render: root => root.render(<RdbPanel controller={controller} api={api} />),
-    }))
-  } catch (error) {
-    console.warn('[dsh-rdb] mount failed:', error)
-  }
-  ctx.effect(() => () => {
-    for (const dispose of disposers.splice(0)) dispose()
-  }, 'dsh-rdb: ui mounts')
+  ctx.effect(() => {
+    try {
+      return mountPanel({
+        slots: services.slots,
+        layout: services.layout,
+        locale: NS,
+        order: PANEL_ORDER,
+        label: () => tt('entry.label'),
+        icon: PanelIcon,
+        panel: RdbPanel,
+        props: () => ({ api }),
+      })
+    } catch (error) {
+      console.warn('[dsh-rdb] mount failed:', error)
+      return () => {}
+    }
+  }, 'dsh-rdb: panel')
 }

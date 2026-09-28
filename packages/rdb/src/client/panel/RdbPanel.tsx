@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import type { RdbApi } from '../api.ts'
 import { hostEntries, quoteIdentifier, type DbProfilePayload, type DbProfileSummary, type TableInfo, type TableRef } from '../../protocol.ts'
 import { tt } from '../locales.ts'
-import type { PanelController } from '../mount.tsx'
 import { BannerView, Modal, errorMessage, type Banner } from './common.tsx'
 import { DataGrid } from './DataGrid.tsx'
 import { ProfileForm } from './ProfileForm.tsx'
@@ -10,8 +9,9 @@ import { SqlEditor } from './SqlEditor.tsx'
 import { Structure } from './Structure.tsx'
 
 export interface RdbPanelProps {
-  controller: PanelController
   api: RdbApi
+  /** Return the center column to the Conversation. */
+  close: () => void
 }
 
 type Tab = 'data' | 'structure' | 'sql'
@@ -30,7 +30,7 @@ function profileTarget(p: DbProfileSummary): string {
 }
 
 export function RdbPanel(props: RdbPanelProps): JSX.Element {
-  const { api, controller } = props
+  const { api, close } = props
   const [profiles, setProfiles] = useState<DbProfileSummary[]>([])
   const [activeId, setActiveId] = useState<string | undefined>()
   const [agentTools, setAgentTools] = useState(false)
@@ -67,12 +67,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     }
   }, [api])
 
-  useEffect(() => {
-    const sync = (): void => { if (controller.getSnapshot().panelOpen) void refresh() }
-    const unsubscribe = controller.subscribe(sync)
-    sync()
-    return unsubscribe
-  }, [controller, refresh])
+  useEffect(() => { void refresh() }, [refresh])
 
   // Connection changed: reload schema list, reset selection.
   useEffect(() => {
@@ -165,7 +160,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
           <span className="dsh-rdb-switch" aria-hidden="true" />
           <span>{tt('panel.agentTools')}</span>
         </label>
-        <button type="button" className="dsh-rdb-ghost" onClick={() => { controller.close() }}>{tt('panel.back')}</button>
+        <button type="button" className="dsh-rdb-ghost" onClick={close}>{tt('panel.back')}</button>
       </header>
 
       <BannerView banner={banner} onClose={() => { setBanner(undefined) }} />

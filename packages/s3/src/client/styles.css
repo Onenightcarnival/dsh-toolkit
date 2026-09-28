@@ -1,40 +1,9 @@
 /* dsh-s3 panel styles: scoped by the dsh-s3- class prefix and the plugin's
    data attributes; colors ride the dsh --dsw-* tokens (light/dark/skins). */
 
-[data-pane='conversation'],
-[class*='centerCol'] { position: relative; }
-
-[data-dsh-s3-view] {
-  position: absolute;
-  inset: 0;
-  display: none;
-  z-index: 60;
-  background: var(--dsw-alias-bg-base);
-}
-html[data-dsh-s3-active]:not([data-dsh-ssh-active]):not([data-dsh-taskboard-active]) [data-dsh-s3-view] { display: block; }
-html[data-dsh-s3-active]:not([data-dsh-ssh-active]):not([data-dsh-taskboard-active]) [data-pane='conversation'] > :not([data-dsh-s3-view]),
-html[data-dsh-s3-active]:not([data-dsh-ssh-active]):not([data-dsh-taskboard-active]) [class*='centerCol'] > :not([data-dsh-s3-view]) { display: none !important; }
-
-/* --- sidebar entry --- */
-.dsh-s3-entry {
-  box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px;
-  padding: 0 10px; background: transparent; border: none; border-radius: 8px;
-  color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 13px; white-space: nowrap;
-}
-.dsh-s3-entry:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-.dsh-s3-entry[data-active] { background: var(--dsw-alias-interactive-bg-active); color: var(--dsw-alias-label-primary); font-weight: 600; }
-.dsh-s3-entryIcon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: none; }
-.dsh-s3-entryIcon svg { display: block; width: 18px; height: 18px; }
-.dsh-s3-entryLabel { overflow: hidden; text-overflow: ellipsis; }
-[data-dsh-frame][data-sidebar-collapsed] .dsh-s3-entry,
-[data-sidebar-collapsed] .dsh-s3-entry { justify-content: center; padding: 0; width: 36px; min-height: 36px; margin: 0 auto 12px; border-radius: 50%; }
-[data-dsh-frame][data-sidebar-collapsed] .dsh-s3-entryLabel,
-[data-sidebar-collapsed] .dsh-s3-entryLabel { display: none; }
-
 /* --- panel frame --- */
-.dsh-s3-view { overflow: hidden; }
 .dsh-s3-panel {
-  box-sizing: border-box; display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0;
+  box-sizing: border-box; display: flex; flex-direction: column; flex: 1; height: 100%; min-width: 0; min-height: 0;
   padding: 14px 16px 16px; gap: 10px; background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 13px;
 }

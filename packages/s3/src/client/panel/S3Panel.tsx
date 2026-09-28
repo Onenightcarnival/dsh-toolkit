@@ -2,18 +2,18 @@ import { useCallback, useEffect, useState } from 'react'
 import type { S3Api } from '../api.ts'
 import type { S3ProfilePayload, S3ProfileSummary } from '../../protocol.ts'
 import { tt } from '../locales.ts'
-import type { PanelController } from '../mount.tsx'
 import { Browser } from './Browser.tsx'
 import { BannerView, Modal, errorMessage, type Banner } from './common.tsx'
 import { ProfileForm } from './ProfileForm.tsx'
 
 export interface S3PanelProps {
-  controller: PanelController
   api: S3Api
+  /** Return the center column to the Conversation. */
+  close: () => void
 }
 
 export function S3Panel(props: S3PanelProps): JSX.Element {
-  const { api, controller } = props
+  const { api, close } = props
   const [profiles, setProfiles] = useState<S3ProfileSummary[]>([])
   const [activeId, setActiveId] = useState<string | undefined>()
   const [agentTools, setAgentTools] = useState(false)
@@ -36,12 +36,7 @@ export function S3Panel(props: S3PanelProps): JSX.Element {
   }, [api])
 
   // Load when the panel opens (cheap; picks up CLI-side edits of the store).
-  useEffect(() => {
-    const sync = (): void => { if (controller.getSnapshot().panelOpen) void refresh() }
-    const unsubscribe = controller.subscribe(sync)
-    sync()
-    return unsubscribe
-  }, [controller, refresh])
+  useEffect(() => { void refresh() }, [refresh])
 
   const toggleAgentTools = async (next: boolean): Promise<void> => {
     setAgentTools(next)
@@ -99,7 +94,7 @@ export function S3Panel(props: S3PanelProps): JSX.Element {
           <span className="dsh-s3-switch" aria-hidden="true" />
           <span>{tt('panel.agentTools')}</span>
         </label>
-        <button type="button" className="dsh-s3-ghost" onClick={() => { controller.close() }}>{tt('panel.back')}</button>
+        <button type="button" className="dsh-s3-ghost" onClick={close}>{tt('panel.back')}</button>
       </header>
 
       <BannerView banner={banner} onClose={() => { setBanner(undefined) }} />
