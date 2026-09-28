@@ -155,6 +155,10 @@ Local Chrome use requires no configuration; Firefox requires the local bridge to
 
 ## Troubleshooting
 
+**HTTP 400 after reading a page with emoji, including on follow-up messages**
+
+Update both the browser extension and the desktop bridge plugin. New page text preserves complete Unicode code points and replaces lone surrogates with `�`. An older version may already have saved a split character in the session history; updates do not rewrite history, so start a new session to continue.
+
 **Side panel stays "Not connected"**
 
 - Make sure dsh web is running locally (default `http://127.0.0.1:3080`).

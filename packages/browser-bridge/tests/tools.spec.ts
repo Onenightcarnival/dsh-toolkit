@@ -39,6 +39,17 @@ describe('registerBrowserTools', () => {
     expect(result).toEqual({ text: 'ok' })
   })
 
+  it.each(['browser_wait', 'browser_snapshot', 'browser_screenshot'])('repairs malformed Unicode returned by %s before persistence', async (name) => {
+    const { ctx, bridge, requestTool, registered } = makeHarness()
+    requestTool.mockResolvedValue({ text: 'Assets 👍 13 🎉 1 ❤️ 3 \uD83D… low \uDE80 🚀' })
+    registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
+    const tool = registered.find((r) => r.name === name)!
+    const exec = { signal: new AbortController().signal }
+    const result = await (tool.definition.execute as (args: unknown, e: typeof exec) => Promise<unknown>)({ ms: 1 }, exec)
+    expect(result).toEqual({ text: 'Assets 👍 13 🎉 1 ❤️ 3 �… low � 🚀' })
+    expect(JSON.stringify(result)).not.toMatch(/\\u[dD][89a-fA-F][0-9a-fA-F]{2}/)
+  })
+
   it('associates browser calls with the owning Agent session', async () => {
     const { ctx, bridge, requestTool, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })

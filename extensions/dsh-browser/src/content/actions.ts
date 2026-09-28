@@ -17,6 +17,7 @@ import { buildSnapshot, renderSnapshot } from './snapshot.ts'
 import { isSensitiveField } from './privacy.ts'
 import { parseKeyCombo } from '../key-combo.ts'
 import { toMarkdown } from './markdown.ts'
+import { safeTextPrefix } from '../text.ts'
 
 /** A settled action result. */
 export interface ActionResult {
@@ -637,7 +638,7 @@ function ownText(el: Element): string {
     if (node.nodeType === Node.TEXT_NODE) text += node.textContent ?? ''
   }
   const trimmed = text.replace(/\s+/g, ' ').trim()
-  return trimmed !== '' ? trimmed : renderedText(el).replace(/\s+/g, ' ').trim().slice(0, 200)
+  return trimmed !== '' ? trimmed : safeTextPrefix(renderedText(el).replace(/\s+/g, ' ').trim(), 200)
 }
 
 /** innerText where the engine provides it (browsers), textContent otherwise (jsdom). */

@@ -10,6 +10,8 @@
  * @module
  */
 
+import { safeTextPrefix } from './text.ts'
+
 /** Hard ceiling on one captured selection; longer highlights are truncated. */
 export const MAX_SELECTION_CHARS = 4_000
 
@@ -44,13 +46,15 @@ export function normalizeSelectionText(raw: string): { text: string; truncated: 
     .replace(/ ?\n ?/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
-  if (collapsed.length <= MAX_SELECTION_CHARS) return { text: collapsed, truncated: false }
-  return { text: collapsed.slice(0, MAX_SELECTION_CHARS).trimEnd(), truncated: true }
+  return {
+    text: safeTextPrefix(collapsed, MAX_SELECTION_CHARS).trimEnd(),
+    truncated: collapsed.length > MAX_SELECTION_CHARS,
+  }
 }
 
 function normalizeSelectionTitle(value: unknown): string {
   if (typeof value !== 'string') return ''
-  return value.replace(/\s+/g, ' ').trim().slice(0, MAX_SELECTION_TITLE_CHARS)
+  return safeTextPrefix(value.replace(/\s+/g, ' ').trim(), MAX_SELECTION_TITLE_CHARS)
 }
 
 /** Keep only page URLs the extension is allowed to run in; drop anything else. */
@@ -58,7 +62,7 @@ function normalizeSelectionUrl(value: unknown): string {
   if (typeof value !== 'string' || value.length > MAX_SELECTION_URL_CHARS) return ''
   try {
     const parsed = new URL(value)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString().slice(0, MAX_SELECTION_URL_CHARS) : ''
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? safeTextPrefix(parsed.toString(), MAX_SELECTION_URL_CHARS) : ''
   } catch {
     return ''
   }

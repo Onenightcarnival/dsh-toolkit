@@ -10,6 +10,8 @@
  * @module
  */
 
+import { safeTextPrefix } from '../text.ts'
+
 /** Every element type the model may be asked to operate on. */
 const INTERACTIVE_SELECTOR = [
   'a[href]',
@@ -89,8 +91,9 @@ function elementText(el: Element): string {
  * @returns `{ text, truncated }` with `truncated` counting removed characters.
  */
 export function truncate(text: string, max: number): { text: string; truncated: number } {
-  if (text.length <= max) return { text, truncated: 0 }
-  return { text: `${text.slice(0, max)}…`, truncated: text.length - max }
+  const prefix = safeTextPrefix(text, max)
+  const truncated = text.length - prefix.length
+  return { text: truncated > 0 ? `${prefix}…` : prefix, truncated }
 }
 
 /**

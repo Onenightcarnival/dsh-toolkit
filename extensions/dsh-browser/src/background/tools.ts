@@ -18,6 +18,7 @@ import {
   type TabFrame,
 } from './frames.ts'
 import { wrapUntrustedContent } from '../security/untrusted.ts'
+import { safeTextPrefix } from '../text.ts'
 import { approvalPromptForCall, originFromUrl } from './authorization.ts'
 import { waitForNextDocumentReady } from './navigation.ts'
 import { annotateScreenshot, parseAnnotationPayload } from './screenshot.ts'
@@ -214,7 +215,7 @@ function tabMetadataSnapshot(
   const status = 'The current tab is available only through browser-level controls because its page DOM is protected or inaccessible. DOM snapshot, click, type, press, scroll, wait, and text extraction are unavailable here. Navigate, back, forward, and reload remain available.'
   const separator = '\n\n'
   const remaining = maxChars - status.length - separator.length
-  if (remaining <= 0) return { ok: true, result: { text: status.slice(0, maxChars) } }
+  if (remaining <= 0) return { ok: true, result: { text: safeTextPrefix(status, maxChars) } }
   return {
     ok: true,
     result: {
@@ -492,7 +493,7 @@ async function screenshotTab(
   try {
     const viewport = annotation?.viewport ?? { width: tab.width ?? 0, height: tab.height ?? 0, dpr: 1 }
     const { image, labels } = await annotateScreenshot(dataUrl, annotation?.rects ?? [], viewport)
-    const title = (annotation?.title ?? tab.title ?? '').replace(/\s+/g, ' ').slice(0, 120)
+    const title = safeTextPrefix((annotation?.title ?? tab.title ?? '').replace(/\s+/g, ' '), 120)
     const url = annotation?.url ?? tab.url ?? ''
     const lines = [
       `Screenshot of "${title}" (${url}).`,
@@ -587,7 +588,7 @@ function wrapActionDelta(status: string, pageContent: string, frame: TabFrame, m
   const prefix = `${status}\n${ACTION_DELTA_GUIDANCE}`
   const separator = '\n\n'
   const boundaryBudget = maxChars - prefix.length - separator.length
-  if (boundaryBudget < 500) return prefix.slice(0, maxChars)
+  if (boundaryBudget < 500) return safeTextPrefix(prefix, maxChars)
   const framedContent = frame.frameId === 0 ? pageContent : `${frameHeader(frame)}\n${pageContent}`
   return `${prefix}${separator}${wrapUntrustedContent(framedContent, boundaryBudget)}`
 }
@@ -907,7 +908,7 @@ function approvalDisplayUrl(value: string): string {
     const display = url.protocol === 'http:' || url.protocol === 'https:'
       ? `${url.origin}${url.pathname}`
       : `${url.protocol}//${url.host}${url.pathname}`
-    return display.replace(/\s+/g, ' ').slice(0, 160)
+    return safeTextPrefix(display.replace(/\s+/g, ' '), 160)
   } catch {
     return '(unknown URL)'
   }

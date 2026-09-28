@@ -31,6 +31,13 @@ describe('browser page context', () => {
     expect(message.content[0].text).toContain('do not take an immediate duplicate snapshot')
   })
 
+  it('repairs malformed page context in both message content and source sections', () => {
+    const message = createBrowserSnapshotMessage('Releases 🚀 \uD83D… \uDE80')
+    expect(message.content[0].text).toContain('Releases 🚀 �… �')
+    expect(message.source.sections?.[0]?.text).toBe(message.content[0].text)
+    expect(JSON.stringify(message)).not.toContain('\\ud83d')
+  })
+
   it('injects immediately when the Agent is live', () => {
     const agent = fakeAgent('session-live')
     const agents = { get: vi.fn(() => agent) } as unknown as Pick<AgentRegistry, 'get'>

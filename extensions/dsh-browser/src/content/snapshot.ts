@@ -12,6 +12,7 @@
 
 import { accessibleName, collectInteractive, deepQuerySelector, isVisible, mainText, pageText, truncate } from './extract.ts'
 import { ElementIds } from './ids.ts'
+import { safeTextPrefix } from '../text.ts'
 import { isSensitiveField, maskValue } from './privacy.ts'
 
 /** Role label per element kind (model-facing vocabulary). */
@@ -273,7 +274,7 @@ export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: S
       index,
       label: nameOf(el),
       kind: el instanceof HTMLInputElement ? el.type : el.tagName.toLowerCase(),
-      value: masked ? maskValue(value) : value.slice(0, 120),
+      value: masked ? maskValue(value) : safeTextPrefix(value, 120),
       masked,
       ...checkable ? { checked: el.checked } : {},
       ...el instanceof HTMLInputElement && el.required ? { required: true } : {},
@@ -367,8 +368,8 @@ function sameForm(a: FormFieldView, b: FormFieldView): boolean {
  */
 /** 渲染结果的整体预算：主文/清单之外的部分（标题、URL、包装行）也计入。 */
 function capRendered(text: string, budgetChars: number): string {
-  if (text.length <= budgetChars) return text
-  return `${text.slice(0, budgetChars)}…(truncated to the snapshot character budget)`
+  const prefix = safeTextPrefix(text, budgetChars)
+  return text.length <= budgetChars ? prefix : `${prefix}…(truncated to the snapshot character budget)`
 }
 
 function renderItem(item: InventoryItem): string {
