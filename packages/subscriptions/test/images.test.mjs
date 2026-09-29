@@ -36,6 +36,8 @@ test('image generation and edits use only ChatGPT with account credentials', asy
   })
   const exec = { signal: new AbortController().signal }
   try {
+    assert.equal(tool.name, 'codex_image_generate')
+    assert.match(tool.description, /codex_image_generate.images/)
     assert.equal(Object.hasOwn(tool.parameters.properties, 'provider'), false)
     const generated = await tool.execute({ prompt: 'Draw a square' }, exec)
     assert.deepEqual(await readFile(generated.paths[0]), data)

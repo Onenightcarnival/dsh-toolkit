@@ -47,6 +47,12 @@
 .dsh-sub-panel td { padding: 10px 12px; border-top: 1px solid var(--dsw-alias-border-l1); white-space: nowrap; }
 .dsh-sub-panel tbody tr:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .dsh-sub-tableEmpty { color: var(--dsw-alias-label-tertiary); text-align: center; padding: 28px 10px; }
+.dsh-sub-context { display: flex; flex-direction: column; gap: 4px; min-width: 180px; max-width: 270px; }
+.dsh-sub-contextControls { display: flex; align-items: center; gap: 8px; }
+.dsh-sub-contextControls input { width: 100px; }
+.dsh-sub-context small { white-space: normal; }
+.dsh-sub-context .dsh-sub-fieldError { color: var(--dsw-alias-state-error-primary); }
+.dsh-sub-context input[aria-invalid=true] { border-color: var(--dsw-alias-state-error-primary); }
 .dsh-sub-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 36px 24px; text-align: center; min-height: 250px; }
 .dsh-sub-emptyLogo { font-size: 40px; color: var(--dsw-alias-label-tertiary); }
 .dsh-sub-empty h3 { margin: 18px 0 8px; font-size: 17px; }

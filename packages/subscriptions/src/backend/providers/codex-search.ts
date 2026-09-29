@@ -1,4 +1,4 @@
-/** Codex-backed provider for DSH's native web_search capability. */
+/** ChatGPT subscription web search. */
 import { randomUUID } from 'node:crypto'
 import { attributionHeaders } from '@deepseek-ai/dsh-llm'
 import { WebError } from '@deepseek-ai/dsh-web'
@@ -15,19 +15,12 @@ const RETRY_BASE_MS = 100
 
 export interface CodexWebSearchOptions {
   tokens: Pick<AccountTokenManager<CodexSession>, 'session'>
-  /**
-   * Current state of the Codex `web_search` tool switch. Absent counts as
-   * enabled. Read on every {@link CodexWebSearchProvider.available} call so
-   * turning the switch off releases the seam to another search provider
-   * instead of denying the host's tool.
-   */
   enabled?: () => boolean
   fetchFn?: typeof fetch
   requestId?: () => string
   retryBaseMs?: number
 }
 
-/** Search provider registered behind DSH's stock web_search tool and citation UI. */
 export class CodexWebSearchProvider implements WebSearchProvider {
   readonly id = CODEX_SEARCH_PROVIDER_ID
 

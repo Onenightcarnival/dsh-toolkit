@@ -169,7 +169,7 @@ export async function resolveImages(
       dataBase64: Buffer.from(data).toString('base64'),
     }, {
       type: 'text',
-      text: `Image reference (for image_generate.referenceImages): ${JSON.stringify({
+      text: `Image reference (for codex_image_generate.referenceImages): ${JSON.stringify({
         attachmentId, mediaType, bytes, width, height, ...name === undefined ? {} : { name },
       })}`,
     }]

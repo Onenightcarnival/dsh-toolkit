@@ -37,7 +37,7 @@ export class ImageAccountPool {
     const accounts = await tokens.list()
     if (accounts.length === 0) {
       await tokens.session() // standard provider-specific login hint
-      throw new LlmError('image_generate: no image account is logged in', 'MISSING_CREDENTIAL')
+      throw new LlmError('codex_image_generate: no image account is logged in', 'MISSING_CREDENTIAL')
     }
     const pooling = this.options.enabled !== false
     const members = (pooling ? accounts : accounts.slice(0, 1)).map(entry => entry.key)
@@ -72,7 +72,7 @@ export class ImageAccountPool {
         }
         // Images can be produced despite timeouts/server failures. Switch only on
         // explicit auth/quota/entitlement rejection, never ambiguous transport/5xx.
-        failure = await httpLlmError(response, 'image_generate', { rateLimitReset })
+        failure = await httpLlmError(response, 'codex_image_generate', { rateLimitReset })
         if (![401, 402, 403, 404, 429].includes(response.status)) throw failure
       } catch (error) {
         signal.throwIfAborted()
@@ -89,7 +89,7 @@ export class ImageAccountPool {
     }
     if (lastError !== undefined) throw lastError
     const recovery = this.health.earliestRecovery(new Set(members.map(account => memberKey(provider, account, 'images'))))
-    throw new LlmError(`image_generate: all ${provider} image accounts are cooling down`, 'RATE_LIMIT', {
+    throw new LlmError(`codex_image_generate: all ${provider} image accounts are cooling down`, 'RATE_LIMIT', {
       ...recovery === undefined ? {} : { providerRetryAfterMs: Math.max(0, recovery - Date.now()) },
     })
   }

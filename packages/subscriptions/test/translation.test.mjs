@@ -6,13 +6,32 @@ import { build } from 'esbuild'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: `export { projectCodexMessages } from './providers/codex.ts'; export { resolveImages } from './translate/resolved.ts'; export { toResponsesInput } from './translate/responses.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: `export { CodexAdapter, projectCodexMessages } from './providers/codex.ts'; export { resolveImages } from './translate/resolved.ts'; export { toResponsesInput } from './translate/responses.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|undici$)/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }))
   } }],
 })
-const { projectCodexMessages, resolveImages, toResponsesInput } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`)
+const { CodexAdapter, projectCodexMessages, resolveImages, toResponsesInput } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`)
+
+test('context overrides respect an explicit catalog maximum without treating defaults as ceilings', async () => {
+  let override = 1000000
+  for (const maximum of [undefined, 512000]) {
+    const adapter = new CodexAdapter({
+      models: [], discovery: true, clientVersion: '0.153.4', streamIdleTimeoutMs: 1000,
+      tokens: { defaultAccount: async () => 'fixture', list: async () => [{ key: 'fixture' }] },
+      contextWindowOf: () => override,
+      catalogStore: { load: async () => ({ at: Date.now(), models: [{ id: 'fixture', name: 'Fixture', contextWindow: 272000, maxContextWindow: maximum }] }) },
+      fetchFn: async () => { throw new Error('Test must use the seeded catalog') },
+    })
+    override = 1000000
+    assert.equal((await adapter.resolveOwnModel('codex', 'fixture')).context.contextWindow, maximum ?? 1000000)
+    override = 256000
+    assert.equal((await adapter.resolveOwnModel('codex', 'fixture')).context.contextWindow, 256000)
+    override = undefined
+    assert.equal((await adapter.resolveOwnModel('codex', 'fixture')).context.contextWindow, 272000)
+  }
+})
 
 test('current DSH user input and tool messages keep Responses call/output pairing', async () => {
   const messages = [

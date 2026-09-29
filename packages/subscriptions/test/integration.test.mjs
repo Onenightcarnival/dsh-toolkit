@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 const output = await build({ entryPoints: [new URL('../src/client/api.ts', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')], bundle: true, write: false, platform: 'node', format: 'esm' })
 const { SubscriptionsApi } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`)
 
-test('ChatGPT-only host registers models, native search, image tool and authenticated RPC', { timeout: 20000 }, async () => {
+test('ChatGPT-only host registers models, independent Codex tools and authenticated RPC', { timeout: 20000 }, async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-subscriptions-test-'))
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
@@ -21,13 +21,11 @@ test('ChatGPT-only host registers models, native search, image tool and authenti
   const routes = new Map()
   const adapters = new Map()
   const tools = new Map()
-  let search
   ctx.provide('llm', { registerAdapter(ids, adapter) {
     for (const id of ids) adapters.set(id, adapter)
     return Object.assign(() => { for (const id of ids) adapters.delete(id) }, { replace() {} })
   } })
   ctx.provide('tools', { register(tool) { tools.set(tool.name, tool); return () => tools.delete(tool.name) } })
-  ctx.provide('web', { registerSearchProvider(provider) { search = provider; return () => { search = undefined } } })
   ctx.provide('connection', { fetch: { register(route) {
     assert.ok(!routes.has(route.path), `duplicate route ${route.path}`)
     routes.set(route.path, route)
@@ -64,10 +62,10 @@ test('ChatGPT-only host registers models, native search, image tool and authenti
     }
     assert.deepEqual(Object.keys((await api.call('status')).providers), ['codex'])
     assert.ok(!routes.has('/api/subscriptions-auth.video'))
-    assert.deepEqual([...tools.keys()], ['image_generate'])
-    assert.doesNotMatch(JSON.stringify(tools.get('image_generate')), /grok|x_search|video_generate/i)
-    assert.equal(search.id, 'codex')
-    assert.equal(search.available(), true)
+    assert.deepEqual([...tools.keys()], ['codex_web_search', 'codex_image_generate'])
+    assert.doesNotMatch(JSON.stringify(tools.get('codex_image_generate')), /grok|x_search|video_generate/i)
+    assert.ok(!tools.has('web_search'))
+    assert.ok(!tools.has('image_generate'))
     assert.deepEqual((await api.status()).accounts, [])
     assert.deepEqual(await adapters.get('codex').listModels('codex'), [])
 
@@ -93,16 +91,26 @@ test('ChatGPT-only host registers models, native search, image tool and authenti
     assert.ok(!JSON.stringify(status).includes('test-refresh'))
     const catalog = await api.catalog()
     assert.deepEqual(catalog.models.map(m => m.id), ['gpt-5.4'])
+    await api.save({ contextWindows: { 'gpt-5.4': 1_000_000 }, tools: { web_search: true } })
+    assert.equal((await adapters.get('codex').resolveModel('codex', 'gpt-5.4')).context.contextWindow, 1_000_000, 'a default window is not an implicit maximum')
+    assert.equal((await api.catalog()).settings.contextWindows['gpt-5.4'], 1_000_000)
+    assert.equal(JSON.parse(await readFile(join(dir, 'provider-settings.json'), 'utf8')).providers.codex.contextWindows['gpt-5.4'], 1_000_000)
+    await api.save({ contextWindows: { 'gpt-5.4': 256_000 } })
+    assert.equal((await adapters.get('codex').resolveModel('codex', 'gpt-5.4')).context.contextWindow, 256_000)
+    await api.save({})
+    assert.equal((await adapters.get('codex').resolveModel('codex', 'gpt-5.4')).context.contextWindow, catalog.models[0].contextWindow, 'clearing restores provider default')
     await api.save({ visibleModels: [], tools: { web_search: false, image_generate: false } })
-    assert.equal(search.available(), false)
+    await assert.rejects(tools.get('codex_web_search').execute({ query: 'fixture' }, { signal: new AbortController().signal }), /codex_web_search: disabled/)
     assert.deepEqual(await adapters.get('codex').listModels('codex'), [])
     assert.equal((await api.catalog()).models.length, 1, 'hidden models must remain editable')
     const denied = []
     ctx.emit('agent/created', { agent: { session: { header: { createdAt: Date.now() + 1000 } }, ctx: { tools: { restrict({ deny }) { denied.push(...deny) } } } } })
-    assert.deepEqual(denied, ['image_generate'])
+    assert.deepEqual(denied, ['codex_web_search', 'codex_image_generate'])
     assert.equal(JSON.parse(await readFile(join(dir, 'provider-settings.json'), 'utf8')).providers.codex.tools.web_search, false)
     await api.save({})
-    assert.equal(search.available(), true)
+    const enabledDenied = []
+    ctx.emit('agent/created', { agent: { session: { header: { createdAt: Date.now() + 1000 } }, ctx: { tools: { restrict({ deny }) { enabledDenied.push(...deny) } } } } })
+    assert.deepEqual(enabledDenied, [])
     assert.deepEqual((await adapters.get('codex').listModels('codex')).map(m => m.id), ['gpt-5.4'])
     await assert.rejects(api.call('setProviderSettings', { provider: 'codex', settings: { tools: { video_generate: true } } }), /unsupported tool/)
     await api.logout(status.accounts[0].key)

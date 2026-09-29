@@ -43,7 +43,7 @@ export function ImageToolview({ api, block }: Props): JSX.Element | null {
     {!settled && <p role="status">{tt('generating')}</p>}
     {block.isError ? <p role="alert">{text || block.error?.code}</p> : <>
       <div className="dsh-sub-images">{images.map((image, i) => <Image key={i} api={api} attachment={image.attachment!}/>)}</div>
-      {text && <details><summary>image_generate</summary><pre>{text}</pre></details>}
+      {text && <details><summary>codex_image_generate</summary><pre>{text}</pre></details>}
     </>}
   </div>
 }

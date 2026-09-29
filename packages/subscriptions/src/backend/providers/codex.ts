@@ -951,17 +951,17 @@ export class CodexAdapter extends LlmAdapter {
     }
   }
 
-  /** Account-specific bounds; absent maximum conservatively keeps the advertised default. */
-  async contextLimits(model: string, account?: string): Promise<{ default: number; max: number }> {
+  /** The advertised default is not a hard ceiling when no explicit maximum is given. */
+  async contextLimits(model: string, account?: string): Promise<{ default: number; max?: number }> {
     const discovered = await this.discovered(model, account)
     const configured = this.options.models.find(entry => entry.id === model)
     const fallback = discovered?.contextWindow ?? configured?.contextWindow ?? CODEX_CONTEXT_WINDOW
-    return { default: fallback, max: discovered?.maxContextWindow ?? fallback }
+    return { default: fallback, max: discovered?.maxContextWindow }
   }
 
   private async contextWindowFor(model: string, account?: string): Promise<number> {
     const limits = await this.contextLimits(model, account)
-    return Math.min(this.options.contextWindowOf?.(model) ?? limits.default, limits.max)
+    return Math.min(this.options.contextWindowOf?.(model) ?? limits.default, limits.max ?? Infinity)
   }
 
   async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {

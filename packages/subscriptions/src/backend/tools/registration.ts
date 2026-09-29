@@ -2,7 +2,8 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
 /** Tool names owned by this plugin and their collision fallbacks. */
 export const TOOL_ALIASES = {
-  image_generate: 'dsh_subscriptions_image_generate',
+  codex_web_search: 'dsh_subscriptions_codex_web_search',
+  codex_image_generate: 'dsh_subscriptions_codex_image_generate',
 } as const
 
 export interface ToolRegistry {

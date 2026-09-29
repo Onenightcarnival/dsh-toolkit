@@ -6,6 +6,7 @@ import { build } from 'esbuild'
 import { JSDOM } from 'jsdom'
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Simulate } from 'react-dom/test-utils'
 
 const dom = new JSDOM('<!doctype html><html lang="en"><body><div id="root"></div></body></html>', { url: 'http://localhost' })
 globalThis.window = dom.window
@@ -18,6 +19,51 @@ new Function('require', 'module', 'exports', result.outputFiles[0].text)(createR
 const { SubscriptionsPanel } = module.exports
 const button = text => [...document.querySelectorAll('button')].find(b => b.textContent.includes(text))
 const click = async element => { assert.ok(element, 'missing UI element'); await act(async () => element.click()) }
+
+test('context editor saves shorthand, preserves preferences, validates limits and restores defaults', async () => {
+  let prefs = { contextWindows: { other: 128000 }, tools: { web_search: false }, defaultEfforts: { m1: 'high' } }
+  let saves = 0
+  let fail = false
+  const api = {
+    status: async () => ({ busy: false, accounts: [{ key: 'a', account: 'a@example.test', isDefault: true }] }),
+    catalog: async () => ({ settings: prefs, models: [{ id: 'm1', name: 'Model One', efforts: [], defaultContextWindow: 272000, contextWindow: prefs.contextWindows.m1 ?? 272000, maxContextWindow: 1000000 }], accounts: [] }),
+    save: async next => { if (fail) throw new Error('Save failed'); saves++; prefs = next },
+  }
+  const input = () => document.querySelector('input[aria-label="Model One Context"]')
+  const change = async value => { await act(async () => Simulate.change(input(), { target: { value } })) }
+  const submit = async () => { await act(async () => input().closest('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }))) }
+  const root = createRoot(document.getElementById('root'))
+  try {
+    await act(async () => root.render(React.createElement(SubscriptionsPanel, { api, close() {} })))
+    assert.equal(input().placeholder, '272K')
+    await change('1M'); await submit()
+    assert.equal(prefs.contextWindows.m1, 1000000)
+    assert.equal(input().value, '1M')
+    await change('256k'); await submit()
+    assert.equal(prefs.contextWindows.m1, 256000)
+    assert.equal(input().value, '256K')
+    assert.equal(prefs.contextWindows.other, 128000)
+    assert.equal(prefs.tools.web_search, false)
+    assert.equal(prefs.defaultEfforts.m1, 'high')
+    for (const invalid of ['wat', '0', '-1', '1.1', '9007199254740992', '2M']) {
+      await change(invalid); await submit()
+      assert.equal(saves, 2, `invalid input must not save: ${invalid}`)
+      assert.equal(input().getAttribute('aria-invalid'), 'true')
+    }
+    await change('512K'); fail = true; await submit()
+    assert.equal(input().value, '512K', 'failed save preserves draft')
+    assert.equal(prefs.contextWindows.m1, 256000)
+    fail = false
+    await change(''); await submit()
+    assert.equal(prefs.contextWindows.m1, undefined)
+    assert.equal(input().value, '')
+    assert.equal(input().placeholder, '272K')
+    await change('1M'); await submit()
+    await click(document.querySelector('button[aria-label="Model One Reset to default"]'))
+    assert.deepEqual(prefs.contextWindows, { other: 128000 })
+    assert.equal(input().value, '')
+  } finally { await act(async () => root.unmount()) }
+})
 
 test('panel saves tool preferences, filters models, switches accounts and handles quota errors', async () => {
   let prefs = { contextWindows: { m1: 128000 }, accounts: { a: { alias: 'Work account' } } }
@@ -33,7 +79,9 @@ test('panel saves tool preferences, filters models, switches accounts and handle
     await act(async () => root.render(React.createElement(SubscriptionsPanel, { api, close() {} })))
     assert.match(document.body.textContent, /Model One/)
     await click(button('Tools'))
-    await click(document.querySelector('input[aria-label="Web Search"]'))
+    assert.match(document.body.textContent, /codex_web_search/)
+    assert.match(document.body.textContent, /codex_image_generate/)
+    await click(document.querySelector('input[aria-label="Codex Web Search"]'))
     assert.equal(prefs.tools.web_search, false)
     assert.deepEqual(prefs.contextWindows, { m1: 128000 }, 'tool edits preserve model settings')
     assert.equal(prefs.accounts.a.alias, 'Work account', 'tool edits preserve account settings')

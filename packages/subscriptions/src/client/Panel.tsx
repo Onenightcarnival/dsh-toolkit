@@ -2,9 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Account, Catalog, Preferences, Status, Usage } from '../protocol.ts'
 import type { SubscriptionsApi } from './api.ts'
 import { tt, type Key } from './locales.ts'
+import { ContextWindowInput } from './ContextWindowInput.tsx'
 
 export interface PanelProps { api: SubscriptionsApi; close: () => void }
 type Tab = 'models' | 'tools' | 'usage'
+const TOOL_CARDS = [
+  { setting: 'web_search', name: 'codex_web_search', title: 'searchTitle', hint: 'searchHint' },
+  { setting: 'image_generate', name: 'codex_image_generate', title: 'imageTitle', hint: 'imageHint' },
+] as const
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error)
 
 function DisconnectDialog({ label, busy, cancel, confirm }: { label: string; busy: boolean; cancel: () => void; confirm: () => void }): JSX.Element {
@@ -58,11 +63,11 @@ export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
       if (mounted.current && sequence === catalogSequence.current) setCatalogBusy(false)
     }
   }, [api])
-  const run = useCallback(async (action: () => Promise<unknown>): Promise<void> => {
-    if (lock.current) return
+  const run = useCallback(async (action: () => Promise<unknown>): Promise<boolean> => {
+    if (lock.current) return false
     lock.current = true
     setBusy(true); setError(''); setNotice('')
-    try { await action() } catch (error) { if (mounted.current) setError(messageOf(error)) }
+    try { await action(); return true } catch (error) { if (mounted.current) setError(messageOf(error)); return false }
     finally { lock.current = false; if (mounted.current) setBusy(false) }
   }, [])
 
@@ -159,12 +164,23 @@ export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
             {tab === 'models' && <>
               <div className="dsh-sub-toolbar"><input aria-label={tt('search')} placeholder={tt('search')} value={query} onChange={e => setQuery(e.target.value)}/><button disabled={busy || catalogBusy} onClick={() => { void run(() => refreshCatalog(true)) }}>{catalogBusy ? tt('loading') : tt('refresh')}</button></div>
               <p className="dsh-sub-hint">{tt('modelHint')}</p>
+              <p className="dsh-sub-hint">{tt('contextHint')}</p>
               {ownCatalog?.unavailable && <p className="dsh-sub-hint" role="status">{tt('unavailable')}</p>}
               <label className="dsh-sub-check"><input type="checkbox" disabled={busy || !catalog || catalogBusy} checked={settings.visibleModels === undefined} onChange={e => save({ ...settings, visibleModels: e.target.checked ? undefined : catalog?.models.map(m => m.id) })}/>{tt('autoModels')}</label>
               <div className="dsh-sub-tableWrap"><table><thead><tr><th>{tt('modelName')}</th><th>{tt('context')}</th><th>{tt('reasoning')}</th></tr></thead><tbody>
                 {models.map(model => <tr key={model.id}><td><label className="dsh-sub-check"><input type="checkbox" aria-label={model.name} disabled={busy || catalogBusy} checked={settings.visibleModels?.includes(model.id) ?? true} onChange={e => {
                   const ids = new Set(settings.visibleModels ?? catalog?.models.map(m => m.id)); if (e.target.checked) ids.add(model.id); else ids.delete(model.id); save({ ...settings, visibleModels: [...ids] })
-                }}/><span><strong>{model.name}</strong><small>{model.id}</small></span></label></td><td>{model.contextWindow?.toLocaleString() ?? '—'}</td><td>
+                }}/><span><strong>{model.name}</strong><small>{model.id}</small></span></label></td><td>
+                  <ContextWindowInput model={model} configured={settings.contextWindows?.[model.id]} disabled={busy || catalogBusy} save={value => run(async () => {
+                    const contextWindows = { ...settings.contextWindows }
+                    if (value === undefined) delete contextWindows[model.id]; else contextWindows[model.id] = value
+                    const next = { ...settings, contextWindows: Object.keys(contextWindows).length ? contextWindows : undefined }
+                    await api.save(next)
+                    setCatalog(previous => previous ? { ...previous, settings: next } : previous)
+                    await refreshCatalog()
+                    setNotice(tt('saved'))
+                  })}/>
+                </td><td>
                   {model.efforts.length > 0 ? <select aria-label={`${model.name} ${tt('reasoning')}`} value={model.configured ?? ''} disabled={busy || catalogBusy} onChange={e => { const effort = e.target.value || undefined; void run(async () => {
                     await api.effort(model.id, effort); setCatalog(previous => previous ? { ...previous, models: previous.models.map(m => m.id === model.id ? { ...m, configured: effort } : m) } : previous); setNotice(tt('saved'))
                   }) }}><option value="">{tt('providerDefault')}</option>{model.efforts.map(effort => <option key={effort.id} value={effort.id}>{effort.name}</option>)}</select> : '—'}
@@ -172,7 +188,15 @@ export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
               </tbody></table>{models.length === 0 && <p className="dsh-sub-tableEmpty">{catalogBusy ? tt('loading') : query ? tt('noMatches') : tt('noModels')}</p>}</div>
             </>}
             {tab === 'tools' && <>
-              {(['web_search', 'image_generate'] as const).map(tool => <div className="dsh-sub-tool" key={tool}><div><h4>{tt(tool === 'web_search' ? 'searchTitle' : 'imageTitle')}</h4><p>{tt(tool === 'web_search' ? 'searchHint' : 'imageHint')}</p><code>{tool}</code></div><label className="dsh-sub-toggle"><input type="checkbox" aria-label={tt(tool === 'web_search' ? 'searchTitle' : 'imageTitle')} disabled={busy || !catalog || catalogBusy} checked={settings.tools?.[tool] !== false} onChange={e => save({ ...settings, tools: { ...settings.tools, [tool]: e.target.checked } })}/><span className="dsh-sub-switch" aria-hidden="true"/></label></div>)}
+              {TOOL_CARDS.map(tool => <div className="dsh-sub-tool" key={tool.name}>
+                <div><h4>{tt(tool.title)}</h4><p>{tt(tool.hint)}</p><code>{tool.name}</code></div>
+                <label className="dsh-sub-toggle">
+                  <input type="checkbox" aria-label={tt(tool.title)} disabled={busy || !catalog || catalogBusy}
+                    checked={settings.tools?.[tool.setting] !== false}
+                    onChange={e => save({ ...settings, tools: { ...settings.tools, [tool.setting]: e.target.checked } })}/>
+                  <span className="dsh-sub-switch" aria-hidden="true"/>
+                </label>
+              </div>)}
               <p className="dsh-sub-hint">{tt('toolPolicy')}</p>
             </>}
             {tab === 'usage' && <>

@@ -13,12 +13,19 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
 ```
 
 1. 打开「AI 订阅」，点击「连接 ChatGPT」，在浏览器完成 OAuth 授权。自动回调依次尝试本机 1455、1457 端口；两者都被系统保留或占用时会自动切换为手动模式。完成授权后，即使浏览器的 localhost 页面显示无法访问，也请复制地址栏中的完整 URL，回到面板粘贴并提交。
-2. 在会话模型选择器的 ChatGPT (Codex) 分组选择模型。模型目录按账号发现，支持刷新、显示筛选和默认推理强度。
-3. 「工具」中可开关 Web Search 和图像生成。搜索接入 DSH 原生 `web_search`，在「设置 → 联网搜索」选择 `codex` 提供方，保留原生引用展示。关闭后允许其他搜索提供方接手。
-4. 在对话中请求生图或编辑图片，agent 调用 `image_generate`；生成文件保存在 DSH home 的 `plugins/subscriptions/images/`，有附件服务时可直接在对话中预览、下载，并继续编辑。
+2. 在会话模型选择器的 ChatGPT (Codex) 分组选择模型。模型目录按账号发现，支持刷新、显示筛选、默认推理强度与上下文编辑。上下文可输入 `256K`、`1M`、`1.5M` 或正整数（十进制单位），按 Enter 或点击保存；清空并保存或点击「恢复默认」使用目录默认值。设置由多个账号共用，目录明确提供的最大值仍作为上限。
+3. 「工具」提供 Codex Web Search 和图像生成开关。`codex_web_search` 直接使用 ChatGPT 订阅，返回摘要、DSH 搜索结果卡片和来源链接；与 DSH 的联网搜索提供方设置独立。
+4. `codex_image_generate` 支持生图和图片附件编辑；生成文件保存在 DSH home 的 `plugins/subscriptions/images/`，有附件服务时支持对话内预览、下载和继续编辑。
 5. 「用量」显示所选账号的额度窗口与重置时间，支持刷新。可添加多个账号、设置默认账号或断开连接。
 
-搜索开关立即生效；生图工具策略以会话创建时为准，修改后请新建会话。模型、搜索和生图的实际可用性取决于账号权限及额度，离线测试无法验证账号权益。这里通过 ChatGPT 订阅的 Codex 后端接入，不需要填写 OpenAI API key。
+| 工具 | 输入 | 结果 |
+| --- | --- | --- |
+| `codex_web_search` | `query` | 摘要和最多八条来源 |
+| `codex_image_generate` | `prompt`；可选 `referenceImages`、`size`、`quality` | 本地路径和图片附件 |
+
+工具列表按会话创建时的开关设置生成；搜索关闭后也会立即阻止已有会话调用。持久化开关使用能力键 `web_search` 和 `image_generate`。
+
+模型、搜索和生图的实际可用性取决于账号权限及额度。接入使用 ChatGPT 订阅的 Codex 后端，无需 OpenAI API key。
 
 ## 配置
 
@@ -32,11 +39,11 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
 
 独立包插件 ID 为 `subscriptions`。可选配置：`enabled`、`codexClientVersion`、`streamIdleTimeoutMs`、`rateLimit`，以及用于覆盖自动发现的 `models` 数组（包含 `id`，可选 `name`、`contextWindow`、`inputModalities`）。一般保留默认值即可；手动模型列表不会增加账号权限。
 
-凭证和设置由主机保存在 DSH home 的 `plugins/subscriptions/`，沿用参考插件的数据格式。界面只读取不含 token 的账号状态；RPC 通过 DSH 已认证的连接。不要同时加载原版 `dsh-plugin-subscriptions`，两者使用相同的 provider、工具和 RPC 名称。
+凭证和设置保存在 DSH home 的 `plugins/subscriptions/`。界面读取不含 token 的账号状态；RPC 通过 DSH 已认证的连接。原版订阅插件使用相同的 provider 和 RPC 名称，两个包不能同时加载。
 
 ## 源码维护
 
-订阅后端作为二次开发分支维护在本仓库的 `src/backend`，直接从源码构建，不依赖原插件的 npm 包。后端包含 OAuth PKCE、令牌刷新、流式模型适配、原生搜索和图片附件处理，目前仅启用 ChatGPT（Codex）。原始代码来源和 MIT 许可证保留在 `THIRD_PARTY_LICENSES.txt`。
+`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理。提供方仅有 ChatGPT（Codex），后端从本地源码构建。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
 
 `THIRD_PARTY_LICENSES.txt` 随独立包和全家桶发布。修改协议后端时需重新验证 OAuth、RPC、工具策略和模型目录测试。
 

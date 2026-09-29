@@ -1,4 +1,4 @@
-/** ChatGPT subscription models, OAuth, native web search and image generation. */
+/** ChatGPT subscription models, OAuth, web search and image generation. */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -11,8 +11,6 @@ import type {
 } from '@deepseek-ai/dsh-llm'
 // Type-only: activates the `ctx.tools` Context merge for the inject block.
 import type {} from '@deepseek-ai/dsh-tools'
-// Type-only: activates the `ctx.web` Context merge for optional registration.
-import type {} from '@deepseek-ai/dsh-web'
 import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { OAuthFlowManager, type OAuthAttempt } from './auth/oauth-flow.js'
 import { BadRequest, registerAuthRpc } from './auth/rpc.js'
@@ -74,6 +72,7 @@ import {
   refreshCodex,
 } from './providers/codex.js'
 import { createImageGenerateTool } from './tools/image-generate.js'
+import { createCodexWebSearchTool } from './tools/web-search.js'
 import { ensureConnectAttemptTimeout, proxiedFetch, proxyGetConfig, proxySetConfig, proxyTestConnection, restoreConnectAttemptTimeout } from './http.js'
 import { ProviderSettingsStore, PROVIDER_TOOLS, validatePreferences } from './provider-settings.js'
 
@@ -795,7 +794,7 @@ export function apply(ctx: Context, config: Config): void {
       })))
       const tierIds = new Set((await poolAdapter?.modelsForProvider(provider).catch(() => []) ?? []).map(model => model.id))
       const rows = await Promise.all(models.map(async model => {
-        const contexts: { default: number; max: number }[] = []
+        const contexts: { default: number; max?: number }[] = []
         if (provider === 'codex' && codexAdapter) {
           for (const account of accountCatalogs) {
             if (account.models?.some(entry => entry.id === model.id)) {
@@ -813,7 +812,9 @@ export function apply(ctx: Context, config: Config): void {
           configured: defaultEffortOf(provider, model.id),
           ...(contexts.length ? {
             defaultContextWindow: Math.min(...contexts.map(entry => entry.default)),
-            maxContextWindow: Math.min(...contexts.map(entry => entry.max)),
+            ...(contexts.some(entry => entry.max !== undefined)
+              ? { maxContextWindow: Math.min(...contexts.flatMap(entry => entry.max === undefined ? [] : [entry.max])) }
+              : {}),
           } : {}),
         }
       }))
@@ -837,38 +838,23 @@ export function apply(ctx: Context, config: Config): void {
     },
   })
 
-  // `web` is optional on headless/minimal compositions. Register Codex behind
-  // DSH's native web_search tool when the capability seam is mounted.
-  //
-  // `web_search` is the host's tool, not one this plugin registers, so the
-  // Codex switch gates this provider's `available()` rather than the tool
-  // itself: turned off, the seam auto-selects another registered provider, or
-  // reports WEB_PROVIDER_UNAVAILABLE the way dsh-tool-web expects. Denying the
-  // tool per agent would instead take web_search away from every other
-  // provider in the composition.
-  if (codexTokens !== undefined) {
-    const tokens = codexTokens
-    ctx.inject(['web'], webCtx => {
-      webCtx.web.registerSearchProvider(new CodexWebSearchProvider({
-        tokens,
-        enabled: () => preferences.toolEnabled('codex', 'web_search'),
-        fetchFn: proxiedFetch,
-      }))
-    })
-  }
-
-  // Register the ChatGPT image tool only when the host supplies tools.
   ctx.inject(['tools'], toolsCtx => {
     if (codexTokens === undefined) return
-    const result = registerWithAlias(toolsCtx.tools, createImageGenerateTool({
+    const search = registerWithAlias(toolsCtx.tools, createCodexWebSearchTool(new CodexWebSearchProvider({
+      tokens: codexTokens,
+      enabled: () => preferences.toolEnabled('codex', 'web_search'),
+      fetchFn: proxiedFetch,
+    })))
+    const image = registerWithAlias(toolsCtx.tools, createImageGenerateTool({
       imagePool, codexTokens, resolveAttachments,
       resolveLlm: () => ctx.get('llm'),
       providerEnabled: (provider, createdAt) => preferences.toolEnabled(provider, 'image_generate', createdAt),
     }))
     toolsCtx.on('agent/created', ({ agent }) => {
-      if (result && !preferences.toolEnabled('codex', 'image_generate', agent.session.header.createdAt)) {
-        agent.ctx.tools.restrict({ deny: [result.name] })
-      }
+      const deny: string[] = []
+      if (search && !preferences.toolEnabled('codex', 'web_search')) deny.push(search.name)
+      if (image && !preferences.toolEnabled('codex', 'image_generate', agent.session.header.createdAt)) deny.push(image.name)
+      if (deny.length) agent.ctx.tools.restrict({ deny })
       return undefined
     })
   })
