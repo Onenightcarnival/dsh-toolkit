@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * One version for every published surface of the workspace.
+ * Shared version for packages, extension manifests and OTel.
  *
- *   node scripts/version.mjs set 0.5.0     write it everywhere
- *   node scripts/version.mjs check 0.5.0   exit 1 unless every file already carries it
+ *   node scripts/version.mjs set <version>     synchronize version fields
+ *   node scripts/version.mjs check <version>   exit 1 on a mismatch
  *
- * Browser manifests reject prerelease labels and take the numeric part only.
- * Release: the workflow runs `set` with the pushed tag, so the committed version may lag behind it.
+ * Browser manifests: numeric version only.
+ * Release artifacts: version from the pushed tag.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'

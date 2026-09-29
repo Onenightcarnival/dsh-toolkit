@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）的插件集合：一个仓库、一个版本号、一次发版。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）插件集合，提供数据库、对象存储、可观测上报、浏览器操作和 AI 订阅。所有包共用版本号与发布流程。
 
 | 包 | 内容 | 界面入口 |
 |---|---|---|
@@ -11,10 +11,17 @@
 | [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI 上报到 Langfuse 等 OTLP 后端 | 设置 → 插件 → 可观测上报 |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.zh.md) | 浏览器桥：`browser_*` 工具经 Chrome / Firefox 扩展操作用户的标签页 | 设置 → 通用设置 → 浏览器桥地址 |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.zh.md) | ChatGPT、Google Antigravity 订阅模型及 Codex 搜索与生图工具 | 侧边栏「AI 订阅」 |
-| [`@onenightcarnival/dsh-toolkit`](packages/toolkit) | 以上五个打进一个包 | 同上 |
+| [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.zh.md) | 五个插件的集成包 | 各模块对应入口 |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.zh.md) | Chrome / Firefox MV3 扩展，与浏览器桥配对 | 浏览器侧边栏 |
 
-当前对应 dsh `0.1.7-rc.2`，即 [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop) 内置的版本。版本线一一对应：0.6.x 装 dsh 0.1.7，0.5.x 装 dsh 0.1.5-rc.2；装错版本线的包会让 typert 校验失败、整个界面不可用。
+## 运行时兼容性
+
+| Toolkit 版本 | dsh 运行时 |
+|---|---|
+| 0.6.x | `0.1.7-rc.2`（本仓库锁定版本） |
+| 0.5.x | `0.1.5-rc.2` |
+
+插件与宿主使用同一运行时版本线。版本不匹配会导致 typert 校验失败，影响界面加载。
 
 ## 安装
 
@@ -22,12 +29,12 @@
 
 | 文件 | 用途 |
 |---|---|
-| `onenightcarnival-dsh-toolkit-<版本>.tgz` | 全家桶：五个插件一次装齐 |
+| `onenightcarnival-dsh-toolkit-<版本>.tgz` | 集成安装五个插件 |
 | `onenightcarnival-dsh-rdb-<版本>.tgz` 等五个 | 单独安装某一个插件 |
 | `dsh-browser-extension-chrome-<版本>.zip` | Chrome 扩展，解压后以未打包扩展加载 |
 | `SHA256SUMS.txt` | 校验和 |
 
-全家桶与单包二选一，不要同时安装。
+安装方式：集成包或独立插件，二者互斥。
 
 **桌面版**：「插件 → 配置中心… → 插件 → 从 .tgz 安装」，选中 tgz，按提示重启。
 
@@ -38,11 +45,19 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<版本>.tgz
 dsh web
 ```
 
-**Chrome 扩展**：把 zip 解压到一个固定目录，`chrome://extensions` 开启「开发者模式」，「加载已解压的扩展程序」选中该目录。桥地址自动发现，本机无需 token。Firefox 从源码构建，见 [docs/browser.zh.md](docs/browser.zh.md)。
+**Chrome 扩展**：zip 解压至固定目录 → `chrome://extensions` →「开发者模式」→「加载已解压的扩展程序」。本机 Chrome 自动发现桥地址，无需输入 token。Firefox 使用源码构建并配置 token，见[浏览器操作](docs/browser.zh.md)。
 
-### 全家桶的模块开关
+### 模块配置
 
-全家桶在 web profile 里是一行 `toolkit`，五个模块各有一个配置键，设为 `false` 即不挂载（主机与界面同时生效）。在 `~/.dsh/profiles/web/cordis.patch.yml` 覆盖时整段 `config` 会替换，其余键按需一并写出：
+web profile 插件 ID 为 `toolkit`。配置位于 `~/.dsh/profiles/web/cordis.patch.yml`。
+
+| 模块配置值 | 宿主与界面行为 |
+|---|---|
+| 省略或 `{}` | 启用模块，使用默认配置 |
+| 配置对象 | 启用模块，使用对应独立插件的配置 |
+| `false` | 禁用模块 |
+
+覆盖操作替换整段 `config`，已有自定义值需一并列出。以下配置禁用可观测上报，将浏览器发现端口设为 `43189`，其余模块使用默认配置：
 
 ```yaml
 - id: toolkit
@@ -56,27 +71,22 @@ dsh web
 
 ### 从旧版单包迁移
 
-0.5.0 起包名带 `@onenightcarnival/` scope，旧的 `dsh-rdb`、`dsh-s3`、`dsh-otel` 不能原地升级：先在插件管理器里移除旧包，再安装新包。连接、凭证与设置存在 `~/.dsh` 下，与包名无关，迁移后保留。
+0.5.0 起包名使用 `@onenightcarnival/` scope。迁移顺序：移除旧的 `dsh-rdb`、`dsh-s3`、`dsh-otel` → 安装对应新包。连接、凭证与设置保存在 `~/.dsh`，迁移后保留。
 
 ## 目录
 
-```
-packages/rdb              @onenightcarnival/dsh-rdb
-packages/s3               @onenightcarnival/dsh-s3
-packages/otel             @onenightcarnival/dsh-otel
-packages/browser-bridge   @onenightcarnival/dsh-bridge-browser
-packages/subscriptions    @onenightcarnival/dsh-subscriptions
-packages/toolkit          @onenightcarnival/dsh-toolkit：host 半挂载五个模块并提供 /api/dsh-toolkit/modules，
-                          client 半按该清单挂载各模块的界面，typert 清单以本包名重新生成
-extensions/dsh-browser    Chrome / Firefox 扩展（vite）
-benchmark                 浏览器操作的 Playwright 对照评测
-docs/browser.zh.md        浏览器操作的完整说明（桌面版发现信标、排查、安全模型）
-scripts/build-plugin.mjs  各插件共用的 esbuild 驱动：host bundle + 模块加载器封装的 client bundle
-scripts/version.mjs       一个版本号写进全部 package.json、扩展 manifest 与 otel 的 PLUGIN_VERSION
-scripts/package.mjs       打出 dist/ 里的全部发布产物
-scripts/check-runtime.mjs 校验根目录锁定的 dsh 运行时
-scripts/smoke-runtime.mjs 用临时 DSH home 启动真实 web 宿主跑浏览器桥
-```
+| 路径 | 职责 |
+|---|---|
+| `packages/{rdb,s3,otel,browser-bridge,subscriptions}` | 五个独立插件 |
+| `packages/toolkit` | 模块配置、宿主挂载、界面挂载与 typert 注册 |
+| `extensions/dsh-browser` | Chrome / Firefox MV3 扩展 |
+| `benchmark` | 浏览器操作的 Playwright 对照评测 |
+| `docs/browser.zh.md` | 浏览器安装、能力、故障排查与安全边界 |
+| `scripts/build-plugin.mjs` | 共享 esbuild 构建：宿主与客户端产物 |
+| `scripts/version.mjs` | 包、扩展 manifest 与 OTel 版本同步 |
+| `scripts/package.mjs` | 发布产物与校验和 |
+| `scripts/check-runtime.mjs` | 运行时版本校验 |
+| `scripts/smoke-runtime.mjs` | 隔离数据目录中的真实宿主验证 |
 
 ## 开发
 
@@ -93,20 +103,41 @@ pnpm --filter @onenightcarnival/dsh-rdb run build      # 单个包
 pnpm --filter dsh-browser-extension run build:firefox
 ```
 
-各插件 host 半的构建把第三方依赖全部打进 `lib/index.js`（`@deepseek-ai/*` 由 dsh 运行时提供，保持 external），tgz 安装不访问 npm registry。全家桶直接从五个子包的源码打包，不依赖子包的构建产物；它的 typecheck 覆盖五个子包的源码，整个 workspace 只有一条 dsh 版本线（`pnpm-workspace.yaml` 的 overrides）。
+### 构建契约
 
-安装验证：`DSH_HOME=<临时目录> dsh plugin --profile web add file:<tgz>` 装进临时 profile，`dsh web --no-open --port 0` 启动后用就绪行里的 token URL 换 cookie，再打 `/api/dsh-toolkit/modules`、`/api/dsh-rdb/profiles`、`/api/dsh-s3/profiles`、`/ext/bridge-config`。同一个 token 只能换一次 cookie；pnpm 对同版本号的 file: 包复用 store 里的旧内容，迭代时先 `plugin remove` 再 add。
+| 项目 | 约定 |
+|---|---|
+| 宿主依赖 | `@deepseek-ai/*` 由 dsh 提供；其余依赖按各包构建配置内联 |
+| 订阅认证依赖 | `@cortexkit/antigravity-auth-core` 保留为 subscriptions 与 toolkit 的运行时依赖 |
+| 集成包 | 直接编译五个子包的源码；类型检查覆盖同一组源码 |
+| 运行时版本 | `pnpm-workspace.yaml` 的 overrides 统一锁定 |
+
+### 安装验证
+
+1. 将 `DSH_HOME` 指向临时目录，执行 `dsh plugin --profile web add file:<tgz>`。
+2. 执行 `dsh web --no-open --port 0`，使用就绪日志中的 token URL 换取 cookie。每个 token 仅可兑换一次。
+3. 携带 cookie 检查 `/api/dsh-toolkit/modules`、`/api/dsh-rdb/profiles`、`/api/dsh-s3/profiles` 和 `/ext/bridge-config`。
+
+同版本 `file:` 包的安装内容由 pnpm store 缓存；重新验证前先执行 `plugin remove`，再安装。
 
 ## 发版
 
-tag 即版本号：
+发布版本取自 `v<版本>` tag：
 
 ```sh
-git tag v0.5.1 && git push origin v0.5.1
+git tag v<版本>
+git push origin v<版本>
 ```
 
-推送 tag 触发 `.github/workflows/release.yml`：先用 `scripts/version.mjs set` 把 tag 的版本号写进全部包、扩展 manifest 与 otel 的 `PLUGIN_VERSION`，再安装、typecheck、构建、测试、打包，把 `dist/` 里的全部文件挂到同名 GitHub Release。仓库里提交的版本号可以落后于 tag，产物一律以 tag 为准；想让仓库同步，本地执行同一条 `set` 再提交即可。带预发布后缀的 tag（`v0.5.1-rc.1`）标为 pre-release，浏览器 manifest 只取数字部分。GitHub Desktop 里的操作：History 中右键目标 commit → Create Tag → 再 Push origin 一次。
+| 阶段 | 结果 |
+|---|---|
+| 安装 | 使用锁文件安装依赖 |
+| 版本同步 | `scripts/version.mjs set` 将 tag 版本写入包、扩展 manifest 与 OTel `PLUGIN_VERSION` |
+| 验证与构建 | 类型检查 → 构建 → 测试 → 打包 |
+| 发布 | `dist/` 全部文件附加到同名 GitHub Release |
+
+流程定义：[release.yml](.github/workflows/release.yml)。产物版本以 tag 为准；仓库版本通过 `pnpm version:set <版本>` 同步。带预发布后缀的 tag 标记为预发布，浏览器 manifest 仅保留数字版本。
 
 ## 许可
 
-MIT。打进包内的第三方代码按各自协议分发，见各包的 `THIRD-PARTY-NOTICES`。
+MIT。第三方声明见 [OTel](packages/otel/THIRD-PARTY-NOTICES)、[Subscriptions](packages/subscriptions/THIRD_PARTY_LICENSES.txt) 和 [Toolkit](packages/toolkit/THIRD_PARTY_LICENSES.txt)。

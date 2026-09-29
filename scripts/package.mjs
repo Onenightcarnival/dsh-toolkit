@@ -1,17 +1,10 @@
 #!/usr/bin/env node
 /**
- * Release artifacts → dist/
- *
- *   onenightcarnival-dsh-rdb-<v>.tgz             \
- *   onenightcarnival-dsh-s3-<v>.tgz               | `pnpm pack` of each plugin:
- *   onenightcarnival-dsh-otel-<v>.tgz             | dsh plugin --profile web add file:<tgz>
- *   onenightcarnival-dsh-bridge-browser-<v>.tgz   | (desktop app: 配置中心 → 插件 → 从 .tgz 安装)
- *   onenightcarnival-dsh-subscriptions-<v>.tgz  | ChatGPT subscriptions
- *   onenightcarnival-dsh-toolkit-<v>.tgz         /  all five in one package
- *   dsh-browser-extension-chrome-<v>.zip          extensions/dsh-browser/dist, entries at the archive root
+ * Input: package and extension builds; `--build` builds them first.
+ * Output: dist/
+ *   onenightcarnival-dsh-{rdb,s3,otel,bridge-browser,subscriptions,toolkit}-<v>.tgz
+ *   dsh-browser-extension-chrome-<v>.zip (extension entries at archive root)
  *   SHA256SUMS.txt
- *
- * Input: `pnpm run build` output (`--build` runs it first).
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'

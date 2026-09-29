@@ -1,8 +1,8 @@
-/** The plugins the toolkit carries, in mount order. */
+/** Shared host and client mount order. */
 export const MODULES = ['rdb', 's3', 'otel', 'browser', 'subscriptions'] as const
 export type Module = typeof MODULES[number]
 
 export const MODULES_API = '/api/dsh-toolkit/modules'
 
-/** Which modules a host mounted; the client reads it before mounting the matching panels. */
+/** Host module selection consumed by the client before panel mounting. */
 export type ModuleMap = Record<Module, boolean>

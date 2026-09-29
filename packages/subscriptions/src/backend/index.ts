@@ -1,4 +1,4 @@
-/** ChatGPT subscription models, OAuth, web search and image generation. */
+/** ChatGPT and Antigravity: subscription models, OAuth, search and images. */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'

@@ -2,17 +2,37 @@
 
 **English** | [中文](README.zh.md)
 
-One package carrying the five [dsh-toolkit](https://github.com/Onenightcarnival/dsh-toolkit) plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): `dsh-rdb` (databases), `dsh-s3` (object storage), `dsh-otel` (OpenTelemetry export) `dsh-bridge-browser` (browser bridge), and `dsh-subscriptions` (ChatGPT and Google Antigravity subscriptions). Same panels, tools, settings, data files and API paths as the standalone packages; install either this package or the standalone ones.
+Integrated plugin package for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), containing five modules. Each module retains its standalone panels, tools, settings, data files and API paths.
+
+## Installation
 
 ```sh
 dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<version>.tgz
 ```
 
-Desktop app: Plugins → Config center… → Plugins → Install from .tgz.
+Desktop entry: Plugins → Config center… → Plugins → Install from .tgz.
 
-## Modules
+The integrated package and standalone plugins are mutually exclusive. Runtime compatibility: [repository guide](../../README.md#runtime-compatibility).
 
-The web profile gets one `toolkit` row. Its config has one key per module, taking that module's standalone config; `false` leaves the module out on host and client alike. An override in `~/.dsh/profiles/web/cordis.patch.yml` replaces the whole `config`:
+## Module configuration
+
+| Key | Module | Configuration |
+|---|---|---|
+| `rdb` | Relational databases | [RDB](../rdb/README.md) |
+| `s3` | Object storage | [S3](../s3/README.md) |
+| `otel` | Observability | [OTel](../otel/README.md) |
+| `browser` | Browser control | [Browser bridge](../browser-bridge/README.md#config) |
+| `subscriptions` | AI subscriptions | [Subscriptions](../subscriptions/README.md) |
+
+Web profile plugin ID: `toolkit`. Configuration file: `~/.dsh/profiles/web/cordis.patch.yml`.
+
+| Value | Behavior |
+|---|---|
+| Omitted or `{}` | Enabled with default configuration |
+| Configuration object | Enabled; configuration passed to the standalone plugin |
+| `false` | Host module and corresponding UI disabled |
+
+An override replaces the entire `config` object; retained custom values must be included. This configuration disables OTel, sets browser discovery to port `43189`, and uses defaults for the remaining modules:
 
 ```yaml
 - id: toolkit
@@ -22,16 +42,33 @@ The web profile gets one `toolkit` row. Its config has one key per module, takin
       discoveryPort: 43189
 ```
 
-`GET /api/dsh-toolkit/modules` returns the mounted set, e.g. `{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true}`; the client half mounts the surfaces listed there.
+## Mount flow
 
-## Layout
-
-```
-src/index.ts     host half: mounts the module plugins as children, serves /api/dsh-toolkit/modules
-src/client.ts    client half: mounts each module's client plugin per the module map
-src/typert.ts    otel's typert manifest regenerated under this package's name
-src/modules.ts   module names and the API path, shared by both halves
-build.mjs        bundles straight from ../rdb, ../s3, ../otel ../browser-bridge and ../subscriptions sources
+```text
+config → host modules → GET /api/dsh-toolkit/modules → corresponding client plugins
 ```
 
-MIT
+Mount order: `rdb → s3 → otel → browser → subscriptions`. The endpoint returns the modules enabled by configuration:
+
+```json
+{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true}
+```
+
+| Request | Response |
+|---|---|
+| `GET /api/dsh-toolkit/modules` | `200`, module boolean map, `Cache-Control: no-store` |
+| Other methods | `405`, empty JSON object |
+
+## Structure
+
+| File | Responsibility |
+|---|---|
+| `src/index.ts` | Host module mounting and module map endpoint |
+| `src/client.ts` | Client plugin mounting from the host map |
+| `src/modules.ts` | Module order, map type and API path |
+| `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
+| `build.mjs` | Host and client builds from the five modules' sources |
+
+## License
+
+MIT. Third-party notices: [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).

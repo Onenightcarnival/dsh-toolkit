@@ -1,15 +1,23 @@
 # dsh-rdb
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）的
-关系数据库工作台插件：在 Web 界面侧边栏加一个「数据库」入口，面板里按条
-记录数据库连接，左栏是连接与对象树（schema、表、视图），右侧分「数据」
-「结构」「SQL」三个页签：翻页浏览、过滤、排序、双击改值、新增删除行并按
-主键生成 SQL 预览后一次性提交；查看列、索引、DDL；SQL 编辑器执行任意语句
-并导出 CSV。一个开关决定是否把 `db_*` 工具注入给 agent，每条连接单独控制
-是否允许 agent 写入。
+[English](README.md) | **中文**
 
-支持 SQLite（Node 内置 `node:sqlite`，无原生扩展）、PostgreSQL（`pg`）、
-MySQL / MariaDB（`mysql2`）、华为云 GaussDB（`gaussdb-node`）。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）关系数据库工作台。入口：Web 侧边栏「数据库」。
+
+| 界面 | 功能 |
+|---|---|
+| 连接与对象树 | 保存连接，按 schema 浏览表与视图 |
+| 数据 | 分页、过滤、排序、单元格编辑、新增与删除；SQL 预览后事务提交 |
+| 结构 | 列、索引与 DDL |
+| SQL | 语句执行与 CSV 导出 |
+| Agent | 全局工具开关，连接级写入权限 |
+
+| 数据库 | 驱动 |
+|---|---|
+| SQLite | Node 内置 `node:sqlite` |
+| PostgreSQL | `pg` |
+| MySQL / MariaDB | `mysql2` |
+| 华为云 GaussDB | `gaussdb-node` |
 
 ## 安装
 
@@ -17,9 +25,9 @@ MySQL / MariaDB（`mysql2`）、华为云 GaussDB（`gaussdb-node`）。
 dsh plugin --profile web add file:./onenightcarnival-dsh-rdb-<版本>.tgz
 ```
 
-tgz 从 [dsh-toolkit 的 Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases) 下载，同一页还有把四个插件打在一起的
-`onenightcarnival-dsh-toolkit-<版本>.tgz`，二者装其一。桌面版在「插件 → 配置中心 →
-插件 → 从 .tgz 安装」选中包即可，重启生效。驱动已打进 `lib/index.js`，没有运行时依赖。
+发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与包含五个模块的集成包互斥。
+
+桌面版入口：插件 → 配置中心 → 插件 → 从 .tgz 安装，重启生效。数据库驱动已内联至 `lib/index.js`。
 
 ## 使用
 
@@ -60,7 +68,7 @@ tgz 从 [dsh-toolkit 的 Releases](https://github.com/Onenightcarnival/dsh-toolk
 
 ## 安全边界
 
-- 密码以明文存在用户主目录私有文件里（与 dsh-ssh、dsh-s3 同一信任模型），
+- 密码以明文存在用户主目录私有文件里，
   不返回给浏览器或 agent。
 - `/api/dsh-rdb/*` 路由只接受本机回环地址，并要求 dsh web 自己的浏览器
   会话 cookie；没有 cookie 的本地进程得到 401。
@@ -80,7 +88,7 @@ tgz 从 [dsh-toolkit 的 Releases](https://github.com/Onenightcarnival/dsh-toolk
 ```sh
 pnpm install
 pnpm --filter @onenightcarnival/dsh-rdb run build       # lib/index.js（host，内联 pg / mysql2 / gaussdb-node）
-                                                        # lib/client.js（浏览器半边，dsh 模块加载器封装）
+                                                        # lib/client.js（客户端，dsh 模块加载器封装）
 pnpm --filter @onenightcarnival/dsh-rdb run typecheck
 pnpm --filter @onenightcarnival/dsh-rdb pack            # onenightcarnival-dsh-rdb-<版本>.tgz
 ```

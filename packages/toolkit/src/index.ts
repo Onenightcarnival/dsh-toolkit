@@ -1,6 +1,6 @@
 /**
- * Host half: mounts each module as a child plugin and serves the module map.
- * Config keys mirror the standalone packages' config; `false` leaves a module out.
+ * Host: child plugin mounting and the module map endpoint.
+ * Config: standalone module options; `false` disables the module.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'

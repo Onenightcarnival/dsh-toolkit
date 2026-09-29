@@ -1,12 +1,9 @@
 /**
- * File-level removal of one session's durable storage under the dsh home.
+ * Session storage removal under the dsh home.
  *
- * The gateway exposes no session.delete, so the bridge performs the removal
- * itself: this module archives the session under exclusive write ownership,
- * then removes its durable data while retaining the kernel lock's pathname.
- * Session ids are validated against the persisted shape, only data within
- * exact-name directories two levels below the sessions root is removed, and
- * running sessions are refused before anything touches the disk.
+ * Order: validate ID → acquire exclusive ownership → archive → remove data.
+ * Scope: exact session directories two levels below the sessions root.
+ * Invariants: running sessions rejected before disk access; lock inode retained.
  *
  * @module @onenightcarnival/dsh-bridge-browser/src/session-purge
  */
@@ -31,7 +28,7 @@ export class SessionPurgeError extends Error {
 
 /** Persisted session ids are `session-` plus one lowercase UUID. */
 const SESSION_ID_PATTERN = /^session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u
-/** POSIX flock is attached to this inode; unlinking it defeats exclusion. */
+/** Persistent inode for POSIX flock; retained throughout data removal. */
 const SESSION_LOCK_FILENAME = 'session.lock'
 
 /** Dependencies purging needs from the plugin. */
@@ -41,10 +38,8 @@ export interface SessionPurgeDeps {
   /** Session ids currently running; purging any of these is refused. */
   runningSessionIds: ReadonlySet<string>
   /**
-   * Claim the runtime's exclusive write ownership (including its kernel lock).
-   * The returned handle must remain held until removal finishes. Opening a
-   * read handle, checking for a lock file, or checking only Agent status does
-   * not provide exclusion: idle Agents and other processes can own the log.
+   * Exclusive runtime write handle and kernel lock, held through removal.
+   * Exclusion includes idle Agents and other processes that own the log.
    */
   acquireOwnership(sessionId: string): Promise<{ close(): Promise<void> }>
   /** Archive while the durable session still exists and exclusive ownership is held. */
@@ -89,8 +84,7 @@ export async function purgeSessionFiles(deps: SessionPurgeDeps, sessionId: strin
 
   const targets: string[] = []
   for (const workspace of workspaces) {
-    // path.join is safe here: the id pattern above excludes separators and
-    // dot segments, so the joined segment cannot escape the workspace dir.
+    // Validated IDs contain no separators or dot segments.
     const candidate = path.join(deps.sessionsRoot, workspace, sessionId)
     try {
       if (!(await lstat(candidate)).isDirectory()) continue
@@ -110,8 +104,7 @@ export async function purgeSessionFiles(deps: SessionPurgeDeps, sessionId: strin
   try {
     ownership = await deps.acquireOwnership(sessionId)
   } catch (error: unknown) {
-    // Match the public error identity across independently loaded runtime
-    // copies without depending on a private JSONL lock implementation.
+    // Public error identity is shared across separately loaded runtime copies.
     if (error instanceof Error && error.name === 'SessionAlreadyOwnedError') {
       throw new SessionPurgeError(
         'running',
@@ -123,8 +116,7 @@ export async function purgeSessionFiles(deps: SessionPurgeDeps, sessionId: strin
   let failure: unknown
   let archived = false
   try {
-    // The public archive API checks existence. Calling it after deletion
-    // succeeds only accidentally when its header cache already knows this id.
+    // Archive requires existing storage and precedes deletion.
     await deps.archiveSession(sessionId)
     archived = true
     for (const target of targets) {

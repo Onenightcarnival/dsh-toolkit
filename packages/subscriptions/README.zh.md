@@ -2,21 +2,25 @@
 
 [English](README.md) | **中文**
 
-全家桶的 AI 订阅子包，支持 ChatGPT 与 Google Antigravity。侧边栏「AI 订阅」包含类型选择、账号列表、模型设置和用量，沿用 S3 / RDB 的布局、主题颜色与中英文界面。
+DeepSeek Harness 的 AI 订阅插件，支持 ChatGPT 与 Google Antigravity。入口：侧边栏「AI 订阅」，包含提供方、账号、模型、工具和用量，支持宿主主题及中英文。
 
-## 使用
+## 安装
 
-安装独立包或全家桶，二选一：
+独立包与集成包互斥：
 
 ```sh
 dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
 ```
+
+## ChatGPT
 
 1. 打开「AI 订阅」，点击「连接 ChatGPT」，在浏览器完成 OAuth 授权。自动回调依次尝试本机 1455、1457 端口；两者都被系统保留或占用时会自动切换为手动模式。完成授权后，即使浏览器的 localhost 页面显示无法访问，也请复制地址栏中的完整 URL，回到面板粘贴并提交。
 2. 在会话模型选择器的 ChatGPT (Codex) 分组选择模型。模型目录按账号发现，支持刷新、显示筛选、默认推理强度与上下文编辑。上下文可输入 `256K`、`1M`、`1.5M` 或正整数（十进制单位），按 Enter 或点击保存；清空并保存或点击「恢复默认」使用目录默认值。设置由多个账号共用，目录明确提供的最大值仍作为上限。
 3. 「工具」提供 Codex Web Search 和图像生成开关。`codex_web_search` 直接使用 ChatGPT 订阅，返回摘要、DSH 搜索结果卡片和来源链接；与 DSH 的联网搜索提供方设置独立。
 4. `codex_image_generate` 支持生图和图片附件编辑；生成文件保存在 DSH home 的 `plugins/subscriptions/images/`，有附件服务时支持对话内预览、下载和继续编辑。
 5. 「用量」显示所选账号的额度窗口与重置时间，支持刷新。可添加多个账号、设置默认账号或断开连接。
+
+## 工具
 
 | 工具 | 输入 | 结果 |
 | --- | --- | --- |
@@ -54,13 +58,13 @@ OAuth 客户端配置按以下顺序读取：
 3. `$DSH_HOME/plugins/subscriptions/antigravity-oauth-client.json`，字段为 `clientId` 与可选的 `clientSecret`。
 4. 固定运行时依赖 `@cortexkit/antigravity-auth-core@2.2.0` 提供的默认客户端配置。
 
-登录时保存解析后的客户端配置，已有账号继续使用本地配置刷新令牌。插件源码与构建产物保留核心包导入；客户端常量由依赖包提供。登录不再下载参考项目源码。
+登录解析后的客户端配置保存在本机，用于后续令牌刷新。客户端常量由固定的运行时依赖提供。
 
 项目标识优先使用 `antigravity.projectId`，其次读取账号项目发现结果。项目发现接口缺失（404）或未返回项目时，使用与参考插件一致的账号兼容标识。此标识不创建 Google Cloud 项目，也不改变账号权限；服务端要求真实项目时，可配置 `antigravity.projectId`。认证、权限与额度错误保留为失败。
 
 ## 配置
 
-全家桶默认挂载本模块，`subscriptions: false` 同时关闭主机与界面：
+集成包默认挂载本模块，`subscriptions: false` 同时关闭主机与界面：
 
 ```yaml
 - id: toolkit
@@ -68,7 +72,15 @@ OAuth 客户端配置按以下顺序读取：
     subscriptions: false
 ```
 
-独立包插件 ID 为 `subscriptions`。配置项：`enabled`、`codexClientVersion`、`streamIdleTimeoutMs`、`rateLimit`、Codex 的 `models` 和 Antigravity 的 `antigravity.models`。模型条目包含 `id`，可选 `name`、`contextWindow`、`inputModalities`。Antigravity 另支持 `clientId`、`clientSecret`、`baseURL`、`userAgent`、`projectId`、`onboard`（默认关闭）。
+独立包插件 ID：`subscriptions`。
+
+| 配置范围 | 字段 |
+|---|---|
+| 通用 | `enabled`、`codexClientVersion`、`streamIdleTimeoutMs`、`rateLimit` |
+| Codex 模型 | `models` |
+| Antigravity 模型 | `antigravity.models` |
+| 模型条目 | `id`；可选 `name`、`contextWindow`、`inputModalities` |
+| Antigravity 连接 | `clientId`、`clientSecret`、`baseURL`、`userAgent`、`projectId`、`onboard`（默认关闭），均位于 `antigravity` 下 |
 
 凭证和设置保存在 DSH home 的 `plugins/subscriptions/`。界面读取不含 token 的账号状态；RPC 通过 DSH 已认证的连接。原版订阅插件使用相同的 provider 和 RPC 名称，两个包不能同时加载。
 
@@ -76,8 +88,16 @@ OAuth 客户端配置按以下顺序读取：
 
 `src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理，提供方为 `codex` 与 `antigravity`。后端从本地源码构建。Antigravity 协议参考：[LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6)。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
 
-`THIRD_PARTY_LICENSES.txt` 随独立包和全家桶发布。修改协议后端时需重新验证 OAuth、RPC、工具策略和模型目录测试。
+`THIRD_PARTY_LICENSES.txt` 随独立包和集成包发布。修改协议后端时需重新验证 OAuth、RPC、工具策略和模型目录测试。
 
 ## 开发验证
 
-构建后运行 `pnpm --filter @onenightcarnival/dsh-subscriptions test`，验证 RPC、工具开关和面板交互；运行 `pnpm --filter @onenightcarnival/dsh-subscriptions test:smoke`，在临时 DSH home 中启动真实 web 宿主，验证独立包、全家桶启用/关闭及接口认证。测试不读取个人凭证，也不调用真实模型。`node packages/subscriptions/test/preview.mjs` 提供仅使用示例数据的本地 UI 预览。
+构建后在仓库根目录执行：
+
+| 命令 | 验证范围 |
+|---|---|
+| `pnpm --filter @onenightcarnival/dsh-subscriptions test` | OAuth、RPC、模型、工具策略和面板交互 |
+| `pnpm --filter @onenightcarnival/dsh-subscriptions test:smoke` | 临时 DSH home 中的真实宿主；独立包、集成包启用/关闭与认证 |
+| `node packages/subscriptions/test/preview.mjs` | 示例数据的本地 UI 预览 |
+
+测试使用隔离数据，不读取个人凭证或调用真实模型。

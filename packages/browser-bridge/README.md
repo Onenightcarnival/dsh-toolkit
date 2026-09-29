@@ -2,9 +2,15 @@
 
 English | [中文](README.zh.md)
 
-The **browser-operation bridge** for dsh: mounts a token-authenticated WebSocket carrier (`/ext/bridge`) that the Chrome extension connects to, projects its calls onto dsh 0.1.7 Typert Remotes, follows Session and Remote Event streams per connection, and registers the `browser_*` tool set (structured text first; `browser_screenshot` returns an annotated image) that reads and operates the user's active tab through the extension — click elements, fill forms, scroll, and navigate in the real browser, login state preserved. The side panel is the conversation entry; the tools are the product.
+Browser control bridge between dsh and the Chrome / Firefox extension.
 
-**Text-only browser tools, multimodal chat passthrough**: page snapshots stay structured text (title, main content, numbered interactive inventory, and masked form fields), and every browser action uses stable inventory numbers. The generic RPC carrier also passes dsh 0.1.7 image prompts and durable attachment reads; deferred new sessions expose image limits only when the host actually mounts the attachment service.
+| Boundary | Contract |
+|---|---|
+| Transport | `/ext/bridge` WebSocket; authenticated handshake, one active connection |
+| Host | dsh 0.1.7 Typert Remotes, Session and Remote Event streams |
+| Tools | `browser_*` reads and operates the controlled tab with login state preserved |
+| Page | Structured text, stable element numbers and annotated screenshots |
+| Attachments | Image prompts and durable reads; limits advertised by the host attachment service |
 
 ## Config
 
@@ -31,7 +37,7 @@ Both register the package's `dsh.bundle` layer ([`cordis.patch.yml`](cordis.patc
 
 The workspace pins dsh 0.1.7-rc.2, the minimum supported runtime. Older DSH releases are not supported.
 
-The extension is installed separately from the release zip (see the [root README](../../README.md#install)). Loopback connections are discovered automatically and require no token entry; non-loopback deployments still require the configured bearer token.
+The extension is installed separately from the release zip (see the [root README](../../README.md#installation)). Local Chrome connections are discovered automatically and require no token entry. Firefox and non-loopback connections require the bearer token.
 
 ## Security model
 
@@ -71,13 +77,13 @@ Each `respond` carries a globally unique transport id as well as the host intera
 
 ## Extension points
 
-- The tool set is the consumer surface; the seam is the bridge wire (`protocol.ts`). Add tools by registering on `ctx.tools` and dispatching over the bridge; the extension's content script dispatches by action name.
+- Tool dispatch: `ctx.tools` registration → bridge protocol (`protocol.ts`) → extension action handler.
 - Negotiated caps (`hello.ok`) let the plugin dictate snapshot budgets to the extension without a shared config file.
 
-## Known Limitations and Deferred Work
+## Runtime boundaries
 
 - One active extension connection (a second window replaces the first).
 - Accessible cross-origin iframes are snapshotted and operated with stable `(frame, index)` addresses. Restricted or short-lived frames are reported as unavailable without failing the whole page snapshot.
 - Token rotation is manual (edit `~/.dsh/ext-bridge-token` or set `token` in config); no expiry.
 - The Playwright-driven extension e2e self-skips without a usable Chromium executable or a built extension bundle.
-- Approval is enforced in the extension service worker rather than delegated to model behavior. A future dsh tool-pipeline integration may surface the same policy in other clients.
+- The extension service worker enforces tool approval.

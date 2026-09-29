@@ -8,8 +8,7 @@ export const inject = ['sessions', 'sessionPersistence', 'sessionQuery', 'sessio
 export async function apply(ctx, config) {
   if (config.reopen) {
     assert.equal(ctx.sessions.get(config.sessionId), undefined, 'session must be cold after restart')
-    // A prepared observation calls the real cache.hydratePrepared, the exact
-    // failing boundary in #71. No mocked query, cache, or persistence services.
+    // Prepared observation exercises production query, cache hydration and persistence.
     const observation = await ctx.sessionQuery.observeSession(config.sessionId)
     try {
       assert.equal(observation.source, 'prepared')
@@ -22,10 +21,7 @@ export async function apply(ctx, config) {
   }
   ctx.on('session/created', async (session) => {
     if (session.id !== config.sessionId) return
-    // Persist a blank session without an LLM call so restart exercises reads
-    // from disk even though normal empty sessions may be deferred.
-    // 0.1.5 owns writes through AgentLoop's SessionHandle; the service flush
-    // barrier drains those handles and materializes even an empty session.
+    // The flush barrier persists the empty session for the post-restart read.
     await ctx.sessionPersistence.flush()
     await writeFile(config.marker, JSON.stringify({ sessionId: session.id }))
   })

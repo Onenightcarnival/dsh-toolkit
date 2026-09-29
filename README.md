@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh.md)
 
-Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`): one repository, one version, one release.
+Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`): databases, object storage, observability, browser control and AI subscriptions. All packages share a version and release workflow.
 
 | Package | What it adds | Where it appears |
 |---|---|---|
@@ -11,10 +11,17 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI export to Langfuse and other OTLP backends | Settings → Plugins → Observability |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.md) | Browser bridge: `browser_*` tools driving the user's tabs through the Chrome / Firefox extension | Settings → General → Browser bridge address |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.md) | ChatGPT and Google Antigravity models, Codex search and image tools | Sidebar "AI subscriptions" |
-| [`@onenightcarnival/dsh-toolkit`](packages/toolkit) | All five in one package | As above |
+| [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.md) | Integrated package with all five plugins | Each module's entry point |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.md) | Chrome / Firefox MV3 extension paired with the bridge | Browser side panel |
 
-Built against dsh `0.1.7-rc.2`, the runtime bundled by [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop). Lines pair one to one: 0.6.x installs on dsh 0.1.7, 0.5.x on dsh 0.1.5-rc.2; a package from the wrong line fails typert validation and takes the whole UI down.
+## Runtime compatibility
+
+| Toolkit version | dsh runtime |
+|---|---|
+| 0.6.x | `0.1.7-rc.2` (workspace pin) |
+| 0.5.x | `0.1.5-rc.2` |
+
+Plugins and hosts use the same runtime line. A mismatch causes typert validation failures and prevents UI loading.
 
 ## Installation
 
@@ -27,7 +34,7 @@ Every [release](https://github.com/Onenightcarnival/dsh-toolkit/releases) carrie
 | `dsh-browser-extension-chrome-<version>.zip` | Chrome extension, loaded unpacked |
 | `SHA256SUMS.txt` | Checksums |
 
-Install either the toolkit or the single packages, not both.
+Installation modes: the integrated toolkit or standalone plugins. The two modes are mutually exclusive.
 
 **Desktop app**: Plugins → Config center… → Plugins → Install from .tgz, pick the file, restart when prompted.
 
@@ -38,11 +45,19 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<version>.tgz
 dsh web
 ```
 
-**Chrome extension**: unzip into a directory that stays put, open `chrome://extensions`, enable Developer mode, Load unpacked, pick the directory. The bridge address is discovered automatically; loopback needs no token. Firefox builds from source: [docs/browser.md](docs/browser.md).
+**Chrome extension**: extract to a permanent directory → `chrome://extensions` → Developer mode → Load unpacked. Local Chrome connections discover the bridge automatically and require no token entry. Firefox requires a source build and token configuration; see [browser control](docs/browser.md).
 
-### Toolkit module switches
+### Module configuration
 
-The toolkit is one `toolkit` row in the web profile with one config key per module; `false` leaves the module out on both host and client. An override in `~/.dsh/profiles/web/cordis.patch.yml` replaces the whole `config`, so restate the keys you keep:
+The web profile uses plugin ID `toolkit`. Configuration resides in `~/.dsh/profiles/web/cordis.patch.yml`.
+
+| Module value | Host and UI behavior |
+|---|---|
+| Omitted or `{}` | Enabled with default configuration |
+| Configuration object | Enabled with the standalone plugin's configuration |
+| `false` | Disabled |
+
+An override replaces the entire `config` object; retained custom values must be included. This configuration disables observability, sets browser discovery to port `43189`, and uses defaults for the remaining modules:
 
 ```yaml
 - id: toolkit
@@ -56,28 +71,22 @@ The keys take the standalone packages' config: `rdb` and `s3` per their READMEs,
 
 ### Migrating from the standalone packages
 
-From 0.5.0 the packages carry the `@onenightcarnival/` scope; the old `dsh-rdb`, `dsh-s3` and `dsh-otel` do not upgrade in place: remove them in the plugin manager, then install the new ones. Connections, credentials and settings live under `~/.dsh`, independent of the package name, and survive the switch.
+Packages use the `@onenightcarnival/` scope from 0.5.0. Migration order: remove the old `dsh-rdb`, `dsh-s3` and `dsh-otel` packages → install their replacements. Connections, credentials and settings remain under `~/.dsh`.
 
 ## Layout
 
-```
-packages/rdb              @onenightcarnival/dsh-rdb
-packages/s3               @onenightcarnival/dsh-s3
-packages/otel             @onenightcarnival/dsh-otel
-packages/browser-bridge   @onenightcarnival/dsh-bridge-browser
-packages/subscriptions    @onenightcarnival/dsh-subscriptions
-packages/toolkit          @onenightcarnival/dsh-toolkit: the host half mounts the five modules and serves
-                          /api/dsh-toolkit/modules, the client half mounts their surfaces from that map,
-                          the typert manifest is regenerated under this package's name
-extensions/dsh-browser    Chrome / Firefox extension (vite)
-benchmark                 Playwright comparison benchmark for browser operation
-docs/browser.md           Full browser-operation guide (desktop discovery beacon, troubleshooting, security model)
-scripts/build-plugin.mjs  esbuild driver shared by the plugins: host bundle + module-loader-wrapped client bundle
-scripts/version.mjs       One version into every package.json, both extension manifests and otel's PLUGIN_VERSION
-scripts/package.mjs       Every release artifact into dist/
-scripts/check-runtime.mjs Checks the dsh runtime locked at the root
-scripts/smoke-runtime.mjs Boots a real web host in a temporary DSH home and exercises the bridge
-```
+| Path | Responsibility |
+|---|---|
+| `packages/{rdb,s3,otel,browser-bridge,subscriptions}` | Five standalone plugins |
+| `packages/toolkit` | Module configuration, host and UI mounting, typert registration |
+| `extensions/dsh-browser` | Chrome / Firefox MV3 extension |
+| `benchmark` | Playwright comparison benchmark |
+| `docs/browser.md` | Browser installation, capabilities, troubleshooting and security boundaries |
+| `scripts/build-plugin.mjs` | Shared esbuild configuration for host and client bundles |
+| `scripts/version.mjs` | Package, extension manifest and OTel version synchronization |
+| `scripts/package.mjs` | Release artifacts and checksums |
+| `scripts/check-runtime.mjs` | Runtime version validation |
+| `scripts/smoke-runtime.mjs` | Real host validation in an isolated data directory |
 
 ## Development
 
@@ -94,20 +103,41 @@ pnpm --filter @onenightcarnival/dsh-rdb run build      # one package
 pnpm --filter dsh-browser-extension run build:firefox
 ```
 
-Each plugin's host bundle inlines its third-party dependencies (`@deepseek-ai/*` stay external, provided by the dsh runtime), so a tarball installs without reaching the npm registry. The toolkit bundles straight from the five packages' sources; its typecheck covers those sources too, on the single dsh line the workspace pins in `pnpm-workspace.yaml`.
+### Build contract
 
-Install check: `DSH_HOME=<temp dir> dsh plugin --profile web add file:<tgz>` into a temporary profile, start `dsh web --no-open --port 0`, exchange the ready line's token URL for the cookie, then call `/api/dsh-toolkit/modules`, `/api/dsh-rdb/profiles`, `/api/dsh-s3/profiles`, `/ext/bridge-config`. A token exchanges once; pnpm reuses the store copy of a `file:` package with an unchanged version, so `plugin remove` before re-adding.
+| Item | Contract |
+|---|---|
+| Host dependencies | dsh provides `@deepseek-ai/*`; package build configurations select other dependencies for inlining |
+| Subscription authentication | `@cortexkit/antigravity-auth-core` remains a runtime dependency of subscriptions and toolkit |
+| Integrated package | Bundles the five packages' sources directly; typechecking covers the same sources |
+| Runtime versions | Pinned through `pnpm-workspace.yaml` overrides |
+
+### Installation validation
+
+1. Set `DSH_HOME` to a temporary directory and run `dsh plugin --profile web add file:<tgz>`.
+2. Start `dsh web --no-open --port 0` and exchange the ready log's token URL for a cookie. Each token permits one exchange.
+3. Use the cookie to check `/api/dsh-toolkit/modules`, `/api/dsh-rdb/profiles`, `/api/dsh-s3/profiles` and `/ext/bridge-config`.
+
+pnpm caches same-version `file:` packages in its store. Repeat validation requires `plugin remove` before reinstallation.
 
 ## Release
 
-The tag is the version:
+The release version comes from the `v<version>` tag:
 
 ```sh
-git tag v0.5.1 && git push origin v0.5.1
+git tag v<version>
+git push origin v<version>
 ```
 
-The pushed tag triggers `.github/workflows/release.yml`: `scripts/version.mjs set` writes the tag's version into every package, both extension manifests and otel's `PLUGIN_VERSION`, then install, typecheck, build, test, package, and attach everything in `dist/` to the GitHub Release of the same name. The committed version may lag behind the tag; artifacts always carry the tag's. To keep the repository in step, run the same `set` locally and commit. A prerelease suffix (`v0.5.1-rc.1`) marks the release as pre-release; browser manifests take the numeric part only.
+| Stage | Result |
+|---|---|
+| Install | Dependencies installed from the lockfile |
+| Version synchronization | `scripts/version.mjs set` writes the tag version into packages, extension manifests and OTel `PLUGIN_VERSION` |
+| Validation and build | Typecheck → build → test → package |
+| Release | All files in `dist/` attached to the matching GitHub Release |
+
+Workflow: [release.yml](.github/workflows/release.yml). Artifact versions follow the tag; `pnpm version:set <version>` synchronizes repository versions. Tags with prerelease suffixes create prereleases; browser manifests retain only the numeric version.
 
 ## License
 
-MIT. Bundled third-party code keeps its own license; see each package's `THIRD-PARTY-NOTICES`.
+MIT. Third-party notices: [OTel](packages/otel/THIRD-PARTY-NOTICES), [Subscriptions](packages/subscriptions/THIRD_PARTY_LICENSES.txt), [Toolkit](packages/toolkit/THIRD_PARTY_LICENSES.txt).

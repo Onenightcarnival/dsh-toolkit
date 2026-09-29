@@ -1,11 +1,11 @@
 # DSH Browser Benchmark
 
-这个目录提供一个可重复的端到端评测，用同一个 DSH web profile、模型、任务和本机 Chromium，对比两种浏览器执行后端：
+浏览器执行后端的端到端评测，共用 DSH web profile、模型、任务与本机 Chromium。
 
 - `playwright`：runner 内置的 Playwright 基线插件，向模型暴露与产品一致的 `browser_*` 工具契约。
 - `extension`：本仓库真实的 DSH browser bridge + Chrome MV3 扩展。
 
-评测目标是比较“模型收到同一个任务后，到 DSH turn 完整结束”的真实耗时和成功率。它不是只测一次 `click()` 的微基准。
+测量范围：模型收到任务 → DSH turn 完整结束。主指标：耗时与成功率。
 
 ## 快速开始
 
@@ -75,9 +75,9 @@ node benchmark/report.mjs benchmark/results/<file>.jsonl
 | `cart_checkout` | 多步操作 | 服务端确认商品、数量和结算 |
 | `lazy_load` | 动态内容 | 服务端确认加载动作，回答确认新代码 |
 
-每个任务的可见数据随 seed 确定性变化，降低模型记住固定答案的可能。网页状态通过独立 HTTP API 验证，不依据模型自报“已完成”。
+任务数据由 seed 确定。网页状态由独立 HTTP API 验证，最终回答由任务 validator 校验。
 
-当前任务套件版本为 `2`。版本 `2` 修正了 `inventory_filter`：seed 继续改变商品根名称、SKU、价格和库存顺序，但不再把仅用于生成数据的 seed 数字拼进目标商品名。旧结果没有 `benchmarkSuiteVersion`，其成功率不能与版本 `2` 直接比较。以后只要任务提示、数据生成或 validator 语义变化，都必须递增该版本。
+任务套件版本：`2`。`inventory_filter` 的商品根名称、SKU、价格和库存顺序随 seed 变化，目标商品名不含 seed 数字。缺少 `benchmarkSuiteVersion` 的结果与版本 `2` 分组统计。任务提示、数据生成或 validator 语义变化时递增套件版本。
 
 ## 公平性控制
 
@@ -105,7 +105,7 @@ node benchmark/report.mjs benchmark/results/<file>.jsonl
 
 模型服务端延迟也无法由本地 runner 隔离。正式结论必须同时看成功率、配对结果、失败惩罚比、运行顺序敏感性和置信区间，而不是只比较一次 P50。
 
-## 建议的正式流程
+## 正式评测流程
 
 1. 关闭会争抢 CPU 的应用，固定网络环境和 DSH/model 配置。
 2. 先跑 `--smoke`，确认两边都成功，不要把基础设施故障混入正式数据。

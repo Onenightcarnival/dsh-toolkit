@@ -6,24 +6,19 @@
 
 把 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 连接到你正在使用的 Chrome 或 Firefox 标签页。模型可以读取页面内容、操作控件、导航和管理标签页，同时保留登录态、会话和 Cookie。侧边栏提供对话界面。
 
-`dsh` 是由 DeepSeek AI 开发的开源、插件化 agent harness（智能体框架）。本仓库将配套的浏览器桥插件与 Chrome/Firefox MV3 扩展组成一个独立的 pnpm workspace。
+## 组件
 
-本仓库是 [Lum1104/dsh-browser](https://github.com/Lum1104/dsh-browser) 的分支，面向 [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop) 桌面版。与上游的差异：
+| 组件 | 职责 |
+|---|---|
+| `@onenightcarnival/dsh-bridge-browser` | 宿主 RPC、浏览器工具与桥地址发现 |
+| Chrome / Firefox MV3 扩展 | 标签页操作、页面读取与侧边栏对话 |
+| dsh `0.1.7-rc.2` | 工作区锁定的最低支持运行时 |
 
-- 桥插件以 `@onenightcarnival/dsh-bridge-browser` 发布；
-- 固定端口的发现信标，让扩展找到以随机端口启动 dsh 的桌面版；
-- 发布页提供桌面版插件管理器可直接安装的 `.tgz` 与 Chrome 扩展 zip。
-
-安装方法见[安装](#安装)，桌面版相关说明见[在 DeepSeek Harness Desktop 中使用](#在-deepseek-harness-desktop-中使用)。
-
-浏览器操作以结构化文本为主、截图为辅：页面会转换为带编号的交互元素清单（穿透开放 shadow DOM 与 iframe，含 select 选项与状态），模型通过编号定位元素；`browser_screenshot` 可截取可见区域并把编号标注在图上，供多模态模型按图选点。工具集按 Claude in Chrome 的形态设计：读页面（快照或 Markdown）、找元素、截图、点击/输入/悬停/拖拽/批量填表、上传文件、处理弹窗、条件等待、批量步骤、标签页管理，以及在完全控制模式下的控制台、网络与 JavaScript 求值。宿主声明图片能力时，侧栏也可发送 PNG、JPEG、WebP 和 GIF。
-
-> [!IMPORTANT]
-> 当前工作区固定使用 dsh 0.1.7-rc.2，也是最低支持版本；不再支持旧版 DSH。
+浏览器模块源自 [Lum1104/dsh-browser](https://github.com/Lum1104/dsh-browser)。发布产物包含桥插件 `.tgz` 与 Chrome 扩展 zip，支持 [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop) 的随机宿主端口发现。
 
 ## 安装
 
-每个 [Release](https://github.com/Onenightcarnival/dsh-toolkit/releases) 附带两个文件：
+[Release](https://github.com/Onenightcarnival/dsh-toolkit/releases) 中的浏览器组件：
 
 | 文件 | 内容 |
 |---|---|
@@ -45,7 +40,7 @@ Firefox 没有打包产物，见 [Firefox 源码构建](#firefox-源码构建)�
 
 ## 在 DeepSeek Harness Desktop 中使用
 
-桌面版以随机端口启动 dsh。桥插件因此运行一个发现信标：监听 `127.0.0.1:43189`（被占时顺延到 43192）的回环端口，只回 `/ext/bridge-config`，返回真实的桥地址。扩展探测这个端口窗口，桌面版无需改动。`discoveryPort: 0` 关闭信标。
+桌面版 dsh 使用随机端口。发现信标监听 `127.0.0.1:43189`，端口占用时依次尝试至 `43192`；仅响应 `/ext/bridge-config`，返回宿主桥地址。扩展自动探测该端口范围。`discoveryPort: 0` 关闭信标。
 
 两个文件的安装方法见[安装](#安装)。
 
@@ -69,7 +64,7 @@ Firefox 没有打包产物，见 [Firefox 源码构建](#firefox-源码构建)�
 | **dsh 浏览器操作** | **30/30** | **5.32 秒** | **3.4** |
 | 对齐工具契约的 Playwright 基线 | 30/30 | 6.67 秒 | 4.7 |
 
-Playwright / 扩展的配对耗时比为 **1.24**（95% CI **1.16–1.34**）：Playwright 耗时约多 24%；等价地说，dsh 浏览器操作将延迟降低约 20%，每个任务平均节省 1.35 秒。评测使用 6 个浏览器任务、5 个确定性 seed、相同的 DSH profile 与模型（`deepseek-v4-flash`），并通过独立页面状态验证结果。详见[评测方法与复现说明](benchmark/README.md)。
+Playwright / 扩展的配对耗时比为 **1.24**（95% CI **1.16–1.34**）：Playwright 耗时约多 24%；等价地说，dsh 浏览器操作将延迟降低约 20%，每个任务平均节省 1.35 秒。评测使用 6 个浏览器任务、5 个确定性 seed、相同的 DSH profile 与模型（`deepseek-v4-flash`），并通过独立页面状态验证结果。详见[评测方法与复现说明](../benchmark/README.md)。
 
 ## 核心能力
 
@@ -106,17 +101,21 @@ Playwright / 扩展的配对耗时比为 **1.24**（95% CI **1.16–1.34**）：
 packages/browser-bridge/
   cordis.patch.yml
 extensions/dsh-browser/
-scripts/package-desktop.mjs
+scripts/package.mjs
 scripts/version.mjs
 ```
 
-## 为什么这样设计
+## 页面接口
 
-- **使用你的真实浏览器，而不是无头副本**：模型操作你已经打开的页面，登录态、会话和 Cookie 均会保留。
-- **文本优先、截图补充的页面接口**：编号控件、跨快照稳定 ID、delta 更新和敏感值掩码让模型在多数页面上不看图也能操作；图表、画布、复杂布局再用带编号标注的截图，图上的编号就是快照里的编号。
-- **用「指」代替「描述」**：直接划选你要问的那段文字，侧栏会把它引用下来，说「解释这个」不必再描述整页内容。只有侧栏打开时才会捕获，并且在你发送消息之前不会离开浏览器。
-- **收窄隐私边界**：密码和支付卡字段始终显示为 `••••`，字段值不会离开页面。
-- **受保护的桥连接**：远程连接使用认证握手，特权网关方法拒绝非回环调用方，扩展把工具绑定到一个由用户控制的标签页。
+| 接口 | 数据与边界 |
+|---|---|
+| 结构化快照 | 标题、URL、正文、编号控件、表单字段；支持开放 shadow DOM 与可访问 iframe |
+| 元素寻址 | 编号跨快照稳定；delta 模式返回变化 |
+| 截图 | 视口 PNG，标注编号与快照一致；模型需支持图片输入 |
+| 划选引用 | 侧栏打开且允许共享时捕获，随消息发送，发送前保留在扩展内 |
+| 文本隐私 | 密码与支付卡值显示为 `••••`；截图限制见[安全](#安全) |
+| 图片附件 | 宿主声明图片能力后接受 PNG、JPEG、WebP 与 GIF |
+| 标签页 | 工具绑定用户控制的标签页，保留登录态、会话和 Cookie |
 
 ## 从源码构建
 

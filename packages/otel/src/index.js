@@ -1,11 +1,8 @@
 /**
- * dsh-otel host half: a Typert Remote service named `dshOtel` that stores the
- * Langfuse/OTLP reporting configuration (public key, secret key, endpoint) in
- * the DSH storage domain and manages the embedded observability collector —
- * the Apache-2.0 licensed @loongsuite/dsh-plugin pipeline, bundled into this
- * package so the .tgz installs fully offline. Saving from the settings panel
- * hot-restarts the collector; a test action sends one span through a real
- * OTLP exporter so credentials and connectivity are verified end to end.
+ * Service: `dshOtel`, exposed through Typert Remote.
+ * Storage: Langfuse/OTLP configuration in the DSH storage domain.
+ * Collector: bundled Apache-2.0 @loongsuite/dsh-plugin; hot-restarted on save.
+ * Diagnostics: real OTLP exports, payload probes and conversation traces.
  */
 import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
@@ -18,13 +15,10 @@ import { defaultResource, resourceFromAttributes } from "@opentelemetry/resource
 import { BasicTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { z } from "zod";
 import * as collectorPlugin from "@loongsuite/dsh-plugin";
-// Internal modules of the bundled collector (not part of its public exports
-// map, reached by file path at bundle time): the real span-mapping pipeline,
-// used by the diagnostics to replicate a genuine conversation byte-for-byte.
+// Diagnostics use the collector's span mapping, resolved by file path at build time.
 import { createTelemetryPipeline } from "../node_modules/@loongsuite/dsh-plugin/dist/telemetry.js";
 import { DshTraceCoordinator } from "../node_modules/@loongsuite/dsh-plugin/dist/coordinator.js";
-// Live export statistics recorded by the exporter shim (same module instance
-// the bundled collector constructs its exporters from).
+// Export statistics share the collector's exporter shim instance.
 import { traceExportStats } from "./otlp-shims/trace.js";
 
 export const PLUGIN_VERSION = "0.6.0";
@@ -38,7 +32,7 @@ const configRecordSchema = z.object({
   secretKey: z.string(),
   enabled: z.boolean(),
   captureContent: z.boolean(),
-  // Optional so records saved by earlier plugin versions still load.
+  // Legacy configuration records may omit these fields.
   gzip: z.boolean().optional(),
   contentMaxChars: z.number().optional(),
   maxExportBatchSize: z.number().optional(),
@@ -53,10 +47,8 @@ export const DEFAULT_MAX_EXPORT_BATCH_SIZE = 512;
 const PAYLOAD_TEST_BYTES = 900 * 1024;
 
 /**
- * The embedded collector builds its OTLP exporters internally, so gzip can
- * only reach them through the standard OTLP environment variables, read at
- * exporter construction time. The variables stay set while a gzip-enabled
- * collector is mounted and are restored on stop.
+ * OTLP exporters read compression variables at construction.
+ * Gzip-enabled collectors retain these values until stop, then restore them.
  */
 const COMPRESSION_ENV_KEYS = [
   "OTEL_EXPORTER_OTLP_COMPRESSION",

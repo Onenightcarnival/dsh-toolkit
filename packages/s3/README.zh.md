@@ -1,13 +1,17 @@
 # dsh-s3
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）的
-S3 兼容对象存储浏览器插件：在 Web 界面侧边栏加一个「S3」入口，面板里
-按条记录 bucket 连接（bucket 名、Endpoint、Region、AK/SK、路径风格、
-可选前缀），浏览、上传、下载、预览、重命名、删除对象，生成限时分享
-链接；一个开关决定是否把 `s3_*` 工具注入给 agent。
+[English](README.md) | **中文**
 
-AWS S3、MinIO、阿里云 OSS、腾讯云 COS、Cloudflare R2、Backblaze B2 等
-提供 S3 兼容接口的服务都能接。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）S3 兼容对象存储浏览器。入口：Web 侧边栏「S3」。
+
+| 界面 | 功能 |
+|---|---|
+| 连接 | Bucket、Endpoint、Region、AK/SK、路径风格与前缀 |
+| 对象 | 浏览、上传、下载、预览、重命名与删除 |
+| 分享 | 限时预签名链接 |
+| Agent | 全局 `s3_*` 工具开关 |
+
+支持 AWS S3、MinIO、阿里云 OSS、腾讯云 COS、Cloudflare R2、Backblaze B2 等 S3 兼容服务。
 
 ## 安装
 
@@ -15,9 +19,9 @@ AWS S3、MinIO、阿里云 OSS、腾讯云 COS、Cloudflare R2、Backblaze B2 �
 dsh plugin --profile web add file:./onenightcarnival-dsh-s3-<版本>.tgz
 ```
 
-tgz 从 [dsh-toolkit 的 Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases) 下载，同一页还有把四个插件打在一起的
-`onenightcarnival-dsh-toolkit-<版本>.tgz`，二者装其一。桌面版在「插件 → 配置中心 →
-插件 → 从 .tgz 安装」选中包即可，重启生效。AWS SDK 已打进 `lib/index.js`，没有运行时依赖。
+发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与包含五个模块的集成包互斥。
+
+桌面版入口：插件 → 配置中心 → 插件 → 从 .tgz 安装，重启生效。AWS SDK已内联至 `lib/index.js`。
 
 ## 使用
 
@@ -38,13 +42,13 @@ tgz 从 [dsh-toolkit 的 Releases](https://github.com/Onenightcarnival/dsh-toolk
 
 ## 安全边界
 
-- AK/SK 以明文存在用户主目录私有文件里（与 dsh-ssh 插件同一信任模型），
+- AK/SK 以明文存在用户主目录私有文件里，
   不会返回给浏览器或 agent；界面只显示密钥的前四位。
 - `/api/dsh-s3/*` 路由只接受本机回环地址、同源浏览器标记，并且要求
-  dsh web 自己的浏览器会话 cookie——没有 GUI cookie 的本地进程会得到 401。
+  dsh web 自己的浏览器会话 cookie——缺少 GUI cookie 时返回 401。
 - 对象下载路由对非图片 / PDF / 音视频类型一律强制 `attachment` 且
   `nosniff`，桶里存的 HTML/SVG 不会在 GUI 源内执行。
-- 所有请求由 dsh host 进程发出，跟随桌面版的代理设置，浏览器端无 CORS 问题。
+- 所有请求由 dsh host 进程发出，跟随桌面版的代理设置。
 
 ## 开发
 
@@ -53,7 +57,7 @@ tgz 从 [dsh-toolkit 的 Releases](https://github.com/Onenightcarnival/dsh-toolk
 ```sh
 pnpm install
 pnpm --filter @onenightcarnival/dsh-s3 run build        # lib/index.js（host，内联 AWS SDK）
-                                                        # lib/client.js（浏览器半边，dsh 模块加载器封装）
+                                                        # lib/client.js（客户端，dsh 模块加载器封装）
 pnpm --filter @onenightcarnival/dsh-s3 run typecheck
 pnpm --filter @onenightcarnival/dsh-s3 pack             # onenightcarnival-dsh-s3-<版本>.tgz
 ```
@@ -62,7 +66,7 @@ pnpm --filter @onenightcarnival/dsh-s3 pack             # onenightcarnival-dsh-s
 `DSH_HOME=<临时目录> dsh plugin --profile web add file:<tgz>` 装进临时
 profile，`dsh web --no-open --port 0` 启动后用就绪行里的 token URL 换
 cookie，再打 `/api/dsh-s3/*`；GUI 用 Playwright 打开 token URL 点侧边栏
-「S3」即可截图。注意同一个 token 只能换一次 cookie，换浏览器要重启 dsh web；
+「S3」即可截图。同一个 token 只能换一次 cookie，换浏览器要重启 dsh web；
 pnpm 对同版本号的 file: 包会复用 store 里的旧内容，迭代时直接把 lib 拷进
 profile 的 node_modules 或先 `plugin remove` 再 add。
 

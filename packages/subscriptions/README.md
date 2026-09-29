@@ -2,13 +2,17 @@
 
 **English** | [中文](README.zh.md)
 
-ChatGPT and Google Antigravity subscriptions for DeepSeek Harness. The **AI subscriptions** sidebar contains provider selection, accounts, model settings and usage, with the S3 / RDB layout, host theme and English / Chinese translations.
+ChatGPT and Google Antigravity subscriptions for DeepSeek Harness. Entry: **AI subscriptions** in the sidebar, with providers, accounts, models, tools and usage. The panel supports the host theme and English / Chinese.
 
-Install this package or the toolkit:
+## Installation
+
+The standalone package and toolkit are mutually exclusive:
 
 ```sh
 dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
 ```
+
+## ChatGPT
 
 Connect ChatGPT through browser OAuth. The callback tries local ports 1455 and 1457. If both are reserved or occupied, login automatically switches to manual callback mode: finish authorization, then copy the complete `localhost` URL from the browser address bar into the panel, even if that browser page cannot load. Credentials stay on the host. Add accounts, select the default, or disconnect them from the panel.
 
@@ -16,6 +20,8 @@ Connect ChatGPT through browser OAuth. The callback tries local ports 1455 and 1
 - **Web Search:** `codex_web_search` uses the ChatGPT subscription directly, with DSH search cards and source URLs. DSH's web search provider setting is independent.
 - **Images:** `codex_image_generate` supports generation and attachment-based editing, local files and inline image previews/downloads. Files live under `plugins/subscriptions/images/` in the DSH home.
 - **Usage:** per-account quota windows and reset times, refreshed on demand. Missing usage is shown as unknown.
+
+## Tools
 
 | Tool | Input | Result |
 | --- | --- | --- |
@@ -51,18 +57,40 @@ OAuth client configuration, in precedence order:
 3. `$DSH_HOME/plugins/subscriptions/antigravity-oauth-client.json`, with `clientId` and optional `clientSecret`.
 4. Default client configuration from the pinned runtime dependency `@cortexkit/antigravity-auth-core@2.2.0`.
 
-Login preserves the resolved client configuration locally for subsequent token refreshes. Plugin source and build artifacts retain the core package import; client constants reside in the dependency. Login does not download reference-project source.
+Resolved OAuth client configuration is stored locally for subsequent token refreshes. The pinned runtime dependency provides client constants.
 
 Project selection uses `antigravity.projectId`, then account discovery. Missing discovery endpoints (404) or absent project fields use the reference plugin’s account-specific compatibility identifier. This identifier does not create a Google Cloud project or grant access. Configure `antigravity.projectId` if the service requires a provisioned project. Authentication, permission and quota errors remain failures.
 
 Access depends on account entitlements and quota. Offline tests do not establish live account access.
 
-The toolkit enables this module by default; `subscriptions: false` disables host and UI. Standalone plugin ID: `subscriptions`. Configuration: `enabled`, `codexClientVersion`, `streamIdleTimeoutMs`, `rateLimit`, `models` for Codex, and `antigravity.models` for Antigravity. Model entries accept `id`, `name`, `contextWindow`, and `inputModalities`. Antigravity also accepts `clientId`, `clientSecret`, `baseURL`, `userAgent`, `projectId` and `onboard` (off by default).
+## Configuration
+
+The toolkit enables this module by default; `subscriptions: false` disables host and UI. Standalone plugin ID: `subscriptions`.
+
+| Scope | Fields |
+|---|---|
+| General | `enabled`, `codexClientVersion`, `streamIdleTimeoutMs`, `rateLimit` |
+| Codex models | `models` |
+| Antigravity models | `antigravity.models` |
+| Model entry | `id`; optional `name`, `contextWindow`, `inputModalities` |
+| Antigravity connection | `clientId`, `clientSecret`, `baseURL`, `userAgent`, `projectId`, `onboard` (off by default), under `antigravity` |
 
 Auth and preferences use `plugins/subscriptions/` in the DSH home. The original subscription plugin shares the provider and authenticated RPC names; the two packages cannot be loaded together.
+
+## Source and license
 
 `src/backend` contains OAuth PKCE, token refresh, streaming model adapters, Codex search and image attachment handling. Providers: `codex`, `antigravity`. The backend builds from local source. Antigravity protocol reference: [LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6). Source provenance and MIT license notices reside in `THIRD_PARTY_LICENSES.txt`.
 
 Third-party notices are included in both standalone and toolkit artifacts. Backend changes require rerunning the OAuth, RPC, model and tool-policy integration tests.
 
-After building, run `pnpm --filter @onenightcarnival/dsh-subscriptions test` for RPC and panel regression tests, and `pnpm --filter @onenightcarnival/dsh-subscriptions test:smoke` for the real web host in isolated DSH homes (standalone, toolkit enabled/disabled and authentication). No personal credentials or live model calls are used. `node packages/subscriptions/test/preview.mjs` serves a local UI fixture with sample data only.
+## Development
+
+Commands run from the repository root after building:
+
+| Command | Coverage |
+|---|---|
+| `pnpm --filter @onenightcarnival/dsh-subscriptions test` | OAuth, RPC, models, tool policy and panel interactions |
+| `pnpm --filter @onenightcarnival/dsh-subscriptions test:smoke` | Real host in isolated DSH homes; standalone, toolkit enabled/disabled and authentication |
+| `node packages/subscriptions/test/preview.mjs` | Local UI preview with sample data |
+
+Tests use isolated data without personal credentials or live model calls.

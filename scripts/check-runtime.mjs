@@ -8,8 +8,7 @@ const require = createRequire(new URL('package.json', root))
 const manifest = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
 const version = manifest.dependencies['@deepseek-ai/dsh']
 const lockfile = readFileSync(new URL('pnpm-lock.yaml', root), 'utf8')
-// Inspect package keys, including snapshots, without depending on pnpm's
-// private APIs or mistaking version text inside a peer suffix for a package.
+// Package and snapshot keys supply versions; peer suffixes are excluded.
 const lockedPackages = [...lockfile.matchAll(/^  '(@deepseek-ai\/dsh(?:-[^@']+)?)@([^(' :]+)[^']*':/gm)]
 assert.ok(lockedPackages.length > 0, 'no DSH package keys found in lockfile')
 for (const [, name, resolved] of lockedPackages) {
@@ -17,7 +16,7 @@ for (const [, name, resolved] of lockedPackages) {
   assert.equal(resolved, version, `${name}: lockfile has a different DSH release`)
 }
 
-// Follow the same first-provider traversal as dsh-app-boot's profile fallback.
+// Provider traversal matches dsh-app-boot's first-provider profile fallback.
 const anchor = require.resolve('@deepseek-ai/dsh/package.json')
 const queue = [anchor]
 const providers = new Map([['@deepseek-ai/dsh', anchor]])
@@ -29,7 +28,7 @@ for (let i = 0; i < queue.length; i++) {
     if (providers.has(name)) continue
     let path
     try { path = resolve.resolve(`${name}/package.json`) } catch (error) {
-      // Other packages can hide package.json; DSH publishes its manifests.
+      // DSH manifests are public; other packages may restrict manifest exports.
       if (name.startsWith('@deepseek-ai/dsh') && error.code !== 'MODULE_NOT_FOUND') throw error
       continue
     }

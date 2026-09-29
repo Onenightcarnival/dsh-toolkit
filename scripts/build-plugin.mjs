@@ -1,9 +1,8 @@
 /**
- * esbuild driver shared by the plugin packages.
+ * Shared plugin builds.
  *
- *   buildHost({ dir, entry, outfile, inlined })    Node ESM bundle; @deepseek-ai/* stay external
- *   buildClient({ dir, entry, outfile })           browser bundle in dsh's module-loader envelope,
- *                                                  module id = the package name
+ * Host: Node ESM; DSH runtime packages remain external.
+ * Client: browser bundle in the DSH module loader; module ID = package name.
  */
 import { build } from 'esbuild'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -19,8 +18,7 @@ function manifest(dir) {
 
 function versionOf(dir, name) {
   const require = createRequire(join(dir, 'package.json'))
-  // Resolve both isolated and hoisted installs, including packages that hide
-  // package.json behind their exports map (e.g. gaussdb-node).
+  // Manifest lookup covers isolated and hoisted installs, including unexported manifests.
   const file = require.resolve.paths(name).map(path => join(path, name, 'package.json')).find(existsSync)
   if (!file) throw new Error(`Cannot find ${name}/package.json from ${dir}`)
   return JSON.parse(readFileSync(file, 'utf8')).version
@@ -43,7 +41,7 @@ export async function buildHost({ dir, entry, outfile = 'lib/index.js', inlined 
     legalComments: 'none',
     logLevel: 'info',
     plugins,
-    // Bundled CJS code require()s node builtins at runtime; an ESM bundle needs a real require in scope.
+    // Bundled CommonJS dependencies use createRequire for Node builtins.
     banner: { js: `// ${pkg.name}@${pkg.version} host half${inlinedText ? ` (${inlinedText} inlined)` : ''}
 import { createRequire as __toolkitCreateRequire } from 'node:module';
 const require = __toolkitCreateRequire(import.meta.url);` },

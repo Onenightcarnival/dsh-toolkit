@@ -6,24 +6,19 @@
 
 Connect [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) to the Chrome or Firefox tabs you are already using. The model can read page content, operate controls, navigate, and manage tabs while preserving your login state, session, and cookies. A side panel or sidebar provides the conversation UI.
 
-`dsh` is DeepSeek AI's open-source, plugin-based agent harness. This repository provides a companion browser bridge plugin and Chrome/Firefox MV3 extension as one standalone pnpm workspace.
+## Components
 
-This repository is a fork of [Lum1104/dsh-browser](https://github.com/Lum1104/dsh-browser) adapted for [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop). Differences from upstream:
+| Component | Responsibility |
+|---|---|
+| `@onenightcarnival/dsh-bridge-browser` | Host RPC, browser tools and bridge discovery |
+| Chrome / Firefox MV3 extension | Tab operations, page reads and side-panel conversations |
+| dsh `0.1.7-rc.2` | Workspace pin and minimum supported runtime |
 
-- the bridge plugin is published as `@onenightcarnival/dsh-bridge-browser`;
-- a fixed-port discovery beacon lets the extension find a desktop app that starts dsh on a random port;
-- releases ship a `.tgz` for the desktop app's plugin manager plus a Chrome extension zip.
-
-Installation: [Install](#install). Desktop specifics: [Using with DeepSeek Harness Desktop](#using-with-deepseek-harness-desktop).
-
-Browser operation is text-first with screenshots on demand: pages become a numbered inventory of interactive elements (piercing open shadow DOM and iframes, with select options and states), the model addresses elements by number, and `browser_screenshot` captures the viewport with those numbers drawn on the image so a multimodal model can pick targets visually. The tool set follows Claude in Chrome's shape: read page (snapshot or Markdown), find, screenshot, click/type/hover/drag/batch form input, file upload, dialog handling, conditional wait, batched steps, tab management, and — behind the full-control setting — console, network, and JavaScript evaluation. The side panel also accepts PNG, JPEG, WebP, and GIF attachments when the host advertises image support.
-
-> [!IMPORTANT]
-> The workspace pins dsh 0.1.7-rc.2, the minimum supported runtime. Older DSH releases are not supported.
+The browser module derives from [Lum1104/dsh-browser](https://github.com/Lum1104/dsh-browser). Release artifacts include the bridge `.tgz` and Chrome extension zip, with random host-port discovery for [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop).
 
 ## Install
 
-Each [release](https://github.com/Onenightcarnival/dsh-toolkit/releases) ships two files:
+Browser components in each [release](https://github.com/Onenightcarnival/dsh-toolkit/releases):
 
 | File | Contents |
 |---|---|
@@ -45,7 +40,7 @@ Firefox has no packaged build; see [Firefox source build](#firefox-source-build)
 
 ## Using with DeepSeek Harness Desktop
 
-The desktop app starts dsh on a random port. The bridge plugin therefore runs a discovery beacon: a loopback listener on `127.0.0.1:43189` (falling back through 43192) that answers only `/ext/bridge-config` with the real bridge URL. The extension probes that port window, and the desktop app needs no change. `discoveryPort: 0` disables the beacon.
+The desktop host uses a random port. The discovery beacon listens on `127.0.0.1:43189`, falling back through `43192`, and serves the host bridge URL at `/ext/bridge-config` only. The extension probes this port range automatically. `discoveryPort: 0` disables the beacon.
 
 Install both files as described in [Install](#install).
 
@@ -69,7 +64,7 @@ In a paired 60-run end-to-end benchmark on August 18, 2026, both backends comple
 | **dsh Browser Control** | **30/30** | **5.32 s** | **3.4** |
 | Matched Playwright baseline | 30/30 | 6.67 s | 4.7 |
 
-The paired Playwright / extension duration ratio was **1.24** (95% CI **1.16–1.34**): Playwright took about 24% longer, or equivalently, dsh Browser Control reduced latency by about 20% and saved 1.35 seconds per task on average. The suite used six browser tasks, five deterministic seeds, the same DSH profile and model (`deepseek-v4-flash`), and independently validated page state. See the [benchmark methodology and reproduction guide](benchmark/README.md).
+The paired Playwright / extension duration ratio was **1.24** (95% CI **1.16–1.34**): Playwright took about 24% longer, or equivalently, dsh Browser Control reduced latency by about 20% and saved 1.35 seconds per task on average. The suite used six browser tasks, five deterministic seeds, the same DSH profile and model (`deepseek-v4-flash`), and independently validated page state. See the [benchmark methodology and reproduction guide](../benchmark/README.md).
 
 ## Core capabilities
 
@@ -106,17 +101,21 @@ The paired Playwright / extension duration ratio was **1.24** (95% CI **1.16–1
 packages/browser-bridge/
   cordis.patch.yml
 extensions/dsh-browser/
-scripts/package-desktop.mjs
+scripts/package.mjs
 scripts/version.mjs
 ```
 
-## Why this design
+## Page interface
 
-- **Your real browser, not a headless copy**: the model works in the page you already have open, retaining logins, sessions, and cookies.
-- **A text-first page interface with screenshots as a supplement**: numbered controls, stable IDs across snapshots, delta updates, and masked sensitive values make most pages operable without images; charts, canvases, and complex layouts get an annotated screenshot whose labels are the snapshot indices.
-- **Pointing instead of describing**: highlight the passage you mean and the side panel quotes it, so "explain this" needs no page tour. The quote is captured only while a panel is open, and nothing is sent until you send the message.
-- **A narrow privacy boundary**: passwords and payment-card values are always rendered as `••••` and never leave the page.
-- **A guarded bridge**: authenticated handshakes protect remote connections, privileged gateway methods reject non-loopback callers, and the extension binds tools to one user-controlled tab.
+| Interface | Data and boundary |
+|---|---|
+| Structured snapshot | Title, URL, text, numbered controls and form fields; open shadow DOM and accessible iframes |
+| Element addressing | Stable numbers across snapshots; delta mode returns changes |
+| Screenshot | Viewport PNG with matching snapshot indices; requires model image input |
+| Selection quote | Captured with an open panel and page sharing enabled; retained in the extension until message submission |
+| Text privacy | Password and payment-card values render as `••••`; screenshot limits are listed under [Security](#security) |
+| Image attachments | PNG, JPEG, WebP and GIF when advertised by the host |
+| Tabs | Tools bind to a user-controlled tab with its login state, session and cookies |
 
 ## Building from source
 

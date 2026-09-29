@@ -1,19 +1,13 @@
 /**
- * Bridge WebSocket carrier: token-authenticated connection registry, gateway
- * RPC dispatch, per-connection event pump, and tool-call dispatch to the
- * connected browser extension.
+ * WebSocket bridge: connection registry, host RPC, event streams and tools.
  *
- * The route this server mounts (`/ext/bridge`) lives OUTSIDE the /api trust
- * fence (which only guards the client-connection routes), so the bridge brings
- * its own authentication: a bearer token presented in the `hello` frame within
- * HELLO_TIMEOUT_MS. Host calls terminate at the bridge-owned Host adapter.
- * Methods the /api carrier pins to loopback (`PRIVILEGED_METHODS`)
- * stay loopback-only here regardless of the token, defense in depth for
- * `--host 0.0.0.0` deployments.
+ * Route: /ext/bridge, authenticated independently of /api.
+ * Handshake: hello within HELLO_TIMEOUT_MS; bearer token required except for
+ * loopback Chrome extension origins. Privileged methods remain loopback-only.
+ * Host calls: bridge-owned Host adapter.
  *
- * One active connection at a time: a new authenticated socket replaces the
- * previous one (the old socket is closed and its in-flight tool calls settle
- * as `bridge-closed`).
+ * Ownership: one active connection; replacement closes the previous socket
+ * and settles its pending tool calls as `bridge-closed`.
  *
  * @module
  */
@@ -38,10 +32,8 @@ import { SessionPurgeError } from './session-purge.ts'
 import { verifyToken } from './token.ts'
 
 /**
- * Gateway methods the /api carrier pins to loopback (mirror of
- * client-connection's PRIVILEGED_METHODS; kept verbatim so the two fences
- * cannot drift). The bridge rejects these for non-loopback remotes even with
- * a valid token.
+ * Loopback-only methods, matching client-connection's PRIVILEGED_METHODS.
+ * Non-loopback callers are rejected regardless of token validity.
  */
 const PRIVILEGED_METHODS = new Set([
   'host.pickDirectory',
@@ -63,7 +55,7 @@ const ORDERED_SESSION_METHODS = new Set([
   'session.cancel',
 ])
 
-/** Loopback IPv4/IPv6 literals (IPv4-mapped included). Exported for tests and reuse. */
+/** Loopback IPv4/IPv6 literals, including IPv4-mapped IPv6. */
 export function isLoopbackAddress(address: string | undefined): boolean {
   return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1'
 }
@@ -92,18 +84,14 @@ export interface BridgeServerDeps {
   /** Seed a followed-page snapshot into a live or deferred Agent session. */
   injectBrowserSnapshot: (sessionId: string, snapshot: string) => void | Promise<void>
   /**
-   * Permanently delete one session's durable storage. Callers archive the
-   * session through the gateway first; this only removes files.
+   * Session removal result: files purged now or deferred until the next restart.
    */
-  /** Delete one session; resolves with whether the files are gone now or only after the next restart. */
   purgeSession: (sessionId: string) => Promise<'purged' | 'deferred'>
   /**
-   * Test seam: force the remote address seen by the privilege gate. The
-   * sandbox cannot bind arbitrary loopback literals, so the non-loopback
-   * branch is exercised through this override; production never sets it.
+   * Test-only remote address for privilege-gate checks; unset in production.
    */
   remoteAddressOverride?: string
-  /** Seconds a fresh socket may present `hello`; defaults to HELLO_TIMEOUT_MS. */
+  /** Handshake deadline in milliseconds; defaults to HELLO_TIMEOUT_MS. */
   helloTimeoutMs?: number
   /** Server ping cadence; defaults to PING_INTERVAL_MS. */
   pingIntervalMs?: number
@@ -134,9 +122,7 @@ function sendFrame(ws: WebSocket, frame: BridgeFrame): void {
 }
 
 /**
- * Decode one ws message payload to text. Exported so all three delivery
- * shapes (fragmented buffer list, Buffer, ArrayBuffer) are unit-testable
- * directly — node ws only ever delivers Buffers in practice.
+ * UTF-8 decoding for Buffer, ArrayBuffer and fragmented buffer payloads.
  * @param data - ws message payload.
  * @returns the decoded UTF-8 text.
  */
@@ -193,9 +179,7 @@ export class BridgeServer {
     if (conn === null) {
       throw new BridgeToolError('bridge-closed', 'no browser extension is connected to the bridge')
     }
-    // A caller that already aborted must not dispatch: the abort listener
-    // below does not replay for pre-aborted signals, so the call would be
-    // sent to the extension and executed despite the cancellation.
+    // Pre-aborted calls settle before dispatch to the extension.
     if (signal.aborted) {
       throw new BridgeToolError('bridge-closed', 'tool call cancelled before dispatch')
     }
@@ -210,9 +194,7 @@ export class BridgeServer {
         reject(error)
       }
       const cancel = (error: BridgeToolError): void => {
-        // The extension may be paused on a user approval after the caller has
-        // stopped waiting. Withdraw that approval before settling locally so
-        // a late click cannot execute an expired action.
+        // Extension cancellation withdraws pending approval before local settlement.
         sendFrame(conn.ws, { t: 'tool.cancel', id })
         settle(error)
       }
@@ -248,11 +230,10 @@ export class BridgeServer {
    * @returns a promise resolving after the acceptor and all pumps stop.
    */
   async close(): Promise<void> {
-    // Idempotent: a second close must not touch the acceptor (ws throws
-    // "The server is not running" when closing an already-closed server).
+    // Close is idempotent; the acceptor closes once.
     if (this.closed) return
     this.closed = true
-    // Capture the live pump BEFORE replaceConnection nulls the connection.
+    // Pump ownership is captured before connection replacement.
     const pumps = this.current === null ? [] : [this.current.pump]
     this.replaceConnection()
     for (const socket of this.wss.clients) socket.terminate()
@@ -292,16 +273,9 @@ export class BridgeServer {
           ws.close(1008, 'hello first')
           return
         }
-        // Zero-config local mode: loopback sockets skip the token (the
-        // extension auto-discovers the bridge and connects without setup).
-        // WebSockets have no same-origin policy, so a malicious page could
-        // open a cross-origin socket to 127.0.0.1 with a loopback remote —
-        // the loopback shortcut therefore requires a chrome-extension://
-        // Origin (only extension contexts can present one; pages cannot
-        // forge the header). Firefox moz-extension:// origins contain a
-        // per-install UUID rather than the manifest's stable Gecko ID, so
-        // they are not an identity boundary and must present the bearer token.
-        // Non-loopback remotes must also present the bearer token.
+        // Token exemption: loopback address AND chrome-extension:// origin.
+        // WebSocket origins lack same-origin enforcement; web pages receive no exemption.
+        // Firefox per-install UUID origins and non-loopback callers require a token.
         const loopbackNoToken = isLoopbackAddress(remoteAddress)
           && typeof origin === 'string'
           && origin.startsWith('chrome-extension://')
@@ -342,9 +316,7 @@ export class BridgeServer {
       } catch (error: unknown) {
         if (!abort.signal.aborted && ws.readyState === WebSocket.OPEN) {
           sendFrame(ws, { t: 'error', code: 'stream-failed', message: String(error) })
-          // An authenticated socket without its Remote streams is unusable but
-          // otherwise appears healthy to the extension. Closing the generation
-          // activates its bounded reconnect loop and rebuilds every follower.
+          // Remote stream failure closes this generation; reconnect rebuilds followers.
           ws.close(1011, 'event stream failed')
         }
       }
@@ -385,9 +357,8 @@ export class BridgeServer {
   }
 
   /**
-   * Preserve prompt/cancel arrival order per session. In particular, the
-   * first prompt may still be materializing a provisional session; its cancel
-   * must not reach the gateway until that admission has completed.
+   * Per-session arrival order: prompt admission completes before cancellation,
+   * including materialization of provisional sessions.
    */
   private routeRpc(frame: Extract<ClientFrame, { t: 'rpc' }>): void {
     const sessionId = orderedSessionId(frame)
@@ -548,9 +519,7 @@ function orderedSessionId(frame: Extract<ClientFrame, { t: 'rpc' }>): string | u
 }
 
 /**
- * Tool error payload → stable code. The wire parser enforces string fields,
- * so the fallback branches are parser-gated; exported so the fallback
- * contract is unit-testable directly.
+ * Tool error payload → stable code; non-string fields use the fallback.
  * @param payload - extension-reported error payload.
  * @returns the stable error code.
  */
@@ -564,9 +533,7 @@ export function payloadCode(payload: unknown): ToolErrorCode {
 }
 
 /**
- * Tool error payload → message. The wire parser enforces string fields, so
- * the fallback branches are parser-gated; exported so the fallback contract
- * is unit-testable directly.
+ * Tool error payload → message; non-string fields use the fallback.
  * @param payload - extension-reported error payload.
  * @returns the human-readable message.
  */

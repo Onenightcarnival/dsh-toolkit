@@ -1,8 +1,7 @@
 /**
- * dsh-s3 — host half. Mounts the /api/dsh-s3 route family (bucket profile
- * store + S3 operations for the panel) and, only while the user has switched
- * it on in the panel, the s3_* agent tools plus a system-prompt notice. The
- * browser half (./client) renders the bucket browser.
+ * Host routes: /api/dsh-s3, bucket profiles and object operations.
+ * Agent tools: s3_* and system guidance, active while enabled in the panel.
+ * Client: bucket browser in ./client.
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -33,7 +32,7 @@ export const S3_GUIDANCE = '本机已安装 dsh-s3 插件（S3 兼容对象存�
 
 const MOUNTED = Symbol.for('dsh-web.mounted-plugins')
 
-/** Run at most once per process (a standalone install next to a bundle must not double-register). */
+/** One active registration per package and process; disposal releases the slot. */
 function mountOnce<T extends (...args: any[]) => unknown>(packageName: string, fn: T): T {
   return ((...args: unknown[]) => {
     const registry = globalThis as { [MOUNTED]?: Set<string> }

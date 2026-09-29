@@ -1,8 +1,7 @@
 /**
- * dsh-rdb — host half. Mounts the /api/dsh-rdb route family (connection
- * store + database operations for the panel) and, only while the user has
- * switched it on in the panel, the db_* agent tools plus a system-prompt
- * notice. The browser half (./client) renders the workbench.
+ * Host routes: /api/dsh-rdb, connection storage and database operations.
+ * Agent tools: db_* and system guidance, active while enabled in the panel.
+ * Client: database workbench in ./client.
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -33,7 +32,7 @@ export const RDB_GUIDANCE = '本机已安装 dsh-rdb 插件（关系数据库工
 
 const MOUNTED = Symbol.for('dsh-web.mounted-plugins')
 
-/** Run at most once per process (a standalone install next to a bundle must not double-register). */
+/** One active registration per package and process; disposal releases the slot. */
 function mountOnce<T extends (...args: any[]) => unknown>(packageName: string, fn: T): T {
   return ((...args: unknown[]) => {
     const registry = globalThis as { [MOUNTED]?: Set<string> }

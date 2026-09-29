@@ -2,9 +2,15 @@
 
 [English](README.md) | 中文
 
-dsh 的**浏览器操作桥**：在宿主 webserver 上挂载一个 **token 认证的 WebSocket 通道**（`/ext/bridge`），供 Chrome 扩展连接；把扩展调用投影到 dsh 0.1.7 Typert Remotes、按连接跟随 Session 与 Remote Event 流，并注册 `browser_*` 工具集（结构化文本为主，`browser_screenshot` 返回标注截图）——经扩展在真实浏览器中读取页面、点击元素、填写表单、滚动与导航，登录态保留。侧边栏是对话入口，工具才是产品本体。
+dsh 浏览器操作桥，连接宿主与 Chrome / Firefox 扩展。
 
-**纯文本浏览器工具，多模态对话透传**：页面快照仍是结构化文本（标题、正文、带编号的交互清单、敏感值打码的表单字段），所有浏览器动作按稳定编号寻址。通用 RPC 通道也会透传 dsh 0.1.7 的图片消息和持久附件读取；延迟创建的新会话只在宿主确实挂载附件服务时声明图片限制。
+| 边界 | 契约 |
+|---|---|
+| 传输 | `/ext/bridge` WebSocket；握手认证、单活动连接 |
+| 宿主 | dsh 0.1.7 Typert Remotes、Session 与 Remote Event 流 |
+| 工具 | `browser_*` 读取和操作受控标签页，保留登录态 |
+| 页面 | 结构化文本、稳定编号与带编号截图 |
+| 附件 | 图片消息与持久附件读取；图片限制由宿主附件服务声明 |
 
 ## 配置
 
@@ -31,7 +37,7 @@ dsh 的**浏览器操作桥**：在宿主 webserver 上挂载一个 **token 认�
 
 当前工作区固定使用 dsh 0.1.7-rc.2，也是最低支持版本；不再支持旧版 DSH。
 
-扩展另从 Release 的 zip 安装（见[根 README](../../README.zh.md#安装)）。扩展会自动发现回环连接，无需输入 token；非回环部署仍需要配置的 bearer token。
+扩展另从 Release 的 zip 安装（见[根 README](../../README.zh.md#安装)）。本机 Chrome 自动发现桥地址，无需输入 token。Firefox 和非回环连接需要 bearer token。
 
 ## 安全模型
 
@@ -71,13 +77,13 @@ dsh 的**浏览器操作桥**：在宿主 webserver 上挂载一个 **token 认�
 
 ## 扩展点
 
-- 工具集是消费面；seam 是桥接线（`protocol.ts`）。在 `ctx.tools` 注册新工具并经由桥分发即可，扩展的 content script 按动作名分发。
+- 工具分发：`ctx.tools` 注册 → 桥协议（`protocol.ts`）→ 扩展动作处理器。
 - 协商 caps（`hello.ok`）让插件无需共享配置文件即可向扩展下达快照预算。
 
-## 已知限制与后续工作
+## 运行边界
 
 - 仅一个活动扩展连接（第二个窗口顶替第一个）。
 - 可访问的跨源 iframe 会进入快照，并通过稳定的 `(frame, index)` 地址执行操作；受保护或已销毁的 frame 会标记为不可访问，不影响整页快照。
 - token 手动轮换（改 `~/.dsh/ext-bridge-token` 或配置 `token`），无过期。
 - Playwright 驱动的扩展 e2e 会在缺少可用的 Chromium 可执行文件或构建完成的扩展包时自行跳过。
-- 审批由扩展 service worker 强制执行，而不是依赖模型自觉。未来接入 dsh 工具管线时可以把同一策略暴露给其它客户端。
+- 工具审批由扩展 service worker 强制执行。

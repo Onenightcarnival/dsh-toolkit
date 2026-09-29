@@ -2,9 +2,13 @@
 
 English | [中文](README.zh.md)
 
-The **browser-operation end** of dsh: the model reads and operates the browser page you have open — extract content, click elements, fill forms, scroll, and navigate, all in the real page with your login state preserved. The side panel is the conversation entry.
+Chrome / Firefox MV3 extension for dsh, with real-tab control, preserved login state and side-panel conversations.
 
-**Two explicit channels**: browser pages are still rendered as structured text (a numbered interactive-element inventory), so browser tools never take screenshots. Separately, a dsh 0.1.2 host can advertise multimodal image limits; the side panel then accepts PNG, JPEG, WebP, and GIF attachments and renders their durable history references.
+| Channel | Data |
+|---|---|
+| Page snapshot | Structured text, numbered controls and masked sensitive fields |
+| Page screenshot | Annotated viewport PNG from `browser_screenshot` |
+| Chat attachments | PNG, JPEG, WebP and GIF; image support and limits advertised by the host |
 
 ## What the model can do
 
@@ -35,10 +39,15 @@ side panel (React) ◄─port─► background SW/event page ◄─WS─► dsh 
                         content script (snapshot/actions/privacy/selection)
 ```
 
-- **background** (`src/background/`): bridge connection (token auth + exponential-backoff reconnect + keepalive), gateway RPC client, and **fail-closed tool dispatch to a user-controlled tab**.
-- **content script** (`src/content/`): text-only snapshot (readability main text + numbered interactive inventory + form fields), **stable element numbers** (`data-dsh-el`), delta changes, click/type/press/scroll/navigate actions, sensitive-field masking, and a debounced selection watcher that stays disarmed until a side panel is open and page sharing is not `off`.
-- **panel** (`src/panel/`): React conversation UI (resumable session/history/live events/settings); host-advertised image limits gate image selection and preflight checks, durable attachments render through session-authorized reads, messages render as sanitized Markdown, `ask_user_question` requests render as answerable cards, manual tab switches render a control-handoff strip, an active turn exposes a standard stop control, and a highlighted page passage renders as a removable quote that the next prompt carries inside the untrusted-content boundary.
-- **Protocol**: `protocol.ts` in the `@onenightcarnival/dsh-bridge-browser` workspace package is the single source of truth, shared by both ends through the package's source export.
+| Layer | Responsibility |
+|---|---|
+| `src/background/` | Bridge authentication, reconnect and keepalive; RPC; controlled-tab dispatch and approval |
+| `src/content/` | Snapshots, stable element numbers, deltas, actions and sensitive-field masking |
+| Selection watcher | Debounced capture with an open panel and page sharing enabled |
+| `src/panel/` | Sessions, history, live events, settings, Markdown, question cards, tab handoff and stop control |
+| Image attachments | Host capability and size checks; session-authorized durable reads |
+| Selection quote | Removable quote included in the next prompt inside the untrusted-content boundary |
+| Protocol | `protocol.ts` from `@onenightcarnival/dsh-bridge-browser`, shared through its source export |
 
 ## Build
 
@@ -53,7 +62,7 @@ Run these commands from the repository root. Chrome outputs to `extensions/dsh-b
 
 ## Install and use
 
-1. **Install the release files** from [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases): the bridge `.tgz` into the dsh `web` profile (DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」; CLI: `npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<path>`), and the Chrome zip unpacked via `chrome://extensions` → Developer mode → Load unpacked. Steps: [root README](../../README.md#install).
+1. **Install the release files** from [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases): the bridge `.tgz` into the dsh `web` profile (DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」; CLI: `npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<path>`), and the Chrome zip unpacked via `chrome://extensions` → Developer mode → Load unpacked. Steps: [root README](../../README.md#installation).
 
 2. **Start dsh with the bridge plugin mounted**. DeepSeek Harness Desktop does this on launch. From a source checkout run `pnpm start` in the repository root, or use the exact supported public runtime:
 
@@ -71,12 +80,12 @@ Pages that were already open before extension installation or reload are instrum
 
 For extension-only development, load `extensions/dsh-browser/dist/` from `chrome://extensions`, or run `build:firefox` and load `extensions/dsh-browser/dist-firefox/manifest.json` from `about:debugging#/runtime/this-firefox`. Rebuild and reload after code changes.
 
-## Why browser operation stays text-only
+## Page and permission contract
 
-- **Snapshot as the view**: the model's entire view of the page is structured text (title/URL/main/numbered elements/forms), budgeted at 32k chars by default (plugin-configurable, negotiated to the extension via `hello.ok`).
-- **Page text is untrusted input**: snapshots and targeted text reads are enclosed in a fresh nonce-bound trust marker and explicitly tell the model never to treat page-authored commands as instructions. This is defense in depth; extension-side action approval is the enforcement boundary.
+- **Page snapshot**: the page snapshot contains structured text (title/URL/main/numbered elements/forms), budgeted at 200k chars by default (plugin-configurable, negotiated to the extension via `hello.ok`).
+- **Page text is untrusted input**: snapshots and targeted text reads are enclosed in a fresh nonce-bound trust marker and explicitly tell the model never to treat page-authored commands as instructions. The extension enforces action approval.
 - **Stable numbering**: element numbers persist across snapshots (WeakMap + `data-dsh-el`), so the model can say "click 7"; a large page change explicitly reports "numbers reindexed".
-- **Delta mode**: `browser_snapshot({delta:true})` returns only changed element numbers, saving tokens.
+- **Delta mode**: `browser_snapshot({delta:true})` returns only changed element numbers.
 - **Privacy**: password/credit-card values always render as `••••` and never leave the page; accessible names never use a sensitive field's current value.
 - **Tab affinity**: prompt submission binds the active tab before the model starts working; a direct browser-tool call also performs the initial bind when needed. A manual tab/window switch pauses later tools and asks whether the assistant should stay on the original tab or follow the newly visible one. Staying permits explicit background operation without changing the user's visible tab; following resets page-reference state. A closed controlled tab fails closed until the user selects the current page, and a switch withdraws any open action approval.
 - **Proportional approval**: the default `auto` mode lets the model read the controlled tab without an extra prompt; `ask` restores per-read confirmation and `off` blocks reads. In `ask` mode, the read dialog can allow one read or persistently switch back to `auto`, which remains reversible in Settings. State-changing tools still fail closed and show their exact origin plus a redacted action summary. The user may deny, allow once, or trust one origin for the current side-panel session; temporary trust clears when the last panel closes or the service worker restarts. Permanent trust is managed explicitly in Settings. If the panel is closed, an approval remains pending for up to 60 seconds and, when enabled, a system notification opens the panel for review. The panel restores the requesting session before showing a session-scoped approval. Caller cancellation or bridge timeout withdraws any open approval before an action can run.
@@ -92,7 +101,7 @@ Chrome uses `sidePanel`; Firefox uses `sidebar_action`. Both request `storage` (
 - Only one extension connection at a time. An unopened browser profile never claims it; if another open panel replaces a live connection, the replaced client yields instead of starting a reconnect fight.
 - Tab affinity is global to that extension connection rather than per chat session.
 - Accessible cross-origin iframes are snapshotted and operated with stable `(frame, index)` addresses. Restricted or short-lived frames are reported as unavailable without failing the whole page snapshot.
-- Captcha/image-only controls cannot be handled — the tool result reports "elements with no accessible name" and asks the user to complete that step manually.
+- Controls without accessible names are flagged in text snapshots. Screenshot-based targeting requires model image input; CAPTCHAs require user interaction.
 - No automatic token rotation.
-- Synthetic `browser_press` events do not trigger browser-native default actions such as Tab focus movement, arrow-key scrolling, or Enter activation; use manual input when a workflow depends on those defaults.
+- Synthetic `browser_press` events do not trigger browser-native default actions such as Tab focus movement. Chrome trusted input uses the debugger API for native input behavior.
 - `browser_wait` considers page load plus a fixed quiet window, but does not observe continuously changing DOM state; a live-updating SPA may be reported as stable.

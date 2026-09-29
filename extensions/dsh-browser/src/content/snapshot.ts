@@ -1,11 +1,9 @@
 /**
- * Text-only page snapshot: the model's entire view of the page.
+ * Structured page snapshot under a character budget.
  *
- * The browser tools use text snapshots, so the snapshot renders the page as
- * structured text under a hard character budget: URL/title, main content, a
- * numbered interactive inventory, and form fields (sensitive values masked).
- * `delta` mode returns only what changed since the last snapshot, and stable
- * element ids keep the model's addressing valid across snapshots.
+ * Content: URL, title, main text, numbered controls and masked form fields.
+ * Addressing: stable element IDs across snapshots.
+ * Delta: changes since the previous snapshot.
  *
  * @module
  */

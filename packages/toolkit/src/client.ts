@@ -1,5 +1,5 @@
 /**
- * Client half: mounts the panels of the modules the host reports as mounted.
+ * Client: module panels selected by the host's module map.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import * as rdb from '../../rdb/src/client/index.tsx'
