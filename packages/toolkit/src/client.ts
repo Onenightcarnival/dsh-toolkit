@@ -6,6 +6,7 @@ import * as rdb from '../../rdb/src/client/index.tsx'
 import * as s3 from '../../s3/src/client/index.tsx'
 import * as subscriptions from '../../subscriptions/src/client/index.tsx'
 import * as bridge from '../../browser-bridge/src/client/index.js'
+import * as configCenter from '../../config-center/src/client/index.tsx'
 import { clientFor as otelClient } from '../../otel/src/client/index.jsx'
 import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
 
@@ -17,6 +18,7 @@ const PLUGINS: Record<Module, unknown> = {
   otel: otelClient('@onenightcarnival/dsh-toolkit'),
   browser: { name: 'bridge-browser-client', ...bridge },
   subscriptions: { name: 'subscriptions-client', ...subscriptions },
+  configCenter: { name: 'config-center-client', ...configCenter },
 }
 
 async function mountedModules(): Promise<ModuleMap> {

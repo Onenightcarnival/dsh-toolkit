@@ -562,6 +562,57 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.20.4)(jsdom@26.1.0)(vite@6.4.3(@types/node@22.20.4)(yaml@2.9.1))
 
+  packages/config-center:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.0.4
+        version: 4.0.4(@deepseek-ai/cordis-plugin-include@1.0.9)(@deepseek-ai/cordis-plugin-loader@1.0.5)
+      '@deepseek-ai/cordis-plugin-loader':
+        specifier: 1.0.5
+        version: 1.0.5(@deepseek-ai/cordis@4.0.4)(node-addon-require-builtin@0.1.6)
+      '@deepseek-ai/dsh-app-boot':
+        specifier: 0.1.7-rc.2
+        version: 0.1.7-rc.2(@deepseek-ai/cordis-plugin-group@1.0.4(@deepseek-ai/cordis-plugin-loader@1.0.5)(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/cordis-plugin-include@1.0.9)(@deepseek-ai/cordis-plugin-loader@1.0.5)(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-home-paths@0.1.7-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-launch-environment@0.1.7-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-system-prompt@0.1.7-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-invariants@0.1.7-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-llm@0.1.7-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-scope@0.1.7-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-invariants@0.1.7-rc.2(@deepseek-ai/cordis@4.0.4))))
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: 0.1.7-rc.2
+        version: 0.1.7-rc.2(@deepseek-ai/cordis@4.0.4)
+      '@deepseek-ai/dsh-hmr':
+        specifier: 0.1.7-rc.2
+        version: 0.1.7-rc.2(6e3f671976874cb862f61c90158b85be)
+      '@deepseek-ai/dsh-host-webserver':
+        specifier: 0.1.7-rc.2
+        version: 0.1.7-rc.2(@deepseek-ai/cordis@4.0.4)
+      '@deepseek-ai/dsh-subprocess':
+        specifier: 0.1.7-rc.2
+        version: 0.1.7-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-http-proxy@0.1.7-rc.2(@deepseek-ai/cordis@4.0.4))
+      '@deepseek-ai/dsh-tools':
+        specifier: 0.1.7-rc.2
+        version: 0.1.7-rc.2(d2e08270f2205e73d65e98cfcd910cae)
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.4
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.5
+        version: 18.3.7(@types/react@18.3.31)
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      yaml:
+        specifier: ^2.8.1
+        version: 2.9.1
+
   packages/otel:
     devDependencies:
       '@deepseek-ai/cordis':
@@ -773,6 +824,9 @@ importers:
       '@onenightcarnival/dsh-bridge-browser':
         specifier: workspace:*
         version: link:../browser-bridge
+      '@onenightcarnival/dsh-config-center':
+        specifier: workspace:*
+        version: link:../config-center
       '@onenightcarnival/dsh-otel':
         specifier: workspace:*
         version: link:../otel

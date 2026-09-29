@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的集成插件包，包含五个模块。各模块保留独立插件的面板、工具、设置、数据文件和 API 路径。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的集成插件包，包含六个模块。各模块保留独立插件的面板、工具、设置、数据文件和 API 路径。
 
 ## 安装
 
@@ -23,6 +23,7 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<版本>.tgz
 | `otel` | 可观测上报 | [OTel](../otel/README.md) |
 | `browser` | 浏览器操作 | [Browser bridge](../browser-bridge/README.zh.md#配置) |
 | `subscriptions` | AI 订阅 | [Subscriptions](../subscriptions/README.zh.md) |
+| `configCenter` | 配置中心 | [Config center](../config-center/README.zh.md#配置) |
 
 web profile 插件 ID：`toolkit`。配置文件：`~/.dsh/profiles/web/cordis.patch.yml`。
 
@@ -48,10 +49,10 @@ web profile 插件 ID：`toolkit`。配置文件：`~/.dsh/profiles/web/cordis.p
 config → 宿主挂载模块 → GET /api/dsh-toolkit/modules → 客户端挂载对应界面
 ```
 
-模块按 `rdb → s3 → otel → browser → subscriptions` 顺序挂载。接口返回配置启用的模块清单：
+模块按 `rdb → s3 → otel → browser → subscriptions → configCenter` 顺序挂载。接口返回配置启用的模块清单：
 
 ```json
-{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true}
+{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true,"configCenter":true}
 ```
 
 | 请求 | 响应 |
@@ -67,7 +68,7 @@ config → 宿主挂载模块 → GET /api/dsh-toolkit/modules → 客户端挂�
 | `src/client.ts` | 按宿主清单挂载客户端插件 |
 | `src/modules.ts` | 模块顺序、清单类型与 API 路径 |
 | `src/typert.ts` | 以集成包名注册 OTel typert 清单 |
-| `build.mjs` | 五个模块源码的宿主与客户端构建 |
+| `build.mjs` | 六个模块源码的宿主与客户端构建 |
 
 ## 许可
 

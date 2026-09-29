@@ -23,6 +23,7 @@ const FILES = [
   { path: 'packages/otel/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/otel/src/index.js', field: /^(export const PLUGIN_VERSION = )"([^"]*)"/m },
   { path: 'packages/browser-bridge/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
+  { path: 'packages/config-center/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/toolkit/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'extensions/dsh-browser/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'extensions/dsh-browser/manifest.json', field: /^(\s*"version":\s*)"([^"]*)"/m, numericOnly: true },

@@ -9,6 +9,7 @@ import * as rdb from '../../rdb/src/index.ts'
 import * as s3 from '../../s3/src/index.ts'
 import * as subscriptions from '../../subscriptions/src/index.ts'
 import * as bridge from '../../browser-bridge/src/index.ts'
+import * as configCenter from '../../config-center/src/index.ts'
 import otel from '../../otel/src/index.js'
 import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
 
@@ -21,9 +22,10 @@ export interface Config {
   otel?: Record<string, unknown> | false
   browser?: bridge.Config | false
   subscriptions?: subscriptions.Config | false
+  configCenter?: configCenter.Config | false
 }
 
-const PLUGINS: Record<Module, unknown> = { rdb, s3, otel, browser: bridge, subscriptions }
+const PLUGINS: Record<Module, unknown> = { rdb, s3, otel, browser: bridge, subscriptions, configCenter }
 
 export function apply(ctx: Context, config: Config = {}): void {
   const mounted = Object.fromEntries(MODULES.map(m => [m, config[m] !== false])) as ModuleMap

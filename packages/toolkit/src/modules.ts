@@ -1,5 +1,5 @@
 /** Shared host and client mount order. */
-export const MODULES = ['rdb', 's3', 'otel', 'browser', 'subscriptions'] as const
+export const MODULES = ['rdb', 's3', 'otel', 'browser', 'subscriptions', 'configCenter'] as const
 export type Module = typeof MODULES[number]
 
 export const MODULES_API = '/api/dsh-toolkit/modules'

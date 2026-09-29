@@ -1,13 +1,13 @@
 {
-  "name": "@onenightcarnival/dsh-toolkit",
+  "name": "@onenightcarnival/dsh-config-center",
   "version": "0.6.0",
-  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser), configuration center (dsh-config-center); ChatGPT and Google Antigravity subscriptions, Codex web search and image generation",
+  "description": "Configuration center for DeepSeek Harness (dsh): MCP server management with connection tests, and common settings of built-in plugins, edited in the profile patch and applied through the Loader.",
   "author": "onenightcarnival",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Onenightcarnival/dsh-toolkit.git",
-    "directory": "packages/toolkit"
+    "directory": "packages/config-center"
   },
   "publishConfig": {
     "access": "public"
@@ -17,11 +17,9 @@
   "keywords": [
     "dsh",
     "dsh-plugin",
-    "database",
-    "s3",
-    "opentelemetry",
-    "browser",
-    "mcp"
+    "mcp",
+    "settings",
+    "configuration"
   ],
   "dsh": {
     "engines": {
@@ -33,12 +31,7 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-primitives",
-        "@deepseek-ai/dsh-client-ui-renderer",
         "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-sidebar",
         "@deepseek-ai/dsh-client-ui-slots"
       ],
       "platform": "web"
@@ -46,7 +39,6 @@
   },
   "exports": {
     ".": "./lib/index.js",
-    "./typert": "./lib/typert.js",
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
@@ -59,7 +51,9 @@
   ],
   "scripts": {
     "build": "node build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "test:smoke": "node test/host-smoke.mjs"
   },
   "peerDependencies": {
     "react": "^18.2.0",
@@ -67,19 +61,20 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.5",
+    "@deepseek-ai/dsh-app-boot": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-atomic-write": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-hmr": "0.1.7-rc.2",
     "@deepseek-ai/dsh-host-webserver": "0.1.7-rc.2",
-    "@onenightcarnival/dsh-bridge-browser": "workspace:*",
-    "@onenightcarnival/dsh-config-center": "workspace:*",
-    "@onenightcarnival/dsh-otel": "workspace:*",
-    "@onenightcarnival/dsh-rdb": "workspace:*",
-    "@onenightcarnival/dsh-s3": "workspace:*",
-    "@onenightcarnival/dsh-subscriptions": "workspace:*",
+    "@deepseek-ai/dsh-subprocess": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-tools": "0.1.7-rc.2",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
+    "@types/react-dom": "^18.3.5",
     "esbuild": "^0.25.0",
-    "typescript": "~5.7.2"
-  },
-  "dependencies": {
-    "@cortexkit/antigravity-auth-core": "2.2.0"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.7.2",
+    "yaml": "^2.8.1"
   }
 }

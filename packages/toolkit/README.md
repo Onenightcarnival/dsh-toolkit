@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh.md)
 
-Integrated plugin package for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), containing five modules. Each module retains its standalone panels, tools, settings, data files and API paths.
+Integrated plugin package for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), containing six modules. Each module retains its standalone panels, tools, settings, data files and API paths.
 
 ## Installation
 
@@ -23,6 +23,7 @@ The integrated package and standalone plugins are mutually exclusive. Runtime co
 | `otel` | Observability | [OTel](../otel/README.md) |
 | `browser` | Browser control | [Browser bridge](../browser-bridge/README.md#config) |
 | `subscriptions` | AI subscriptions | [Subscriptions](../subscriptions/README.md) |
+| `configCenter` | Configuration center | [Config center](../config-center/README.md#config) |
 
 Web profile plugin ID: `toolkit`. Configuration file: `~/.dsh/profiles/web/cordis.patch.yml`.
 
@@ -48,10 +49,10 @@ An override replaces the entire `config` object; retained custom values must be 
 config → host modules → GET /api/dsh-toolkit/modules → corresponding client plugins
 ```
 
-Mount order: `rdb → s3 → otel → browser → subscriptions`. The endpoint returns the modules enabled by configuration:
+Mount order: `rdb → s3 → otel → browser → subscriptions → configCenter`. The endpoint returns the modules enabled by configuration:
 
 ```json
-{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true}
+{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true,"configCenter":true}
 ```
 
 | Request | Response |
@@ -67,7 +68,7 @@ Mount order: `rdb → s3 → otel → browser → subscriptions`. The endpoint r
 | `src/client.ts` | Client plugin mounting from the host map |
 | `src/modules.ts` | Module order, map type and API path |
 | `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
-| `build.mjs` | Host and client builds from the five modules' sources |
+| `build.mjs` | Host and client builds from the six modules' sources |
 
 ## License
 
