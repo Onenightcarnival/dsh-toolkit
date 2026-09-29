@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-把 [dsh-toolkit](https://github.com/Onenightcarnival/dsh-toolkit) 的五个 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件打进一个包：`dsh-rdb`（数据库）、`dsh-s3`（对象存储）、`dsh-otel`（OpenTelemetry 上报）、`dsh-bridge-browser`（浏览器桥）、`dsh-subscriptions`（ChatGPT 订阅）。面板、工具、设置、数据文件与 API 路径和单包完全一致；本包与单包二选一。
+把 [dsh-toolkit](https://github.com/Onenightcarnival/dsh-toolkit) 的五个 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件打进一个包：`dsh-rdb`（数据库）、`dsh-s3`（对象存储）、`dsh-otel`（OpenTelemetry 上报）、`dsh-bridge-browser`（浏览器桥）、`dsh-subscriptions`（ChatGPT 与 Google Antigravity 订阅）。面板、工具、设置、数据文件与 API 路径和单包完全一致；本包与单包二选一。
 
 ```sh
 dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<版本>.tgz

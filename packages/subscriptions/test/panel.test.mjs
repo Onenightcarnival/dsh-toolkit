@@ -20,6 +20,66 @@ const { SubscriptionsPanel } = module.exports
 const button = text => [...document.querySelectorAll('button')].find(b => b.textContent.includes(text))
 const click = async element => { assert.ok(element, 'missing UI element'); await act(async () => element.click()) }
 
+test('Google login failure is displayed and Retry repeats login', async () => {
+  let attempts = 0
+  const api = {
+    provider: 'antigravity',
+    status: async () => ({ busy: false, accounts: [] }),
+    login: async () => { attempts++; throw Error('Google authorization unavailable') },
+  }
+  const root = createRoot(document.getElementById('root'))
+  try {
+    await act(async () => root.render(React.createElement(SubscriptionsPanel, { api, close() {} })))
+    await click(button('Connect Google Antigravity'))
+    assert.match(document.querySelector('[role=alert]').textContent, /Google authorization unavailable/)
+    await click(button('Retry'))
+    assert.equal(attempts, 2)
+  } finally { await act(async () => root.unmount()) }
+})
+
+test('provider selection isolates accounts, preferences, tools and late catalog responses', async () => {
+  let finishCodex
+  let googlePrefs = { contextWindows: { google: 256000 } }
+  const google = {
+    provider: 'antigravity',
+    status: async () => ({ busy: false, accounts: [{ key: 'google-account', account: 'google@example.test', isDefault: true }] }),
+    catalog: async () => ({ provider: 'antigravity', settings: googlePrefs, tools: [], models: [{ id: 'google', name: 'Google model', contextWindow: googlePrefs.contextWindows.google, defaultContextWindow: 1048576, efforts: [] }], accounts: [] }),
+    save: async settings => { googlePrefs = settings },
+    usage: async () => ({ supported: true, windows: [{ kind: 'weekly', scope: 'Gemini', usedPercent: 25 }] }),
+  }
+  const api = {
+    provider: 'codex', forProvider: provider => { assert.equal(provider, 'antigravity'); return google },
+    status: async () => ({ busy: false, accounts: [{ key: 'codex-account', account: 'codex@example.test', isDefault: true }] }),
+    catalog: () => new Promise(resolve => { finishCodex = resolve }),
+  }
+  const root = createRoot(document.getElementById('root'))
+  try {
+    await act(async () => root.render(React.createElement(SubscriptionsPanel, { api, close() {} })))
+    await click([...document.querySelectorAll('.dsh-sub-provider')].find(element => element.textContent.includes('Antigravity')))
+    await act(async () => finishCodex({ settings: {}, models: [{ id: 'old', name: 'Stale Codex model', efforts: [] }], accounts: [] }))
+    assert.match(document.body.textContent, /google@example.test/)
+    assert.doesNotMatch(document.body.textContent, /Import legacy|导入旧版/)
+    assert.doesNotMatch(document.body.textContent, /codex@example.test|Stale Codex model/)
+    assert.equal([...document.querySelectorAll('[role=tab]')].some(tab => tab.textContent === 'Tools'), true)
+    const input = document.querySelector('input[aria-label="Google model Context"]')
+    await act(async () => Simulate.change(input, { target: { value: '1M' } }))
+    await act(async () => input.closest('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })))
+    assert.equal(googlePrefs.contextWindows.google, 1000000)
+    await click(button('Tools'))
+    assert.match(document.body.textContent, /antigravity_web_search/)
+    assert.match(document.body.textContent, /antigravity_image_generate/)
+    assert.doesNotMatch(document.body.textContent, /codex_web_search|codex_image_generate/)
+    const toggle = document.querySelector('input[aria-label="Antigravity Web Search"]')
+    await act(async () => Simulate.change(toggle, { target: { checked: false } }))
+    assert.equal(googlePrefs.tools.web_search, false)
+    await click(button('Usage'))
+    assert.match(document.body.textContent, /25% Used/)
+    await click([...document.querySelectorAll('.dsh-sub-provider')].find(element => element.textContent.includes('ChatGPT')))
+    assert.match(document.body.textContent, /codex@example.test/)
+    assert.doesNotMatch(document.body.textContent, /google@example.test|25% Used/)
+  } finally { await act(async () => root.unmount()) }
+})
+
 test('context editor saves shorthand, preserves preferences, validates limits and restores defaults', async () => {
   let prefs = { contextWindows: { other: 128000 }, tools: { web_search: false }, defaultEfforts: { m1: 'high' } }
   let saves = 0

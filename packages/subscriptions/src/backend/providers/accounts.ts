@@ -25,7 +25,7 @@ import type { AccountEntry, ProviderId } from '../auth/store.js'
 export { DISCOVERY_TIMEOUT_MS } from './common.js'
 
 /** Minimal session shape the token managers need (mirrors common.ts). */
-type TimedSession = import('../auth/store.js').CodexSession
+type TimedSession = import('../auth/store.js').StoredSession
 
 /** An adapter that can stream through a named account (the pool's seam). */
 export interface AccountAwareAdapter extends LlmAdapter {

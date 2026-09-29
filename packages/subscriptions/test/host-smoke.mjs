@@ -62,8 +62,13 @@ try {
       if (mode === 'disabled') assert.equal((await rpc('status')).status, 404)
       else {
         assert.deepEqual((await rpc('status')).providers.codex.accounts, [])
+        assert.deepEqual((await rpc('status')).providers.antigravity.accounts, [])
         await rpc('setProviderSettings', { provider: 'codex', settings: { tools: { web_search: false, image_generate: false } } })
         assert.deepEqual((await rpc('providerSettings', { provider: 'codex' })).settings.tools, { web_search: false, image_generate: false })
+        await rpc('setProviderSettings', { provider: 'antigravity', settings: { contextWindows: { 'gemini-fixture': 1000000 } } })
+        const google = await rpc('providerSettings', { provider: 'antigravity' })
+        assert.equal(google.settings.contextWindows['gemini-fixture'], 1000000)
+        assert.deepEqual(google.tools, ['image_generate', 'web_search'])
       }
       console.log(`${mode}: real web host, authentication, RPC and module switch passed`)
     } finally {

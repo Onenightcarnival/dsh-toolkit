@@ -1,4 +1,5 @@
 /** Credential-free views of the subscription RPC. */
+export type ProviderId = 'codex' | 'antigravity'
 export interface Rpc {
   call(channel: string, method: string, payload: unknown): Promise<
     { ok: true; value: unknown } | { ok: false; error: { message: string } }
@@ -29,7 +30,7 @@ export interface Model {
   configured?: string
 }
 export interface Catalog {
-  provider: 'codex'
+  provider: ProviderId
   settings: Preferences
   models: Model[]
   tools: string[]

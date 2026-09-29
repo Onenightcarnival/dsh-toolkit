@@ -6,6 +6,7 @@ import { PROVIDER_IDS, type ProviderId } from './auth/store.js'
 
 export const PROVIDER_TOOLS = {
   codex: ['image_generate', 'web_search'],
+  antigravity: ['image_generate', 'web_search'],
 } as const
 export type SubscriptionTool = 'image_generate' | 'web_search'
 export interface AccountPreferences {
@@ -69,7 +70,6 @@ export function validatePreferences(provider: ProviderId, input: unknown): Provi
     result.visibleModels = [...new Set(raw.visibleModels as string[])]
   }
   if (raw.contextWindows !== undefined) {
-    if (provider !== 'codex') throw new Error('context window overrides are currently supported only for Codex')
     if (!raw.contextWindows || typeof raw.contextWindows !== 'object' || Array.isArray(raw.contextWindows)) {
       throw new Error('contextWindows must be a model-to-token map')
     }
@@ -126,8 +126,8 @@ export class ProviderSettingsStore {
     return this.current.providers[provider]?.visibleModels?.includes(model) ?? true
   }
 
-  contextWindow(model: string): number | undefined {
-    const windows = this.current.providers.codex?.contextWindows
+  contextWindow(model: string, provider: ProviderId = 'codex'): number | undefined {
+    const windows = this.current.providers[provider]?.contextWindows
     return windows && Object.hasOwn(windows, model) ? windows[model] : undefined
   }
 

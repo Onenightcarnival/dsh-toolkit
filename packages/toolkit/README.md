@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh.md)
 
-One package carrying the five [dsh-toolkit](https://github.com/Onenightcarnival/dsh-toolkit) plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): `dsh-rdb` (databases), `dsh-s3` (object storage), `dsh-otel` (OpenTelemetry export) `dsh-bridge-browser` (browser bridge), and `dsh-subscriptions` (ChatGPT subscriptions). Same panels, tools, settings, data files and API paths as the standalone packages; install either this package or the standalone ones.
+One package carrying the five [dsh-toolkit](https://github.com/Onenightcarnival/dsh-toolkit) plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): `dsh-rdb` (databases), `dsh-s3` (object storage), `dsh-otel` (OpenTelemetry export) `dsh-bridge-browser` (browser bridge), and `dsh-subscriptions` (ChatGPT and Google Antigravity subscriptions). Same panels, tools, settings, data files and API paths as the standalone packages; install either this package or the standalone ones.
 
 ```sh
 dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<version>.tgz

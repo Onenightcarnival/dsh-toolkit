@@ -1,10 +1,14 @@
 export const zh = {
+  googleSearchTitle: 'Antigravity Web Search', googleSearchHint: '通过 Google Antigravity 订阅搜索网页，返回摘要和来源链接。独立于 DSH 的联网搜索提供方设置。',
+  googleImageTitle: 'Antigravity 图像生成与编辑', googleImageHint: '通过 Gemini 3.1 Flash Image 生成或编辑图片，支持 Minimal / High 思考强度。结果可预览、下载和继续编辑。',
+  subscriptionType: '订阅类型', connectGoogle: '连接 Google Antigravity', emptyGoogle: '连接你的 Google Antigravity 账号',
+  introGoogle: 'Google Antigravity 订阅，支持账号模型目录、推理强度、上下文配置和用量查询。',
   title: 'AI 订阅', back: '返回对话', accounts: '订阅账号', add: '添加账号', connect: '连接 ChatGPT',
   connected: '已连接', disconnected: '未连接', waiting: '等待授权', default: '默认账号', setDefault: '设为默认',
   disconnect: '断开连接', cancel: '取消', confirm: '确认断开', disconnectHint: '断开 {account} 的连接？本地登录凭证将被移除，之后可以重新授权。',
   intro: '使用 ChatGPT 订阅，在对话中调用模型、联网搜索与图像生成。',
   emptyTitle: '连接你的 ChatGPT 账号', emptyHint: '在浏览器中完成授权后，可用模型会自动出现在对话的模型选择器中。',
-  authHint: '请在浏览器中完成 ChatGPT 授权。若新窗口未打开，点击下方链接继续。', openAuth: '打开授权页面',
+  authHint: '请在浏览器中完成账号授权。若新窗口未打开，点击下方链接继续。', openAuth: '打开授权页面',
   manualOnlyHint: '本机回调端口不可用，已切换为手动登录。请打开授权页面并完成登录；跳转到 localhost 后，即使浏览器显示无法访问，也请复制地址栏中的完整 URL，粘贴到下方并提交。',
   manual: '手动提交回调地址', manualHint: '无法自动回到应用时，将浏览器地址栏中的完整回调 URL 粘贴到这里。', submit: '提交',
   models: '模型', tools: '工具', usage: '用量', refresh: '刷新', loading: '加载中…', retry: '重试',
@@ -26,12 +30,16 @@ export const zh = {
 }
 export type Key = keyof typeof zh
 export const en: Record<Key, string> = {
+  googleSearchTitle: 'Antigravity Web Search', googleSearchHint: 'Search through the Google Antigravity subscription with summaries and source URLs. Independent of DSH’s web search provider setting.',
+  googleImageTitle: 'Antigravity image generation and editing', googleImageHint: 'Generate or edit images with Gemini 3.1 Flash Image and Minimal / High reasoning. Results support previews, downloads and further edits.',
+  subscriptionType: 'Subscription type', connectGoogle: 'Connect Google Antigravity', emptyGoogle: 'Connect your Google Antigravity account',
+  introGoogle: 'Google Antigravity subscription with account model catalogs, reasoning effort, context settings and usage.',
   title: 'AI subscriptions', back: 'Back to chat', accounts: 'Subscription accounts', add: 'Add account', connect: 'Connect ChatGPT',
   connected: 'Connected', disconnected: 'Not connected', waiting: 'Waiting for authorization', default: 'Default account', setDefault: 'Set as default',
   disconnect: 'Disconnect', cancel: 'Cancel', confirm: 'Disconnect account', disconnectHint: 'Disconnect {account}? Its local credentials will be removed. You can authorize it again later.',
   intro: 'Use your ChatGPT subscription for models, web search and image generation in conversations.',
   emptyTitle: 'Connect your ChatGPT account', emptyHint: 'Authorize in your browser. Available models will appear in the conversation model picker.',
-  authHint: 'Complete ChatGPT authorization in your browser. If no window opened, use the link below.', openAuth: 'Open authorization page',
+  authHint: 'Complete account authorization in your browser. If no window opened, use the link below.', openAuth: 'Open authorization page',
   manualOnlyHint: 'The local callback ports are unavailable. Open the authorization page and sign in. After redirecting to localhost, copy the full address-bar URL below and submit it, even if the browser says the page cannot be reached.',
   manual: 'Submit callback URL manually', manualHint: 'If the automatic callback fails, paste the full callback URL from your browser address bar.', submit: 'Submit',
   models: 'Models', tools: 'Tools', usage: 'Usage', refresh: 'Refresh', loading: 'Loading…', retry: 'Retry',

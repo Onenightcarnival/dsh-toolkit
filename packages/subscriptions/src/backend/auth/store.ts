@@ -19,10 +19,20 @@ import { dirname } from 'node:path'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 
 /** Provider routes this plugin can serve. */
-export type ProviderId = 'codex'
+export type ProviderId = 'codex' | 'antigravity'
 
 /** Every provider route, in display order. */
-export const PROVIDER_IDS: readonly ProviderId[] = ['codex']
+export const PROVIDER_IDS: readonly ProviderId[] = ['codex', 'antigravity']
+
+export interface AntigravitySession {
+  accessToken: string
+  refreshToken: string
+  expiresAt: number
+  projectId: string
+  account?: string
+  plan?: string
+  scopes?: string
+}
 
 /** Stored ChatGPT/Codex subscription session. */
 export interface CodexSession {
@@ -53,13 +63,14 @@ export interface SessionMap {
   /** Preserve unowned sections of an existing shared file without exposing them. */
   [section: string]: unknown
   codex?: ProviderAccounts<CodexSession>
+  antigravity?: ProviderAccounts<AntigravitySession>
 }
 
 /** Any stored session, for provider-agnostic plumbing. */
-export type StoredSession = CodexSession
+export type StoredSession = CodexSession | AntigravitySession
 
 /** The session type one provider stores. */
-export type SessionOf<K extends ProviderId> = CodexSession
+export type SessionOf<K extends ProviderId> = K extends 'codex' ? CodexSession : AntigravitySession
 
 /** One account entry as returned by {@link listAccounts} (default first). */
 export interface AccountEntry<S> {
@@ -77,6 +88,10 @@ export interface AccountEntry<S> {
  */
 export function accountKeyOf(provider: ProviderId, session: StoredSession): string {
   switch (provider) {
+    case 'antigravity': {
+      const google = session as AntigravitySession
+      return google.account?.trim().toLowerCase() || google.projectId
+    }
     case 'codex': {
       const codex = session as CodexSession
       const payload = typeof codex.idToken === 'string' ? decodeJwtPayload(codex.idToken) : undefined

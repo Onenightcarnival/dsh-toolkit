@@ -2,7 +2,7 @@
 
 This directory is maintained as part of `@onenightcarnival/dsh-subscriptions`.
 It is compiled from local TypeScript; there is no npm dependency on the original plugin.
-The package entry point currently enables only ChatGPT (Codex).
+Providers: ChatGPT (Codex) and Google Antigravity. Tools: `codex_web_search`, `codex_image_generate`, `antigravity_web_search`, `antigravity_image_generate`.
 
 The source was forked from V1ki/dsh-plugin-subscriptions at revision
 `d8ab13e91fd6747e419a1f5e965bce42bdfc3ad8`. The original MIT notice is retained

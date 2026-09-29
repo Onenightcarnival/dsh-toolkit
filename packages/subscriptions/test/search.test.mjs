@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 const require = createRequire(import.meta.url)
 const compiled = await build({
   stdin: {
-    contents: `export { createCodexWebSearchTool } from './tools/web-search.ts'; export { CodexWebSearchProvider } from './providers/codex-search.ts'; export { registerWithAlias } from './tools/registration.ts';`,
+    contents: `export { createWebSearchTool } from './tools/web-search.ts'; export { CodexWebSearchProvider } from './providers/codex-search.ts'; export { registerWithAlias } from './tools/registration.ts';`,
     resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts',
   },
   bundle: true, write: false, platform: 'node', format: 'esm',
@@ -15,7 +15,7 @@ const compiled = await build({
     build.onResolve({ filter: /^@deepseek-ai\// }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }))
   } }],
 })
-const { createCodexWebSearchTool, CodexWebSearchProvider, registerWithAlias } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`)
+const { createWebSearchTool, CodexWebSearchProvider, registerWithAlias } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`)
 
 test('independent Codex search uses subscription credentials and preserves source cards', async () => {
   let enabled = true
@@ -32,7 +32,7 @@ test('independent Codex search uses subscription credentials and preserves sourc
       ] })
     },
   })
-  const tool = createCodexWebSearchTool(provider)
+  const tool = createWebSearchTool(provider)
   const signal = new AbortController().signal
   const args = { query: '  fixture query  ' }
   const value = await tool.execute(args, { signal })
@@ -65,7 +65,7 @@ test('independent Codex search uses subscription credentials and preserves sourc
 })
 
 test('Codex search bounds sources and reports truncation', async () => {
-  const tool = createCodexWebSearchTool({
+  const tool = createWebSearchTool({
     available: () => true,
     search: async () => ({ sources: Array.from({ length: 10 }, (_, i) => ({ url: `https://example.test/${i}` })), truncated: false }),
   })

@@ -36,9 +36,9 @@ export function apply(ctx: Context): void {
     slots: services.slots, layout: services.layout, locale: NS, order: 60,
     label: () => tt('title'), icon: Icon, panel: SubscriptionsPanel, props: () => ({ api }),
   }), 'subscriptions: panel')
-  for (const key of ['codex_image_generate', 'dsh_subscriptions_codex_image_generate']) {
+  for (const key of ['codex_image_generate', 'dsh_subscriptions_codex_image_generate', 'antigravity_image_generate', 'dsh_subscriptions_antigravity_image_generate']) {
     ctx.effect(() => services.slots.inject('tool.call.toolview', () => services.slots.register({
-      name: 'tool.call.toolview', key, locale: NS, inject: () => ({ api }),
+      name: 'tool.call.toolview', key, locale: NS, inject: () => ({ api, provider: key.includes('antigravity') ? 'antigravity' : 'codex' }),
     }, ImageToolview)), `subscriptions: ${key} preview`)
   }
 }

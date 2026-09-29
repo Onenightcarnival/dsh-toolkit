@@ -1,16 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Account, Catalog, Preferences, Status, Usage } from '../protocol.ts'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Account, Catalog, Preferences, ProviderId, Status, Usage } from '../protocol.ts'
 import type { SubscriptionsApi } from './api.ts'
 import { tt, type Key } from './locales.ts'
 import { ContextWindowInput } from './ContextWindowInput.tsx'
+import { ProviderLogo } from './ProviderLogo.tsx'
 
 export interface PanelProps { api: SubscriptionsApi; close: () => void }
 type Tab = 'models' | 'tools' | 'usage'
-const TOOL_CARDS = [
+const TOOL_CARDS = { codex: [
   { setting: 'web_search', name: 'codex_web_search', title: 'searchTitle', hint: 'searchHint' },
   { setting: 'image_generate', name: 'codex_image_generate', title: 'imageTitle', hint: 'imageHint' },
-] as const
-const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error)
+], antigravity: [
+  { setting: 'web_search', name: 'antigravity_web_search', title: 'googleSearchTitle', hint: 'googleSearchHint' },
+  { setting: 'image_generate', name: 'antigravity_image_generate', title: 'googleImageTitle', hint: 'googleImageHint' },
+] } as const
+const PROVIDERS = {
+  codex: { name: 'ChatGPT', vendor: 'OpenAI', connect: 'connect', empty: 'emptyTitle', intro: 'intro', callback: 'http://localhost:1455/auth/callback?…' },
+  antigravity: { name: 'Antigravity', vendor: 'Google', connect: 'connectGoogle', empty: 'emptyGoogle', intro: 'introGoogle', callback: 'http://localhost:51121/oauth-callback?…' },
+} as const
+const messageOf = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error)
+  return message
+}
 
 function DisconnectDialog({ label, busy, cancel, confirm }: { label: string; busy: boolean; cancel: () => void; confirm: () => void }): JSX.Element {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -22,6 +33,13 @@ function DisconnectDialog({ label, busy, cancel, confirm }: { label: string; bus
 }
 
 export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
+  const [provider, setProvider] = useState<ProviderId>(api.provider ?? 'codex')
+  const scopedApi = useMemo(() => provider === (api.provider ?? 'codex') ? api : api.forProvider(provider), [api, provider])
+  return <ProviderPanel key={provider} api={scopedApi} close={close} provider={provider} selectProvider={setProvider}/>
+}
+
+function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { provider: ProviderId; selectProvider: (provider: ProviderId) => void }): JSX.Element {
+  const profile = PROVIDERS[provider]
   const [status, setStatus] = useState<Status>()
   const [active, setActive] = useState<string>()
   const [catalog, setCatalog] = useState<Catalog>()
@@ -38,6 +56,7 @@ export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
   const [disconnect, setDisconnect] = useState<Account>()
   const mounted = useRef(true)
   const lock = useRef(false)
+  const retryAction = useRef<() => Promise<unknown>>()
   const catalogSequence = useRef(0)
   const usageSequence = useRef(0)
   const statusSequence = useRef(0)
@@ -66,8 +85,8 @@ export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
   const run = useCallback(async (action: () => Promise<unknown>): Promise<boolean> => {
     if (lock.current) return false
     lock.current = true
-    setBusy(true); setError(''); setNotice('')
-    try { await action(); return true } catch (error) { if (mounted.current) setError(messageOf(error)); return false }
+    setBusy(true); setError(''); setNotice(''); retryAction.current = undefined
+    try { await action(); return true } catch (error) { if (mounted.current) { retryAction.current = action; setError(messageOf(error)) }; return false }
     finally { lock.current = false; if (mounted.current) setBusy(false) }
   }, [])
 
@@ -126,40 +145,46 @@ export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
   const availableModels = catalog?.models.filter(model => !ownCatalog || ownCatalog.unavailable || ownCatalog.models.some(m => m.id === model.id)) ?? []
   const models = availableModels.filter(m => `${m.name} ${m.id}`.toLowerCase().includes(query.toLowerCase()))
   const settings = catalog?.settings ?? {}
-  const accountLabel = (a: Account): string => settings.accounts?.[a.key]?.alias || a.account || tt('provider')
+  const accountLabel = (a: Account): string => settings.accounts?.[a.key]?.alias || a.account || profile.name
   const currentUsage = usage && usage.account === active ? usage.value : undefined
 
   return <section className="dsh-sub-panel" data-dsh-plugin="subscriptions" data-dsh-part="panel">
     <header className="dsh-sub-header"><h2>{tt('title')}</h2><button onClick={close}>{tt('back')}</button></header>
-    {(error || status?.detail) && <div className="dsh-sub-banner" role="alert" data-kind="error"><span>{error || status?.detail}</span><button onClick={() => { void run(refreshStatus) }}>{tt('retry')}</button></div>}
+    {(error || status?.detail) && <div className="dsh-sub-banner" role="alert" data-kind="error"><span>{error || status?.detail}</span><button disabled={busy} onClick={() => { void run(retryAction.current ?? refreshStatus) }}>{tt('retry')}</button></div>}
     {notice && <div className="dsh-sub-banner" role="status">{notice}</div>}
     <div className="dsh-sub-body">
       <aside className="dsh-sub-accounts">
         <div className="dsh-sub-asideHead"><span>{tt('accounts')}</span><button className="dsh-sub-link" disabled={busy || status?.busy || !status} onClick={login}>+ {tt('add')}</button></div>
-        <div className="dsh-sub-provider"><span className="dsh-sub-logo" aria-hidden="true">✳</span><div><strong>ChatGPT</strong><small>OpenAI</small></div></div>
+        <nav className="dsh-sub-providers" aria-label={tt('subscriptionType')}>
+          {(Object.keys(PROVIDERS) as ProviderId[]).map(id => <button key={id} className="dsh-sub-provider" aria-pressed={id === provider}
+            disabled={busy || status?.busy} onClick={() => selectProvider(id)}>
+            <span className="dsh-sub-logo" aria-hidden="true"><ProviderLogo provider={id}/></span>
+            <span><strong>{PROVIDERS[id].name}</strong><small>{PROVIDERS[id].vendor}</small></span>
+          </button>)}
+        </nav>
         <div className="dsh-sub-accountList">
           {!status && <p className="dsh-sub-hint">{tt('loading')}</p>}
           {status?.accounts.length === 0 && <p className="dsh-sub-hint">{tt('disconnected')}</p>}
           {status?.accounts.map(a => <button key={a.key} className="dsh-sub-account" data-active={a.key === active || undefined} onClick={() => setActive(a.key)}>
-            <strong title={a.account}>{accountLabel(a)}</strong><small>{a.plan ?? 'ChatGPT'}{a.isDefault ? ` · ${tt('default')}` : ''}</small>
+            <strong title={a.account}>{accountLabel(a)}</strong><small>{a.plan ?? profile.name}{a.isDefault ? ` · ${tt('default')}` : ''}</small>
           </button>)}
         </div>
-        <p className="dsh-sub-hint dsh-sub-asideFooter">{tt('intro')}</p>
+        <p className="dsh-sub-hint dsh-sub-asideFooter">{tt(profile.intro)}</p>
       </aside>
       <main className="dsh-sub-main">
         {status?.busy && <div className="dsh-sub-auth" role="status">
           <strong>{tt('waiting')}</strong><p>{tt(status.manualOnly ? 'manualOnlyHint' : 'authHint')}</p>
           <div className="dsh-sub-actions">{authUrl && <a href={authUrl} target="_blank" rel="noopener noreferrer">{tt('openAuth')}</a>}<button disabled={busy} onClick={() => { void run(async () => { await api.cancel(); await refreshStatus() }) }}>{tt('cancel')}</button></div>
           <details open={status.manualOnly || undefined}><summary>{tt('manual')}</summary><p className="dsh-sub-hint">{tt('manualHint')}</p><form className="dsh-sub-actions" onSubmit={e => { e.preventDefault(); void run(async () => { await api.manual(manual.trim()); await refreshStatus() }) }}>
-            <input aria-label={tt('manual')} value={manual} onChange={e => setManual(e.target.value)} placeholder="http://localhost:1455/auth/callback?…" autoComplete="off" spellCheck={false}/><button disabled={busy || !manual.trim()}>{tt('submit')}</button>
+            <input aria-label={tt('manual')} value={manual} onChange={e => setManual(e.target.value)} placeholder={profile.callback} autoComplete="off" spellCheck={false}/><button disabled={busy || !manual.trim()}>{tt('submit')}</button>
           </form></details>
         </div>}
-        {!account ? <div className="dsh-sub-empty"><span className="dsh-sub-emptyLogo" aria-hidden="true">✳</span><h3>{tt('emptyTitle')}</h3><p>{tt('emptyHint')}</p><button className="dsh-sub-primary" disabled={busy || status?.busy || !status} onClick={login}>{tt('connect')}</button></div> : <>
-          <div className="dsh-sub-accountHeader"><div><h3>{accountLabel(account)}</h3><span className="dsh-sub-status">● {tt('connected')}</span><span className="dsh-sub-hint"> · {account.plan ?? 'ChatGPT'}</span></div><div className="dsh-sub-actions">
+        {!account ? <div className="dsh-sub-empty"><span className="dsh-sub-emptyLogo" aria-hidden="true"><ProviderLogo provider={provider}/></span><h3>{tt(profile.empty)}</h3><p>{tt('emptyHint')}</p><button className="dsh-sub-primary" disabled={busy || status?.busy || !status} onClick={login}>{tt(profile.connect)}</button></div> : <>
+          <div className="dsh-sub-accountHeader"><div><h3>{accountLabel(account)}</h3><span className="dsh-sub-status">● {tt('connected')}</span><span className="dsh-sub-hint"> · {account.plan ?? profile.name}</span></div><div className="dsh-sub-actions">
             {!account.isDefault && <button disabled={busy} onClick={() => { void run(async () => { await api.setDefault(account.key); await refreshStatus() }) }}>{tt('setDefault')}</button>}
             <button disabled={busy} onClick={() => setDisconnect(account)}>{tt('disconnect')}</button>
           </div></div>
-          <div className="dsh-sub-tabs" role="tablist" aria-label={tt('provider')}>{(['models', 'tools', 'usage'] as const).map(value => <button key={value} role="tab" id={`sub-tab-${value}`} aria-selected={tab === value} aria-controls={`sub-panel-${value}`} onClick={() => setTab(value)}>{tt(value)}{value === 'models' && catalog ? ` ${availableModels.length}` : ''}</button>)}</div>
+          <div className="dsh-sub-tabs" role="tablist" aria-label={profile.name}>{(['models', 'tools', 'usage'] as const).map(value => <button key={value} role="tab" id={`sub-tab-${value}`} aria-selected={tab === value} aria-controls={`sub-panel-${value}`} onClick={() => setTab(value)}>{tt(value)}{value === 'models' && catalog ? ` ${availableModels.length}` : ''}</button>)}</div>
           <div className="dsh-sub-tabBody" role="tabpanel" id={`sub-panel-${tab}`} aria-labelledby={`sub-tab-${tab}`}>
             {tab === 'models' && <>
               <div className="dsh-sub-toolbar"><input aria-label={tt('search')} placeholder={tt('search')} value={query} onChange={e => setQuery(e.target.value)}/><button disabled={busy || catalogBusy} onClick={() => { void run(() => refreshCatalog(true)) }}>{catalogBusy ? tt('loading') : tt('refresh')}</button></div>
@@ -188,7 +213,7 @@ export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
               </tbody></table>{models.length === 0 && <p className="dsh-sub-tableEmpty">{catalogBusy ? tt('loading') : query ? tt('noMatches') : tt('noModels')}</p>}</div>
             </>}
             {tab === 'tools' && <>
-              {TOOL_CARDS.map(tool => <div className="dsh-sub-tool" key={tool.name}>
+              {TOOL_CARDS[provider].map(tool => <div className="dsh-sub-tool" key={tool.name}>
                 <div><h4>{tt(tool.title)}</h4><p>{tt(tool.hint)}</p><code>{tool.name}</code></div>
                 <label className="dsh-sub-toggle">
                   <input type="checkbox" aria-label={tt(tool.title)} disabled={busy || !catalog || catalogBusy}

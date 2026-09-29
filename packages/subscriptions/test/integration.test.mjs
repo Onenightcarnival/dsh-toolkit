@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 const output = await build({ entryPoints: [new URL('../src/client/api.ts', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')], bundle: true, write: false, platform: 'node', format: 'esm' })
 const { SubscriptionsApi } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`)
 
-test('ChatGPT-only host registers models, independent Codex tools and authenticated RPC', { timeout: 20000 }, async () => {
+test('subscription host registers both providers and independent subscription tools', { timeout: 20000 }, async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-subscriptions-test-'))
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
@@ -33,6 +33,7 @@ test('ChatGPT-only host registers models, independent Codex tools and authentica
   } } })
   const runtime = ctx.plugin({ name: 'subscriptions-under-test', inject: ['llm'], apply }, {
     codexClientVersion: '0.153.4', models: [{ id: 'gpt-5.4', name: 'Fixture model' }],
+    antigravity: { models: [{ id: 'gemini-fixture', name: 'Google fixture', contextWindow: 1048576 }] },
   })
   const api = new SubscriptionsApi({ async call(channel, method, payload) {
     assert.equal(channel, '/api')
@@ -54,15 +55,17 @@ test('ChatGPT-only host registers models, independent Codex tools and authentica
     for (let i = 0; i < 100 && !routes.size; i++) await new Promise(resolve => setTimeout(resolve, 10))
     assert.ok(routes.size > 0, 'RPC registration did not start')
     assert.ok(adapters.has('codex'))
-    for (const provider of ['claude', 'grok', 'copilot', 'antigravity']) {
+    assert.ok(adapters.has('antigravity'))
+    assert.deepEqual(await adapters.get('antigravity').listModels('antigravity'), [])
+    for (const provider of ['claude', 'grok', 'copilot']) {
       assert.ok(!adapters.has(provider))
       for (const method of ['login', 'manual', 'cancel', 'logout', 'setDefault', 'usage', 'providerSettings', 'setProviderSettings', 'setModelDefault']) {
         await assert.rejects(api.call(method, { provider }), /payload.provider must be one of codex/)
       }
     }
-    assert.deepEqual(Object.keys((await api.call('status')).providers), ['codex'])
+    assert.deepEqual(Object.keys((await api.call('status')).providers), ['codex', 'antigravity'])
     assert.ok(!routes.has('/api/subscriptions-auth.video'))
-    assert.deepEqual([...tools.keys()], ['codex_web_search', 'codex_image_generate'])
+    assert.deepEqual([...tools.keys()], ['codex_web_search', 'codex_image_generate', 'antigravity_web_search', 'antigravity_image_generate'])
     assert.doesNotMatch(JSON.stringify(tools.get('codex_image_generate')), /grok|x_search|video_generate/i)
     assert.ok(!tools.has('web_search'))
     assert.ok(!tools.has('image_generate'))
@@ -116,6 +119,31 @@ test('ChatGPT-only host registers models, independent Codex tools and authentica
     await api.logout(status.accounts[0].key)
     assert.deepEqual((await api.status()).accounts, [])
     assert.deepEqual(JSON.parse(await readFile(join(dir, 'auth.json'), 'utf8')).unownedSection, { keep: true })
+    const google = api.forProvider('antigravity')
+    await writeFile(join(dir, 'antigravity-oauth-client.json'), JSON.stringify({ clientId: 'fixture-client', clientSecret: 'fixture-client-secret' }))
+    assert.ok(!routes.has('/api/subscriptions-auth.importLegacy'))
+    const stored = JSON.parse(await readFile(join(dir, 'auth.json'), 'utf8'))
+    stored.antigravity = { default: 'google-fixture', accounts: { 'google-fixture': { accessToken: 'google-fixture-access', refreshToken: 'google-fixture-refresh', expiresAt: Date.now() + 3600000, projectId: 'fixture-project', account: 'google@example.test' } } }
+    await writeFile(join(dir, 'auth.json'), JSON.stringify(stored))
+    const googleStatus = await google.status()
+    assert.equal(googleStatus.accounts[0].account, 'google@example.test')
+    assert.doesNotMatch(JSON.stringify(googleStatus), /google-fixture-access|google-fixture-refresh|fixture-client-secret/)
+    assert.deepEqual((await google.catalog()).models.map(model => model.id), ['gemini-fixture'])
+    assert.deepEqual((await google.catalog()).tools, ['image_generate', 'web_search'])
+    await google.save({ contextWindows: { 'gemini-fixture': 1000000 }, visibleModels: [] })
+    assert.equal((await adapters.get('antigravity').resolveModel('antigravity', 'gemini-fixture')).context.contextWindow, 1000000)
+    assert.equal((await api.catalog()).settings.contextWindows, undefined)
+    await google.save({ tools: { web_search: false, image_generate: false } })
+    await assert.rejects(tools.get('antigravity_web_search').execute({ query: 'fixture' }, { signal: new AbortController().signal }), /disabled/)
+    const googleDenied = []
+    ctx.emit('agent/created', { agent: { session: { header: { createdAt: Date.now() + 1000 } }, ctx: { tools: { restrict({ deny }) { googleDenied.push(...deny) } } } } })
+    assert.deepEqual(googleDenied, ['antigravity_web_search', 'antigravity_image_generate'])
+    const googleLogin = await google.login()
+    assert.equal(new URL(googleLogin.authorizeUrl).origin, 'https://accounts.google.com')
+    assert.equal(new URL(googleLogin.authorizeUrl).searchParams.get('client_id'), 'fixture-client')
+    await google.cancel()
+    await google.logout(googleStatus.accounts[0].key)
+    assert.deepEqual((await google.status()).accounts, [])
   } finally {
     await runtime.dispose()
     if (previous === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = previous

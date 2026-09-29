@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-全家桶的 AI 订阅子包，首版仅接入 ChatGPT。侧边栏「AI 订阅」采用与 S3 / RDB 相同的账号列表、主面板、主题颜色与中英文界面。
+全家桶的 AI 订阅子包，支持 ChatGPT 与 Google Antigravity。侧边栏「AI 订阅」包含类型选择、账号列表、模型设置和用量，沿用 S3 / RDB 的布局、主题颜色与中英文界面。
 
 ## 使用
 
@@ -20,12 +20,43 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
 
 | 工具 | 输入 | 结果 |
 | --- | --- | --- |
+| `antigravity_web_search` | `query` | Google 搜索摘要和最多八条来源 |
+| `antigravity_image_generate` | `prompt`；可选 `referenceImages`、`reasoningEffort`（`minimal` / `high`） | 本地路径和图片附件 |
 | `codex_web_search` | `query` | 摘要和最多八条来源 |
 | `codex_image_generate` | `prompt`；可选 `referenceImages`、`size`、`quality` | 本地路径和图片附件 |
+
+Antigravity 搜索使用 Gemini 3 Flash 的 Google Search grounding；无来源引用时返回不可用错误。图片工具使用 Gemini 3.1 Flash Image，省略思考强度时读取模型默认设置。图片引用由 DSH 附件服务解析；工作区图片先通过 `read_image` 读取。工具请求只在 401 时刷新一次令牌、在 403/404 时切换地址，网络失败、限流和服务端错误不自动重发生图。
 
 工具列表按会话创建时的开关设置生成；搜索关闭后也会立即阻止已有会话调用。持久化开关使用能力键 `web_search` 和 `image_generate`。
 
 模型、搜索和生图的实际可用性取决于账号权限及额度。接入使用 ChatGPT 订阅的 Codex 后端，无需 OpenAI API key。
+
+## Google Antigravity
+
+侧栏选择 **Antigravity · Google**，点击「连接 Google Antigravity」。Google OAuth 使用 PKCE，回调地址为 `http://localhost:51121/oauth-callback`；端口被占用或被系统保留时支持手动提交完整回调 URL。账号凭证保存在主机。
+
+| 能力 | 行为 |
+| --- | --- |
+| 模型 | Cloud Code Assist 实时目录中账号可用的 Gemini、Claude、GPT-OSS 对话及图片模型 |
+| 配置 | 按提供方保存显示筛选、推理强度和上下文；同类账号共用配置 |
+| 用量 | 额度分组、短时与每周窗口、重置时间；兼容按模型返回的额度 |
+| 图片模型 | Gemini 3.1 Flash Image 可在对话中生成图片；结果保存为 DSH 附件，支持预览与继续编辑。思考强度支持 Minimal / High，跟随提供方时默认为 Minimal。需要附件服务。 |
+| 工具 | 对话模型使用 DSH 会话工具；图片模型输出文本和图片，不调用会话工具。独立工具 `antigravity_web_search`、`antigravity_image_generate` 使用默认 Google 账号，开关位于 Antigravity 的「工具」页签 |
+
+模型目录合并默认与备用 Google 地址的结果。请求保留 Antigravity 客户端标识；单个地址的 403 支持切换到备用地址。用量窗口独立于模型目录和方案查询，部分接口不可用时保留已获取的数据。
+
+旧插件与本接入使用相同的 `antigravity` 提供方，启用本接入前需停用旧插件。
+
+OAuth 客户端配置按以下顺序读取：
+
+1. 插件配置中的 `antigravity.clientId` 与可选的 `antigravity.clientSecret`。
+2. 环境变量 `ANTIGRAVITY_CLIENT_ID`、`ANTIGRAVITY_CLIENT_SECRET`，兼容 `NOAGY_` 前缀。
+3. `$DSH_HOME/plugins/subscriptions/antigravity-oauth-client.json`，字段为 `clientId` 与可选的 `clientSecret`。
+4. 固定运行时依赖 `@cortexkit/antigravity-auth-core@2.2.0` 提供的默认客户端配置。
+
+登录时保存解析后的客户端配置，已有账号继续使用本地配置刷新令牌。插件源码与构建产物保留核心包导入；客户端常量由依赖包提供。登录不再下载参考项目源码。
+
+项目标识优先使用 `antigravity.projectId`，其次读取账号项目发现结果。项目发现接口缺失（404）或未返回项目时，使用与参考插件一致的账号兼容标识。此标识不创建 Google Cloud 项目，也不改变账号权限；服务端要求真实项目时，可配置 `antigravity.projectId`。认证、权限与额度错误保留为失败。
 
 ## 配置
 
@@ -37,13 +68,13 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
     subscriptions: false
 ```
 
-独立包插件 ID 为 `subscriptions`。可选配置：`enabled`、`codexClientVersion`、`streamIdleTimeoutMs`、`rateLimit`，以及用于覆盖自动发现的 `models` 数组（包含 `id`，可选 `name`、`contextWindow`、`inputModalities`）。一般保留默认值即可；手动模型列表不会增加账号权限。
+独立包插件 ID 为 `subscriptions`。配置项：`enabled`、`codexClientVersion`、`streamIdleTimeoutMs`、`rateLimit`、Codex 的 `models` 和 Antigravity 的 `antigravity.models`。模型条目包含 `id`，可选 `name`、`contextWindow`、`inputModalities`。Antigravity 另支持 `clientId`、`clientSecret`、`baseURL`、`userAgent`、`projectId`、`onboard`（默认关闭）。
 
 凭证和设置保存在 DSH home 的 `plugins/subscriptions/`。界面读取不含 token 的账号状态；RPC 通过 DSH 已认证的连接。原版订阅插件使用相同的 provider 和 RPC 名称，两个包不能同时加载。
 
 ## 源码维护
 
-`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理。提供方仅有 ChatGPT（Codex），后端从本地源码构建。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
+`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理，提供方为 `codex` 与 `antigravity`。后端从本地源码构建。Antigravity 协议参考：[LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6)。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
 
 `THIRD_PARTY_LICENSES.txt` 随独立包和全家桶发布。修改协议后端时需重新验证 OAuth、RPC、工具策略和模型目录测试。
 

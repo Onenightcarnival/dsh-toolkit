@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-test('subscription sources and bundle exclude unrelated providers and OAuth registrations', async () => {
+test('subscription sources and bundle exclude unrelated providers and embedded OAuth clients', async () => {
   const root = fileURLToPath(new URL('../src/backend', import.meta.url))
   const files = (await readdir(root, { recursive: true })).filter(file => file.endsWith('.ts'))
-  const forbiddenProvider = /\b(?:claude|grok|copilot|antigravity|x_search|video_generate)\b/i
+  const forbiddenProvider = /\b(?:grok|copilot|x_search|video_generate)\b/i
   const oauthRegistration = /GOCSPX-[\w-]+|\d+-[\w-]+\.apps\.googleusercontent\.com/
   for (const file of files) {
     const source = await readFile(join(root, file), 'utf8')

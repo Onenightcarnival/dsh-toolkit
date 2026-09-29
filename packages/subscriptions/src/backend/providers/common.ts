@@ -110,7 +110,8 @@ export async function httpLlmError(
     // Only swallow error-body reading: the HTTP status still identifies the failure.
   }
   // Truncated for display only; the readers below need the whole body to parse it.
-  const shown = body.slice(0, 500)
+  const html = response.headers.get('content-type')?.includes('text/html') || /^\s*(?:<!doctype\s+html|<html[\s>])/i.test(body)
+  const shown = html ? response.statusText || 'Upstream endpoint unavailable' : body.slice(0, 500)
   const message = shown.length > 0
     ? `${label} error (HTTP ${String(response.status)}): ${shown}`
     : `${label} error (HTTP ${String(response.status)})`

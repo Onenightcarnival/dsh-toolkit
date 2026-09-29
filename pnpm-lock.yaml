@@ -701,6 +701,10 @@ importers:
         version: 5.7.3
 
   packages/subscriptions:
+    dependencies:
+      '@cortexkit/antigravity-auth-core':
+        specifier: 2.2.0
+        version: 2.2.0
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: 4.0.4
@@ -752,6 +756,10 @@ importers:
         version: 7.30.0
 
   packages/toolkit:
+    dependencies:
+      '@cortexkit/antigravity-auth-core':
+        specifier: 2.2.0
+        version: 2.2.0
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: 4.0.4
@@ -1041,6 +1049,9 @@ packages:
   '@babel/types@8.0.6':
     resolution: {integrity: sha512-c+xgSWboV2pdwXP67BUWDVRHi2BO5Q3KwxyFVs7taVTY+fsK47/L51ZXQoV9rozHJDNHvJ4v4WEsI/IlxV2l2A==}
     engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@cortexkit/antigravity-auth-core@2.2.0':
+    resolution: {integrity: sha512-TEv4ZFTASmaIqilZBqyAjzs2HaIhSHI39oBGT75LMnakNqHkhR73JTddsCUuz/c9qB5QWxXse+Kpn11HAV0ofQ==}
 
   '@csstools/color-helpers@5.1.0':
     resolution: {integrity: sha512-S11EXWJyy0Mz5SYvRmY8nJYTFFd1LCNV+7cXyAgQtOOuzb4EsgfqDufL+9esx72/eLhsRdGZwaldu/h+E4t4BA==}
@@ -6023,6 +6034,10 @@ packages:
     resolution: {integrity: sha512-Hl0ZOAs672vg+06kfujwRhoS6/jehvULrlFkuF2dRu6pHgA8U06h3xqNIqNNU1LTXPcedxByAR4GS6pwQK0mgA==}
     engines: {node: '>=20'}
 
+  xdg-basedir@5.1.0:
+    resolution: {integrity: sha512-GCPAHLvrIH13+c0SuacwvRYj2SxJXQ4kaVTT5xgL3kPrz56XxkF21IGhjSE1+W0aw7gpBWRGXLCPnPby6lSpmQ==}
+    engines: {node: '>=12'}
+
   xml-name-validator@5.0.0:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
     engines: {node: '>=18'}
@@ -6475,6 +6490,11 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 8.0.6
       '@babel/helper-validator-identifier': 8.0.6
+
+  '@cortexkit/antigravity-auth-core@2.2.0':
+    dependencies:
+      xdg-basedir: 5.1.0
+      zod: 4.6.5
 
   '@csstools/color-helpers@5.1.0': {}
 
@@ -11772,6 +11792,8 @@ snapshots:
     dependencies:
       is-wsl: 3.1.1
       powershell-utils: 0.1.0
+
+  xdg-basedir@5.1.0: {}
 
   xml-name-validator@5.0.0: {}
 

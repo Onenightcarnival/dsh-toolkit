@@ -8,11 +8,15 @@ const dir = fileURLToPath(new URL('..', import.meta.url))
 const result = await build({ absWorkingDir: dir, stdin: { resolveDir: dir, loader: 'tsx', contents: `
 import React from 'react'; import {createRoot} from 'react-dom/client';
 import {SubscriptionsPanel} from './src/client/Panel.tsx';
-let accounts = [{key:'sample',account:'demo@example.test',plan:'plus',isDefault:true}];
-if (location.search.includes('empty')) accounts=[];
+function fixture(provider) {
+let accounts = location.search.includes('empty') ? [] : [{key:'sample',account:provider==='codex'?'demo@example.test':'google@example.test',plan:provider==='codex'?'plus':'Google AI Pro',isDefault:true}];
 let settings = {};
-const models = [{id:'sample-model-a',name:'ChatGPT · Model A',contextWindow:272000,efforts:[{id:'low',name:'Low'},{id:'high',name:'High'}]}, {id:'sample-model-b',name:'ChatGPT · Model B',contextWindow:128000,efforts:[]}];
-const api = {status:async()=>({accounts,busy:false}),catalog:async()=>({settings,models,accounts:[{key:'sample',models}]}),save:async s=>{settings=s},effort:async()=>{},logout:async()=>{accounts=[]},usage:async()=>({supported:true,plan:'plus',windows:[{kind:'session',usedPercent:38,resetsAt:Date.now()+3600000},{kind:'weekly',usedPercent:62,resetsAt:Date.now()+86400000}]}),login:async()=>{throw new Error('Visual fixture: login disabled')}};
+const name = provider==='codex'?'ChatGPT':'Antigravity';
+const models = [{id:'sample-model-a',name:name+' · Model A',contextWindow:provider==='codex'?272000:1048576,efforts:[{id:'low',name:'Low'},{id:'high',name:'High'}]}, {id:'sample-model-b',name:name+' · Model B',contextWindow:200000,efforts:[]}];
+return {provider,forProvider:p=>fixtures[p],status:async()=>({accounts,busy:false}),catalog:async()=>({provider,settings,models:models.map(m=>({...m,defaultContextWindow:m.contextWindow,contextWindow:settings.contextWindows?.[m.id]??m.contextWindow})),accounts:[{key:'sample',models}]}),save:async s=>{settings=s},effort:async()=>{},logout:async()=>{accounts=[]},usage:async()=>({supported:true,plan:accounts[0]?.plan,windows:[{kind:'session',scope:name,usedPercent:38,resetsAt:Date.now()+3600000},{kind:'weekly',scope:name,usedPercent:62,resetsAt:Date.now()+86400000}]}),login:async()=>{throw new Error('Visual fixture: login disabled')}};
+}
+const fixtures={codex:fixture('codex'),antigravity:fixture('antigravity')};
+const api=fixtures[location.search.includes('google')?'antigravity':'codex'];
 createRoot(document.getElementById('root')).render(<SubscriptionsPanel api={api} close={()=>{}}/>);
 ` }, bundle: true, write: false, platform: 'browser', jsx: 'automatic', format: 'iife' })
 const css = await readFile(new URL('../src/client/styles.css', import.meta.url), 'utf8')

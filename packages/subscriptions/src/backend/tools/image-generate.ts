@@ -30,10 +30,11 @@ export const IMAGE_EDIT_URL = 'https://chatgpt.com/backend-api/codex/images/edit
 export const IMAGE_GENERATE_MODEL = 'gpt-image-2'
 /** Dependencies of the `codex_image_generate` tool. */
 export interface ImageGenerateToolOptions {
+  antigravity?: { generate: (args: ImageGenerateArgs, references: string[] | undefined, signal: AbortSignal) => Promise<GeneratedImage[]> }
   /** Shared generation/edit account scheduling; standalone tools get a private pool. */
   imagePool?: ImageAccountPool
   /** Creation-time provider policy; existing sessions retain their original tools. */
-  providerEnabled?: (provider: 'codex', createdAt: number | undefined) => boolean
+  providerEnabled?: (provider: 'codex' | 'antigravity', createdAt: number | undefined) => boolean
   /** Codex session source; used for generation and editing. */
   codexTokens?: AccountTokenManager<CodexSession>
   /** Fetch implementation (injectable for tests). */
@@ -56,6 +57,7 @@ export interface ImageGenerateRequestBody {
 
 /** The tool's own argument shape, used by the ChatGPT request builder. */
 export interface ImageGenerateArgs {
+  reasoningEffort?: 'minimal' | 'high'
   prompt: string
   size?: '1024x1024' | '1024x1536' | '1536x1024' | 'auto'
   quality?: 'low' | 'medium' | 'high' | 'auto'
@@ -68,12 +70,13 @@ async function resolveReferenceImages(
   refs: ImageGenerateImageValue[] | undefined,
   attachments: AttachmentStore | undefined,
   signal: AbortSignal,
+  toolName = 'codex_image_generate',
 ): Promise<string[] | undefined> {
   if (refs === undefined) return undefined
   if (!Array.isArray(refs) || refs.length < 1 || refs.length > 5) {
-    throw new Error('codex_image_generate: referenceImages must contain 1–5 complete image references; omit only for a new image')
+    throw new Error(`${toolName}: referenceImages must contain 1–5 complete image references; omit only for a new image`)
   }
-  if (attachments === undefined) throw new Error('codex_image_generate: editing requires the DSH attachment service')
+  if (attachments === undefined) throw new Error(`${toolName}: editing requires the DSH attachment service`)
   const seen = new Set<string>()
   let totalBytes = 0
   const urls: string[] = []
@@ -83,19 +86,19 @@ async function resolveReferenceImages(
       || typeof ref.attachmentId !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(ref.attachmentId)
       || !['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(ref.mediaType)
       || ![ref.bytes, ref.width, ref.height].every(value => Number.isSafeInteger(value) && value > 0)) {
-      throw new Error('codex_image_generate: invalid referenceImages entry; copy a complete image reference or call read_image for a local file. Do not omit references to retry an edit.')
+      throw new Error(`${toolName}: invalid referenceImages entry; copy a complete image reference or call read_image for a local file. Do not omit references to retry an edit.`)
     }
-    if (seen.has(ref.attachmentId)) throw new Error('codex_image_generate: referenceImages contains duplicate images')
+    if (seen.has(ref.attachmentId)) throw new Error(`${toolName}: referenceImages contains duplicate images`)
     seen.add(ref.attachmentId)
     if (refs.length > attachments.imageLimits.maxImagesPerMessage
       || ref.bytes > attachments.imageLimits.maxImageBytes
       || totalBytes + ref.bytes > attachments.imageLimits.maxMessageImageBytes) {
-      throw new Error('codex_image_generate: referenceImages exceed DSH image limits')
+      throw new Error(`${toolName}: referenceImages exceed DSH image limits`)
     }
     const stored = await attachments.readImage(imageRefFromValue(ref), signal)
     totalBytes += stored.data.byteLength
     if (totalBytes > attachments.imageLimits.maxMessageImageBytes) {
-      throw new Error('codex_image_generate: referenceImages exceed DSH image limits')
+      throw new Error(`${toolName}: referenceImages exceed DSH image limits`)
     }
     urls.push(`data:${stored.ref.mediaType};base64,${Buffer.from(stored.data).toString('base64')}`)
   }
@@ -244,26 +247,30 @@ function imageRefFromValue(image: ImageGenerateImageValue): ImageAttachmentRef {
 }
 
 /** Project the canonical value into the model-facing text + image blocks. */
-function imageGenerateContent(value: ImageGenerateValue): ContentBlock[] {
+function imageGenerateContent(value: ImageGenerateValue, toolName = 'codex_image_generate'): ContentBlock[] {
   return [
-    imageGenerateText(value),
+    imageGenerateText(value, toolName),
     ...(value.images ?? []).map(image => ({ type: 'image' as const, attachment: imageRefFromValue(image) })),
   ]
 }
 
 /** The text summary of one generation, shared by the model content and the UI card. */
-function imageGenerateText(value: ImageGenerateValue): ContentBlock {
+function imageGenerateText(value: ImageGenerateValue, toolName: string): ContentBlock {
   const text = `Saved ${value.paths.length} image(s):\n${value.paths.map(path => `- ${path}`).join('\n')}`
-    + (value.images?.length ? `\n\nImage references (for codex_image_generate.referenceImages): ${JSON.stringify(value.images)}` : '')
+    + (value.images?.length ? `\n\nImage references (for ${toolName}.referenceImages): ${JSON.stringify(value.images)}` : '')
     + (value.revisedPrompt === undefined ? '' : `\n\nRevised prompt: ${value.revisedPrompt}`)
   return { type: 'text', text }
 }
 
 export function createImageGenerateTool(options: ImageGenerateToolOptions): ToolDefinition {
+  const provider = options.antigravity ? 'antigravity' : 'codex'
+  const toolName = `${provider}_image_generate`
   const imagePool = options.imagePool ?? new ImageAccountPool()
   return defineTool({
-    name: 'codex_image_generate',
-    description: 'Generate or edit images with the ChatGPT subscription (gpt-image-2) and save them locally. '
+    name: toolName,
+    description: options.antigravity
+      ? 'Generate or edit images through the Google Antigravity subscription using Gemini 3.1 Flash Image. Returns local paths and image attachments. For edits, pass complete referenceImages from read_image or prior image tool results. Never omit failed references to substitute a new image.'
+      : 'Generate or edit images with the ChatGPT subscription (gpt-image-2) and save them locally. '
       + 'Image requests use available ChatGPT accounts; quota or authentication rejection can switch accounts. '
       + 'Returns the saved file paths; on image-capable models the image itself is attached. '
       + 'To edit or use existing images as references, pass referenceImages copied from the image reference text '
@@ -296,16 +303,20 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
         },
       },
       prompt: { type: 'string', required: true, description: 'What the image should show.' },
-      size: {
-        type: 'string',
-        enum: ['1024x1024', '1024x1536', '1536x1024', 'auto'],
-        description: 'Image dimensions; omit for the provider default.',
-      },
-      quality: {
-        type: 'string',
-        enum: ['low', 'medium', 'high', 'auto'],
-        description: 'Rendering quality; omit for the provider default.',
-      },
+      ...(options.antigravity ? {
+        reasoningEffort: { type: 'string' as const, enum: ['minimal', 'high'], description: 'Image reasoning effort; omit to use the configured model default.' },
+      } : {
+        size: {
+          type: 'string',
+          enum: ['1024x1024', '1024x1536', '1536x1024', 'auto'],
+          description: 'Image dimensions; omit for the provider default.',
+        },
+        quality: {
+          type: 'string',
+          enum: ['low', 'medium', 'high', 'auto'],
+          description: 'Rendering quality; omit for the provider default.',
+        },
+      }),
     },
     output: {
       schema: {
@@ -331,44 +342,50 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
         },
         additionalProperties: false,
       },
-      render: (_args, value) => imageGenerateContent(value),
+      render: (_args, value) => imageGenerateContent(value, toolName),
     },
     presentCall: args => ({
       card: 'generic',
-      title: `codex_image_generate${args.referenceImages === undefined ? '' : ` (edit, ${args.referenceImages.length} images)`}: ${truncate(args.prompt)}`,
+      title: `${toolName}${args.referenceImages === undefined ? '' : ` (edit, ${args.referenceImages.length} images)`}: ${truncate(args.prompt)}`,
     }),
     presentResult: (_args, result) => ({
       card: 'generic' as const,
       content: result.content.filter(block => block.type === 'text'),
     }),
+    timeoutMs: options.antigravity ? 180_000 : undefined,
     async execute(args, exec) {
       const fetchFn = options.fetchFn ?? proxiedFetch
       // Validate the prompt even when references cannot be resolved.
-      buildImageGenerateBody(args)
-      const references = await resolveReferenceImages(args.referenceImages, options.resolveAttachments?.(), exec.signal)
+      if (!args.prompt.trim()) throw new Error(`${toolName}: prompt must not be empty`)
+      const references = await resolveReferenceImages(args.referenceImages, options.resolveAttachments?.(), exec.signal, toolName)
       const createdAt = exec.agent?.session.header?.createdAt
-      if (options.providerEnabled?.('codex', createdAt) === false) throw new Error('codex_image_generate: disabled for this session')
-      if (options.codexTokens === undefined) throw new Error('codex_image_generate: ChatGPT is not configured')
-      const response = await imagePool.request({
-        provider: 'codex', tokens: options.codexTokens, signal: exec.signal,
-        owner: exec.agent?.session, rateLimitReset: codexRateLimitReset,
-        send: session => fetchFn(references === undefined ? IMAGE_GENERATE_URL : IMAGE_EDIT_URL, {
-          method: 'POST',
-          headers: {
-            'authorization': `Bearer ${session.accessToken}`,
-            'chatgpt-account-id': session.accountId,
-            'originator': 'codex_cli_rs',
-            'content-type': 'application/json',
-            'accept': 'application/json',
-          },
-          body: JSON.stringify({
-            ...buildImageGenerateBody(args),
-            ...references === undefined ? {} : { images: references.map(image_url => ({ image_url })) },
+      if (options.providerEnabled?.(provider, createdAt) === false) throw new Error(`${toolName}: disabled for this session`)
+      let images: GeneratedImage[]
+      if (options.antigravity) {
+        images = await options.antigravity.generate(args as ImageGenerateArgs, references, exec.signal)
+      } else {
+        if (options.codexTokens === undefined) throw new Error('codex_image_generate: ChatGPT is not configured')
+        const response = await imagePool.request({
+          provider: 'codex', tokens: options.codexTokens, signal: exec.signal,
+          owner: exec.agent?.session, rateLimitReset: codexRateLimitReset,
+          send: session => fetchFn(references === undefined ? IMAGE_GENERATE_URL : IMAGE_EDIT_URL, {
+            method: 'POST',
+            headers: {
+              'authorization': `Bearer ${session.accessToken}`,
+              'chatgpt-account-id': session.accountId,
+              'originator': 'codex_cli_rs',
+              'content-type': 'application/json',
+              'accept': 'application/json',
+            },
+            body: JSON.stringify({
+              ...buildImageGenerateBody(args),
+              ...references === undefined ? {} : { images: references.map(image_url => ({ image_url })) },
+            }),
+            signal: exec.signal,
           }),
-          signal: exec.signal,
-        }),
-      })
-      const images = parseImageGenerateResponse(await response.json())
+        })
+        images = parseImageGenerateResponse(await response.json())
+      }
       const directory = options.imagesDir ?? imagesDirectory()
       await mkdir(directory, { recursive: true })
       const paths: string[] = []

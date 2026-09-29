@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { SubscriptionsApi } from './api.ts'
 import { tt } from './locales.ts'
 
-interface Props {
+export interface Props {
+  provider?: 'codex' | 'antigravity'
   api: SubscriptionsApi
   block?: {
     kind?: string
@@ -27,10 +28,10 @@ function Image({ api, attachment }: { api: SubscriptionsApi; attachment: Record<
     }).catch(error => { if (!cancelled) setError(error instanceof Error ? error.message : String(error)) })
     return () => { cancelled = true }
   }, [api, key])
-  return url ? <a href={url} download="chatgpt-image" title={tt('imagePreview')}><img src={url} alt={tt('imagePreview')} /></a> : <p role={error ? 'alert' : 'status'}>{error || tt('imageLoading')}</p>
+  return url ? <a href={url} download="subscription-image" title={tt('imagePreview')}><img src={url} alt={tt('imagePreview')} /></a> : <p role={error ? 'alert' : 'status'}>{error || tt('imageLoading')}</p>
 }
 
-export function ImageToolview({ api, block }: Props): JSX.Element | null {
+export function ImageToolview({ api, block, provider }: Props): JSX.Element | null {
   if (!block) return null
   const settled = block.kind !== undefined
   const raw = block.call?.argsRaw ?? block.argsRaw ?? ''
@@ -39,11 +40,11 @@ export function ImageToolview({ api, block }: Props): JSX.Element | null {
   const text = block.content?.filter(p => p.type === 'text').map(p => p.text).join('\n') ?? ''
   const images = block.content?.filter(p => p.type === 'image' && p.attachment) ?? []
   return <div className="dsh-sub-imageResult">
-    <strong>{tt('imageTitle')}</strong><p>{prompt}</p>
+    <strong>{tt(provider === 'antigravity' ? 'googleImageTitle' : 'imageTitle')}</strong><p>{prompt}</p>
     {!settled && <p role="status">{tt('generating')}</p>}
     {block.isError ? <p role="alert">{text || block.error?.code}</p> : <>
       <div className="dsh-sub-images">{images.map((image, i) => <Image key={i} api={api} attachment={image.attachment!}/>)}</div>
-      {text && <details><summary>codex_image_generate</summary><pre>{text}</pre></details>}
+      {text && <details><summary>{provider === 'antigravity' ? 'antigravity_image_generate' : 'codex_image_generate'}</summary><pre>{text}</pre></details>}
     </>}
   </div>
 }

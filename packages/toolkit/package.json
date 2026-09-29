@@ -1,7 +1,7 @@
 {
   "name": "@onenightcarnival/dsh-toolkit",
   "version": "0.6.0",
-  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser); ChatGPT subscription models, web search and image generation",
+  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser); ChatGPT and Google Antigravity subscriptions, Codex web search and image generation",
   "author": "onenightcarnival",
   "license": "MIT",
   "repository": {
@@ -76,5 +76,8 @@
     "@types/react": "~18.3.1",
     "esbuild": "^0.25.0",
     "typescript": "~5.7.2"
+  },
+  "dependencies": {
+    "@cortexkit/antigravity-auth-core": "2.2.0"
   }
 }

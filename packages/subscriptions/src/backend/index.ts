@@ -72,7 +72,12 @@ import {
   refreshCodex,
 } from './providers/codex.js'
 import { createImageGenerateTool } from './tools/image-generate.js'
-import { createCodexWebSearchTool } from './tools/web-search.js'
+import { AntigravityToolClient, ANTIGRAVITY_IMAGE_MODEL } from './providers/antigravity-tools.js'
+import { createWebSearchTool } from './tools/web-search.js'
+import { AntigravityAdapter, antigravityFlow, exchangeAntigravityCode, refreshAntigravity, isAntigravityPermanentRefreshError, fetchAntigravityUsage, ANTIGRAVITY_PREEMPT_MS } from './providers/antigravity.js'
+import type { AntigravityRuntimeConfig } from './providers/antigravity.js'
+import { resolveAntigravityOAuthConfig, preserveAntigravityClient, type AntigravityOAuthConfig } from './auth/antigravity-client.js'
+import type { AntigravitySession } from './auth/store.js'
 import { ensureConnectAttemptTimeout, proxiedFetch, proxyGetConfig, proxySetConfig, proxyTestConnection, restoreConnectAttemptTimeout } from './http.js'
 import { ProviderSettingsStore, PROVIDER_TOOLS, validatePreferences } from './provider-settings.js'
 
@@ -95,6 +100,7 @@ export { withTimeout } from './providers/common.js'
 export interface Config {
   /** Codex /models client_version override; does not change account entitlements. */
   codexClientVersion?: string
+  antigravity?: AntigravityRuntimeConfig & Partial<AntigravityOAuthConfig>
   /** Provider routes to register; defaults to every supported provider. */
   providers?: ProviderId[]
   /** Maximum provider idle time while one stream read is outstanding (default five minutes). */
@@ -104,6 +110,7 @@ export interface Config {
   /** Advisory model catalogs overriding the built-in defaults, per provider. */
   models?: {
     codex?: ModelEntry[]
+    antigravity?: ModelEntry[]
   }
   /** Same-subscription account pools (and optional extra tier models). */
   pool?: {
@@ -124,7 +131,7 @@ export interface Config {
   }
 }
 
-const providerIdSchema = z.union(['codex'])
+const providerIdSchema = z.union(['codex', 'antigravity'])
 const modelEntrySchema: z<ModelEntry> = z.object({
   id: z.string().required(),
   name: z.string(),
@@ -140,7 +147,8 @@ const poolMemberSchema: z<PoolMemberRef> = z.object({
 })
 
 export const Config: z<Config> = z.object({
-  providers: z.array(providerIdSchema).default(['codex']),
+  providers: z.array(providerIdSchema).default(['codex', 'antigravity']),
+  antigravity: z.object({ clientId: z.string(), clientSecret: z.string(), baseURL: z.string(), userAgent: z.string(), projectId: z.string(), onboard: z.boolean() }),
   codexClientVersion: z.string(),
   streamIdleTimeoutMs: z.number().min(1).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
   rateLimit: z.object({
@@ -149,6 +157,7 @@ export const Config: z<Config> = z.object({
   }),
   models: z.object({
     codex: z.array(modelEntrySchema),
+    antigravity: z.array(modelEntrySchema),
   }),
   pool: z.object({
     enabled: z.boolean().default(true),
@@ -163,6 +172,7 @@ export const Config: z<Config> = z.object({
 
 /** Built-in catalogs used when the config does not override a provider's models. */
 const DEFAULT_MODELS: Record<ProviderId, ModelEntry[]> = {
+  antigravity: [],
   codex: [
     { id: 'gpt-5.1-codex', name: 'GPT-5.1 Codex' },
     { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini' },
@@ -180,6 +190,7 @@ function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry
   }
   return {
     codex: resolve('codex'),
+    antigravity: resolve('antigravity'),
   }
 }
 
@@ -187,6 +198,7 @@ function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry
 function accountOf(provider: ProviderId, session: StoredSession | undefined): string | undefined {
   if (session === undefined) return undefined
   switch (provider) {
+    case 'antigravity': return (session as AntigravitySession).account ?? (session as AntigravitySession).projectId
     case 'codex': {
       const codex = session as CodexSession
       // Sessions stored before identity claims were persisted still carry the
@@ -199,6 +211,7 @@ function accountOf(provider: ProviderId, session: StoredSession | undefined): st
 /** The plan name a stored session carries, when the provider told us. */
 function planOf(provider: ProviderId, session: StoredSession): string | undefined {
   switch (provider) {
+    case 'antigravity': return (session as AntigravitySession).plan
     case 'codex': return (session as CodexSession).planType
   }
 }
@@ -262,6 +275,7 @@ export class SubscriptionsAuthController implements AuthController {
     private readonly usageFetchers: UsageFetchers = {},
     private readonly poolUsage: PoolUsageTracker | undefined = undefined,
     private readonly clientVersions: Partial<Record<ProviderId, () => Promise<CliVersion | undefined>>> = {},
+    private readonly antigravityConfig: Config['antigravity'] = {},
   ) {}
 
   usage(provider: ProviderId, account: string, signal: AbortSignal, force = false): Promise<ProviderUsage> {
@@ -305,7 +319,9 @@ export class SubscriptionsAuthController implements AuthController {
   }
 
   async login(provider: ProviderId): Promise<{ authorizeUrl: string; manualOnly: boolean }> {
-    const attempt = await this.flows.start(provider, codexFlow)
+    const oauth = provider === 'antigravity' ? resolveAntigravityOAuthConfig(this.antigravityConfig) : undefined
+    if (oauth) await preserveAntigravityClient(oauth)
+    const attempt = await this.flows.start(provider, oauth ? antigravityFlow(oauth) : codexFlow)
     // Claimed only once the attempt exists: a rejected `start()` (one attempt
     // per provider) must not supersede the attempt already running.
     this.beginFinalizing(provider)
@@ -347,7 +363,7 @@ export class SubscriptionsAuthController implements AuthController {
       // A failure is as stale as a success would have been: whoever claimed
       // the session while the exchange ran owns what the card shows, so a
       // superseded attempt must not put an error on a provider that has since
-      // been imported, logged in again, or logged out.
+      // been logged in again or logged out.
       if (this.claims.get(provider) !== claim) return
       // A user-cancelled attempt is not a failure worth surfacing. Every
       // in-tree canceller claims first, so the guard above already covers
@@ -364,6 +380,7 @@ export class SubscriptionsAuthController implements AuthController {
   /** Token exchange for one OAuth code; `protected` so tests can stand in for the provider endpoint. */
   protected exchange(provider: ProviderId, code: string, attempt: OAuthAttempt): Promise<StoredSession> {
     switch (provider) {
+      case 'antigravity': return exchangeAntigravityCode(code, attempt.pkce.verifier, attempt.redirectUri, resolveAntigravityOAuthConfig(this.antigravityConfig), this.antigravityConfig)
       case 'codex':
         return exchangeCodexCode(code, attempt.pkce.verifier, attempt.redirectUri)
     }
@@ -415,6 +432,7 @@ export class SubscriptionsAuthController implements AuthController {
     await setDefaultAccount(provider, account)
     this.onAuthChanged(provider, account)
   }
+
 }
 
 /** How long the Settings status waits on a CLI version refresh before showing the last one. */
@@ -494,7 +512,7 @@ export function apply(ctx: Context, config: Config): void {
     onWarn,
   })
   const authChanged = (provider: ProviderId, account?: string): void => {
-    imagePool.clear(provider, account)
+    if (provider === 'codex') imagePool.clear(provider, account)
     adapters.get(provider)?.clearAccountCatalog(account)
     poolHealth?.clear(provider, account)
     poolUsage?.invalidate(provider, account)
@@ -510,6 +528,7 @@ export function apply(ctx: Context, config: Config): void {
   // Token managers double as the tools' credential source, so they are
   // captured beside the registrations for the inject block below.
   let codexTokens: AccountTokenManager<CodexSession> | undefined
+  let antigravityTokens: AccountTokenManager<AntigravitySession> | undefined
   // Usage lookups resolve the session through the refresh-aware path, so an
   // expired access token renews instead of failing the lookup.
   const usageFetchers: UsageFetchers = {}
@@ -518,6 +537,7 @@ export function apply(ctx: Context, config: Config): void {
   // fast-tier support so a stale choice cannot leak onto a plain model.
   const speedBySession = new Map<string, SpeedTier>()
   let codexAdapter: CodexAdapter | undefined
+  let antigravityAdapter: AntigravityAdapter | undefined
   const memberAdapters = new Map<ProviderId, AccountAwareAdapter>()
   const register = (provider: ProviderId, adapter: AccountAwareAdapter): AdapterRegistrationHandle => {
     const route = new AccountPreferencesAdapter({
@@ -529,6 +549,33 @@ export function apply(ctx: Context, config: Config): void {
   }
   for (const provider of providers) {
     switch (provider) {
+      case 'antigravity': {
+        const tokens = new AccountTokenManager<AntigravitySession>({
+          provider, displayName: 'Google Antigravity',
+          makeOptions: () => ({
+            preemptMs: ANTIGRAVITY_PREEMPT_MS,
+            refresh: session => refreshAntigravity(session, resolveAntigravityOAuthConfig(config.antigravity)),
+            isPermanent: isAntigravityPermanentRefreshError,
+          }),
+          onAccountRemoved: account => authChanged(provider, account),
+        })
+        antigravityTokens = tokens
+        accountTokens.set(provider, tokens as AccountTokenManager<StoredSession>)
+        usageFetchers.antigravity = async (account, signal) => fetchAntigravityUsage(await tokens.session(account), config.antigravity, proxiedFetch, signal)
+        const adapter = new AntigravityAdapter({
+          models: catalog.antigravity, streamIdleTimeoutMs, rateLimit, tokens,
+          discovery: !overridden.has(provider), runtime: config.antigravity,
+          onWarn, resolveAttachments, catalogStore: catalogStore(provider),
+          accountCatalogStore: account => accountCatalogStore(provider, account),
+          defaultEffortOf: model => defaultEffortOf(provider, model),
+          contextWindowOf: model => preferences.contextWindow(model, provider),
+          pool: () => poolAdapter,
+        })
+        antigravityAdapter = adapter
+        adapters.set(provider, adapter)
+        handles.set(provider, register(provider, adapter))
+        break
+      }
       case 'codex': {
         const tokens = new AccountTokenManager<CodexSession>({
           provider: 'codex',
@@ -587,6 +634,7 @@ export function apply(ctx: Context, config: Config): void {
     // degrade the strategy (zero urgency), not stall the user's request.
     const fetcherFor = (provider: ProviderId, account: string): (() => Promise<ProviderUsage>) | undefined => {
       switch (provider) {
+        case 'antigravity': return () => usageFetchers.antigravity!(account, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
         case 'codex': {
           const tokens = codexTokens
           return tokens === undefined ? undefined : async () =>
@@ -769,7 +817,7 @@ export function apply(ctx: Context, config: Config): void {
           ? presentedVersion(codexVersion)
           : async () => ({ version: config.codexClientVersion!, source: 'config' as const }),
       } : {},
-    },
+    }, config.antigravity,
   ), speed, {
     get: () => proxyGetConfig(),
     set: input => proxySetConfig(input),
@@ -795,10 +843,11 @@ export function apply(ctx: Context, config: Config): void {
       const tierIds = new Set((await poolAdapter?.modelsForProvider(provider).catch(() => []) ?? []).map(model => model.id))
       const rows = await Promise.all(models.map(async model => {
         const contexts: { default: number; max?: number }[] = []
-        if (provider === 'codex' && codexAdapter) {
+        const contextAdapter = provider === 'codex' ? codexAdapter : antigravityAdapter
+        if (contextAdapter) {
           for (const account of accountCatalogs) {
             if (account.models?.some(entry => entry.id === model.id)) {
-              const limits = await codexAdapter.contextLimits(model.id, account.account).catch(() => undefined)
+              const limits = await contextAdapter.contextLimits(model.id, account.account).catch(() => undefined)
               if (limits) contexts.push(limits)
             }
           }
@@ -839,21 +888,35 @@ export function apply(ctx: Context, config: Config): void {
   })
 
   ctx.inject(['tools'], toolsCtx => {
-    if (codexTokens === undefined) return
-    const search = registerWithAlias(toolsCtx.tools, createCodexWebSearchTool(new CodexWebSearchProvider({
+    const search = codexTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createWebSearchTool(new CodexWebSearchProvider({
       tokens: codexTokens,
       enabled: () => preferences.toolEnabled('codex', 'web_search'),
       fetchFn: proxiedFetch,
     })))
-    const image = registerWithAlias(toolsCtx.tools, createImageGenerateTool({
+    const image = codexTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createImageGenerateTool({
       imagePool, codexTokens, resolveAttachments,
       resolveLlm: () => ctx.get('llm'),
       providerEnabled: (provider, createdAt) => preferences.toolEnabled(provider, 'image_generate', createdAt),
     }))
+    const googleClient = antigravityTokens ? new AntigravityToolClient({
+      tokens: antigravityTokens, runtime: config.antigravity,
+      defaultEffort: () => defaultEffortOf('antigravity', ANTIGRAVITY_IMAGE_MODEL),
+    }) : undefined
+    const googleSearch = antigravityTokens ? registerWithAlias(toolsCtx.tools, createWebSearchTool(new AntigravityToolClient({
+      tokens: antigravityTokens, runtime: config.antigravity,
+      enabled: () => preferences.toolEnabled('antigravity', 'web_search'),
+    }), { name: 'antigravity_web_search', label: 'Antigravity', subscription: 'Google Antigravity' })) : undefined
+    const googleImage = googleClient ? registerWithAlias(toolsCtx.tools, createImageGenerateTool({
+      antigravity: { generate: (args, references, signal) => googleClient.images(args, references, signal) },
+      resolveAttachments, resolveLlm: () => ctx.get('llm'),
+      providerEnabled: (provider, createdAt) => preferences.toolEnabled(provider, 'image_generate', createdAt),
+    })) : undefined
     toolsCtx.on('agent/created', ({ agent }) => {
       const deny: string[] = []
       if (search && !preferences.toolEnabled('codex', 'web_search')) deny.push(search.name)
       if (image && !preferences.toolEnabled('codex', 'image_generate', agent.session.header.createdAt)) deny.push(image.name)
+      if (googleSearch && !preferences.toolEnabled('antigravity', 'web_search')) deny.push(googleSearch.name)
+      if (googleImage && !preferences.toolEnabled('antigravity', 'image_generate', agent.session.header.createdAt)) deny.push(googleImage.name)
       if (deny.length) agent.ctx.tools.restrict({ deny })
       return undefined
     })

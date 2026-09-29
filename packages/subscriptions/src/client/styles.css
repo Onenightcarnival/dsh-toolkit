@@ -18,8 +18,12 @@
 .dsh-sub-accounts { width: 220px; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; border-right: 1px solid var(--dsw-alias-border-l1); padding-right: 12px; }
 .dsh-sub-asideHead { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .dsh-sub-provider { display: flex; gap: 10px; align-items: center; padding: 12px 8px; }
+.dsh-sub-providers { display: flex; flex-direction: column; gap: 6px; }
+.dsh-sub-panel button.dsh-sub-provider { width: 100%; text-align: left; border-color: transparent; }
+.dsh-sub-panel button.dsh-sub-provider[aria-pressed=true] { background: var(--dsw-alias-interactive-bg-active); border-color: var(--dsw-alias-border-l1); }
 .dsh-sub-provider strong, .dsh-sub-provider small { display: block; }
 .dsh-sub-logo { display: grid; place-items: center; font-size: 26px; width: 36px; height: 36px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; }
+.dsh-sub-logo svg { width: 26px; height: 26px; }
 .dsh-sub-panel small { color: var(--dsw-alias-label-tertiary); font-size: 11px; margin-top: 3px; }
 .dsh-sub-accountList { overflow: auto; display: flex; flex-direction: column; gap: 4px; }
 .dsh-sub-panel button.dsh-sub-account { display: flex; flex-direction: column; align-items: stretch; text-align: left; border-color: transparent; padding: 8px; }
@@ -55,6 +59,7 @@
 .dsh-sub-context input[aria-invalid=true] { border-color: var(--dsw-alias-state-error-primary); }
 .dsh-sub-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 36px 24px; text-align: center; min-height: 250px; }
 .dsh-sub-emptyLogo { font-size: 40px; color: var(--dsw-alias-label-tertiary); }
+.dsh-sub-emptyLogo svg { display: block; width: 48px; height: 48px; }
 .dsh-sub-empty h3 { margin: 18px 0 8px; font-size: 17px; }
 .dsh-sub-empty p { color: var(--dsw-alias-label-tertiary); max-width: 400px; line-height: 1.7; margin: 0 0 20px; }
 .dsh-sub-banner, .dsh-sub-auth { padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; overflow-wrap: anywhere; }
