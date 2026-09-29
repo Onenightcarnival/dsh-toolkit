@@ -1,12 +1,4 @@
-/**
- * `codex_image_generate` tool: generate images through a subscription image
- * endpoint, save them under the harness home, and — when the deployment
- * mounts an attachment store and the calling route declares image input —
- * also commit the bytes as durable attachments so the images render inline
- * and enter model context (the same path `read_image` uses).
- *
- * Uses the ChatGPT/Codex image endpoint with subscription account credentials.
- */
+/** Subscription image generation and editing, local files and durable image attachments. */
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
@@ -22,6 +14,7 @@ import { ImageAccountPool } from '../providers/image-pool.js'
 import { codexRateLimitReset } from '../providers/codex.js'
 import type { FetchFn } from '../providers/common.js'
 import { proxiedFetch } from '../http.js'
+import { resolveNativeImageReferences } from './image-references.js'
 
 /** Endpoint the codex generation request is posted to. */
 export const IMAGE_GENERATE_URL = 'https://chatgpt.com/backend-api/codex/images/generations'
@@ -53,12 +46,16 @@ export interface ImageGenerateRequestBody {
   model: string
   size?: string
   quality?: string
+  background: 'transparent' | 'opaque'
 }
 
 /** The tool's own argument shape, used by the ChatGPT request builder. */
 export interface ImageGenerateArgs {
   reasoningEffort?: 'minimal' | 'high'
   prompt: string
+  transparent_background?: boolean
+  referenced_image_paths?: string[] | null
+  num_last_images_to_include?: number | null
   size?: '1024x1024' | '1024x1536' | '1536x1024' | 'auto'
   quality?: 'low' | 'medium' | 'high' | 'auto'
   /** Ordered durable references; omission generates, presence edits. */
@@ -105,18 +102,16 @@ async function resolveReferenceImages(
   return urls
 }
 
-/**
- * Assemble the codex request body from tool arguments (hand-checks the
- * non-empty prompt the schema DSL cannot express).
- */
+/** Native defaults: automatic dimensions and quality, opaque background. */
 export function buildImageGenerateBody(args: ImageGenerateArgs): ImageGenerateRequestBody {
   const prompt = args.prompt.trim()
   if (prompt.length === 0) throw new Error('codex_image_generate: prompt must be a non-empty string')
   return {
     prompt,
     model: IMAGE_GENERATE_MODEL,
-    ...args.size === undefined ? {} : { size: args.size },
-    ...args.quality === undefined ? {} : { quality: args.quality },
+    size: args.size ?? 'auto',
+    quality: args.quality ?? 'auto',
+    background: args.transparent_background ? 'transparent' : 'opaque',
   }
 }
 
@@ -273,10 +268,11 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
       : 'Generate or edit images with the ChatGPT subscription (gpt-image-2) and save them locally. '
       + 'Image requests use available ChatGPT accounts; quota or authentication rejection can switch accounts. '
       + 'Returns the saved file paths; on image-capable models the image itself is attached. '
-      + 'To edit or use existing images as references, pass referenceImages copied from the image reference text '
-      + 'or structured tool results (read_image.image or codex_image_generate.images). Select only the images the user '
-      + 'intends, in prompt order. For local files, call read_image first. Omit referenceImages only for a new image. '
-      + 'If an edit reference fails, fix it and retry; never omit it to substitute text-to-image generation.',
+      + 'For edits, use referenced_image_paths for absolute local paths, or num_last_images_to_include for the smallest recent conversation image window (1–5) containing the intended images. '
+      + 'Local paths pass through read_image and its permissions. Inspect unseen local images with read_image first. '
+      + 'Compatibility references from read_image.image or codex_image_generate.images use referenceImages. Reference modes are mutually exclusive. '
+      + 'Omit all references only for a new image. Never omit failed edit references to substitute a new generation. '
+      + 'Use transparent_background for cutouts or background removal; preserve transparency when editing. Describe dimensions and composition in prompt; omitted size and quality use auto.',
     parameters: {
       referenceImages: {
         type: 'array',
@@ -306,15 +302,24 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
       ...(options.antigravity ? {
         reasoningEffort: { type: 'string' as const, enum: ['minimal', 'high'], description: 'Image reasoning effort; omit to use the configured model default.' },
       } : {
+        transparent_background: { type: 'boolean', description: 'Transparent output background; defaults to false.' },
+        referenced_image_paths: {
+          oneOf: [{ type: 'array', items: { type: 'string' } }, { type: 'null' }],
+          description: '1–5 ordered absolute paths. Mutually exclusive with recent-image count and referenceImages.',
+        },
+        num_last_images_to_include: {
+          oneOf: [{ type: 'integer' }, { type: 'null' }],
+          description: 'Smallest number of recent conversation images containing every intended reference, from 1 to 5.',
+        },
         size: {
           type: 'string',
           enum: ['1024x1024', '1024x1536', '1536x1024', 'auto'],
-          description: 'Image dimensions; omit for the provider default.',
+          description: 'Compatibility override for image dimensions; defaults to auto.',
         },
         quality: {
           type: 'string',
           enum: ['low', 'medium', 'high', 'auto'],
-          description: 'Rendering quality; omit for the provider default.',
+          description: 'Compatibility override for rendering quality; defaults to auto.',
         },
       }),
     },
@@ -344,10 +349,11 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
       },
       render: (_args, value) => imageGenerateContent(value, toolName),
     },
-    presentCall: args => ({
-      card: 'generic',
-      title: `${toolName}${args.referenceImages === undefined ? '' : ` (edit, ${args.referenceImages.length} images)`}: ${truncate(args.prompt)}`,
-    }),
+    presentCall: args => {
+      const input: ImageGenerateArgs = args
+      const count = input.referenceImages?.length ?? input.referenced_image_paths?.length ?? input.num_last_images_to_include
+      return { card: 'generic', title: `${toolName}${count == null ? '' : ` (edit, ${count} images)`}: ${truncate(args.prompt)}` }
+    },
     presentResult: (_args, result) => ({
       card: 'generic' as const,
       content: result.content.filter(block => block.type === 'text'),
@@ -355,11 +361,14 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
     timeoutMs: options.antigravity ? 180_000 : undefined,
     async execute(args, exec) {
       const fetchFn = options.fetchFn ?? proxiedFetch
-      // Validate the prompt even when references cannot be resolved.
       if (!args.prompt.trim()) throw new Error(`${toolName}: prompt must not be empty`)
-      const references = await resolveReferenceImages(args.referenceImages, options.resolveAttachments?.(), exec.signal, toolName)
       const createdAt = exec.agent?.session.header?.createdAt
       if (options.providerEnabled?.(provider, createdAt) === false) throw new Error(`${toolName}: disabled for this session`)
+      const selected = options.antigravity ? args.referenceImages : await resolveNativeImageReferences({
+        ...args,
+        referenceImages: args.referenceImages?.map(imageRefFromValue),
+      }, exec)
+      const references = await resolveReferenceImages(selected, options.resolveAttachments?.(), exec.signal, toolName)
       let images: GeneratedImage[]
       if (options.antigravity) {
         images = await options.antigravity.generate(args as ImageGenerateArgs, references, exec.signal)

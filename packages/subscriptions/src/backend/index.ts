@@ -73,7 +73,7 @@ import {
 } from './providers/codex.js'
 import { createImageGenerateTool } from './tools/image-generate.js'
 import { AntigravityToolClient, ANTIGRAVITY_IMAGE_MODEL } from './providers/antigravity-tools.js'
-import { createWebSearchTool } from './tools/web-search.js'
+import { createCodexWebSearchTool, createWebSearchTool } from './tools/web-search.js'
 import { AntigravityAdapter, antigravityFlow, exchangeAntigravityCode, refreshAntigravity, isAntigravityPermanentRefreshError, fetchAntigravityUsage, ANTIGRAVITY_PREEMPT_MS } from './providers/antigravity.js'
 import type { AntigravityRuntimeConfig } from './providers/antigravity.js'
 import { resolveAntigravityOAuthConfig, preserveAntigravityClient, type AntigravityOAuthConfig } from './auth/antigravity-client.js'
@@ -888,7 +888,7 @@ export function apply(ctx: Context, config: Config): void {
   })
 
   ctx.inject(['tools'], toolsCtx => {
-    const search = codexTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createWebSearchTool(new CodexWebSearchProvider({
+    const search = codexTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createCodexWebSearchTool(new CodexWebSearchProvider({
       tokens: codexTokens,
       enabled: () => preferences.toolEnabled('codex', 'web_search'),
       fetchFn: proxiedFetch,

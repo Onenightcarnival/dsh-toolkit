@@ -721,6 +721,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: 0.1.7-rc.2
         version: 0.1.7-rc.2(@deepseek-ai/cordis@4.0.4)
+      '@deepseek-ai/dsh-session-query':
+        specifier: 0.1.7-rc.2
+        version: 0.1.7-rc.2(16008d1341cedbd6c89f700e2540af55)
       '@deepseek-ai/dsh-tools':
         specifier: 0.1.7-rc.2
         version: 0.1.7-rc.2(d2e08270f2205e73d65e98cfcd910cae)

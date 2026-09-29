@@ -5,6 +5,8 @@ import { WebError } from '@deepseek-ai/dsh-web'
 import type { WebSearchProvider, WebSearchRequest, WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { CodexSession } from '../auth/store.js'
 import type { AccountTokenManager } from '../providers/accounts.js'
+import type { InferValue } from '@deepseek-ai/dsh-tools'
+import { validateCodexSearchCommands, type CodexSearchCommands } from './codex-search-commands.js'
 
 export const CODEX_SEARCH_PROVIDER_ID = 'codex'
 export const CODEX_SEARCH_URL = 'https://chatgpt.com/backend-api/codex/alpha/search'
@@ -21,6 +23,10 @@ export interface CodexWebSearchOptions {
   retryBaseMs?: number
 }
 
+export interface CodexWebSearchResult extends WebSearchResult {
+  results: InferValue<{ type: 'array' }>
+}
+
 export class CodexWebSearchProvider implements WebSearchProvider {
   readonly id = CODEX_SEARCH_PROVIDER_ID
 
@@ -29,6 +35,11 @@ export class CodexWebSearchProvider implements WebSearchProvider {
   available(): boolean { return this.options.enabled?.() ?? true }
 
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
+    return this.run({ search_query: [{ q: request.query }] }, signal)
+  }
+
+  async run(commands: CodexSearchCommands, signal?: AbortSignal, sessionId?: string): Promise<CodexWebSearchResult> {
+    validateCodexSearchCommands(commands)
     throwIfAborted(signal)
     let session: CodexSession
     try {
@@ -41,16 +52,16 @@ export class CodexWebSearchProvider implements WebSearchProvider {
       )
     }
     const body = {
-      id: this.options.requestId?.() ?? randomUUID(),
+      id: sessionId === undefined ? this.options.requestId?.() ?? randomUUID() : `dsh-subscriptions:${sessionId}`,
       model: CODEX_SEARCH_MODEL,
-      input: request.query,
-      commands: { search_query: [{ q: request.query }] },
+      input: commands.search_query?.map(query => query.q).join('\n') ?? JSON.stringify(commands),
+      commands,
       settings: {
         search_context_size: 'medium',
         allowed_callers: ['direct'],
         external_web_access: 'live',
       },
-      max_output_tokens: 2048,
+      max_output_tokens: commands.response_length === 'long' ? 8192 : commands.response_length === 'medium' ? 4096 : 2048,
     }
     const value = await this.dispatch(body, session, signal)
     return normalizeCodexSearchResponse(value)
@@ -105,7 +116,7 @@ export class CodexWebSearchProvider implements WebSearchProvider {
   }
 }
 
-export function normalizeCodexSearchResponse(value: unknown): WebSearchResult {
+export function normalizeCodexSearchResponse(value: unknown): CodexWebSearchResult {
   if (!record(value) || typeof value.output !== 'string') {
     throw new WebError('Codex Web Search returned an unusable response', 'CODEX_SEARCH_RESPONSE')
   }
@@ -121,7 +132,10 @@ export function normalizeCodexSearchResponse(value: unknown): WebSearchResult {
     const snippet = safeString(candidate.snippet, 4000) ?? safeString(candidate.text, 4000)
     sources.push({ url, ...(title ? { title } : {}), ...(snippet ? { snippet } : {}) })
   }
-  return { content: value.output, sources, truncated: false }
+  return {
+    content: value.output, sources, truncated: value.truncated === true,
+    results: Array.isArray(value.results) ? value.results as CodexWebSearchResult['results'] : [],
+  }
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -182,6 +196,7 @@ async function boundedText(response: Response, signal?: AbortSignal): Promise<st
     if (signal?.aborted) throw cancelled(cause)
     throw cause
   } finally {
+    try { await reader.cancel() } catch { /* Closed or cancelled response. */ }
     try { reader.releaseLock() } catch { /* best effort */ }
   }
 }

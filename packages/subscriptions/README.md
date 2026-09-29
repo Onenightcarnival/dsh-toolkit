@@ -27,12 +27,43 @@ Connect ChatGPT through browser OAuth. The callback tries local ports 1455 and 1
 | --- | --- | --- |
 | `antigravity_web_search` | `query` | Google search summary and up to eight sources |
 | `antigravity_image_generate` | `prompt`; optional `referenceImages`, `reasoningEffort` (`minimal` / `high`) | Local paths and image attachments |
-| `codex_web_search` | `query` | Summary and up to eight sources |
-| `codex_image_generate` | `prompt`; optional `referenceImages`, `size`, `quality` | Local paths and image attachments |
+| `codex_web_search` | Native `web.run` commands; compatibility shorthand `query` | Page text, line/link/reference IDs, complete sources and structured results |
+| `codex_image_generate` | `prompt`; optional `transparent_background`, `referenced_image_paths`, `num_last_images_to_include` | Local paths and image attachments |
 
 Antigravity search uses Gemini 3 Flash with Google Search grounding and requires source citations. The image tool uses Gemini 3.1 Flash Image; omitted reasoning effort inherits the model setting. Image references use DSH attachments; read workspace images with `read_image` first. Tool requests refresh once on 401 and permit endpoint fallback on 403/404. Network errors, rate limits and server failures do not automatically resend image requests.
 
 Tool lists use the settings at conversation creation. Disabling search also blocks calls in existing conversations immediately. Persisted switches use the capability keys `web_search` and `image_generate`.
+
+### Codex web
+
+| Commands | Parameters |
+| --- | --- |
+| `search_query`, `image_query` | `q`; optional `domains`, `recency` |
+| `open` | `ref_id`; optional `lineno` |
+| `click` | `ref_id`, numbered link `id` |
+| `find` | `ref_id`, `pattern` |
+| `screenshot` | `ref_id`, zero-based `pageno` |
+| `finance`, `weather`, `sports`, `time` | Native ticker, location, league and UTC-offset fields |
+| `response_length` | `short`, `medium`, `long` |
+
+Commands accept arrays and can share one call. `search_query` accepts at most four queries; four require `medium` or `long`. `query` is a compatibility shorthand for one search and cannot accompany other commands. Reference IDs belong to one conversation and remain available to subsequent page operations. Sources have no eight-item cap. Structured `results` preserve upstream fields; encrypted transport state is excluded. External content is untrusted; citations use source URLs.
+
+PDF screenshot requests reach the subscription endpoint. Image bytes and native desktop media widgets are not guaranteed by that endpoint; a page reference alone is not a screenshot image. Model and account availability remain provider-controlled.
+
+### Codex images
+
+| Setting | Contract |
+| --- | --- |
+| Model | `gpt-image-2` |
+| Dimensions / quality | `auto` / `auto`; composition and dimensions in `prompt` |
+| Background | `transparent_background: true` for transparency; default `false` |
+| File references | `referenced_image_paths`: 1–5 absolute paths, read through the agent's scoped `read_image` permission pipeline |
+| Conversation references | `num_last_images_to_include`: 1–5 most recent distinct images on the current conversation surface, in chronological order |
+| Compatibility fields | `referenceImages`, `size`, `quality`; existing values remain accepted |
+
+Reference modes are mutually exclusive. Missing, denied or invalid edit references fail before the image request. Recent references require the session query and attachment services. Generated files retain the provider's bytes; inline attachments follow the host's image limits and model capabilities. Automatic dimensions do not establish a fixed 4K output guarantee.
+
+Native contracts: [Codex search commands](https://github.com/openai/codex/blob/main/codex-rs/codex-api/src/search.rs), [Codex image tool](https://github.com/openai/codex/blob/main/codex-rs/ext/image-generation/src/tool.rs).
 
 ## Google Antigravity
 

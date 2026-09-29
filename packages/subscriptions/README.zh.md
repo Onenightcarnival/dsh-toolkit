@@ -26,14 +26,45 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
 | --- | --- | --- |
 | `antigravity_web_search` | `query` | Google 搜索摘要和最多八条来源 |
 | `antigravity_image_generate` | `prompt`；可选 `referenceImages`、`reasoningEffort`（`minimal` / `high`） | 本地路径和图片附件 |
-| `codex_web_search` | `query` | 摘要和最多八条来源 |
-| `codex_image_generate` | `prompt`；可选 `referenceImages`、`size`、`quality` | 本地路径和图片附件 |
+| `codex_web_search` | 原生 `web.run` 命令；兼容简写 `query` | 页面正文、行号、链接编号、引用 ID、完整来源与结构化结果 |
+| `codex_image_generate` | `prompt`；可选 `transparent_background`、`referenced_image_paths`、`num_last_images_to_include` | 本地路径和图片附件 |
 
 Antigravity 搜索使用 Gemini 3 Flash 的 Google Search grounding；无来源引用时返回不可用错误。图片工具使用 Gemini 3.1 Flash Image，省略思考强度时读取模型默认设置。图片引用由 DSH 附件服务解析；工作区图片先通过 `read_image` 读取。工具请求只在 401 时刷新一次令牌、在 403/404 时切换地址，网络失败、限流和服务端错误不自动重发生图。
 
 工具列表按会话创建时的开关设置生成；搜索关闭后也会立即阻止已有会话调用。持久化开关使用能力键 `web_search` 和 `image_generate`。
 
 模型、搜索和生图的实际可用性取决于账号权限及额度。接入使用 ChatGPT 订阅的 Codex 后端，无需 OpenAI API key。
+
+### Codex 联网
+
+| 命令 | 参数 |
+| --- | --- |
+| `search_query`、`image_query` | `q`；可选 `domains`、`recency` |
+| `open` | `ref_id`；可选 `lineno` |
+| `click` | `ref_id`、链接编号 `id` |
+| `find` | `ref_id`、`pattern` |
+| `screenshot` | `ref_id`、从零开始的页码 `pageno` |
+| `finance`、`weather`、`sports`、`time` | 原生股票代码、地点、联赛、UTC 偏移等字段 |
+| `response_length` | `short`、`medium`、`long` |
+
+命令接受数组，可在一次调用中组合。`search_query` 每次最多四条；四条时须选择 `medium` 或 `long`。`query` 是单条搜索的兼容简写，与其他命令互斥。引用 ID 按会话隔离，可用于后续页面操作。来源不设八条上限，结构化 `results` 保留上游字段，不包含加密传输状态。外部内容视为不可信数据，引用使用来源 URL。
+
+PDF 截图命令透传至订阅端点；该端点不保证返回图片字节及原生桌面媒体组件。仅有页面引用不代表已返回截图。模型和账号可用性由提供方决定。
+
+### Codex 生图
+
+| 设置 | 规格 |
+| --- | --- |
+| 模型 | `gpt-image-2` |
+| 尺寸 / 质量 | 默认 `auto` / `auto`；构图和尺寸写入 `prompt` |
+| 背景 | `transparent_background: true` 启用透明背景；默认 `false` |
+| 文件引用 | `referenced_image_paths`：1–5 个绝对路径，经当前 agent 的 `read_image` 权限流程读取 |
+| 对话引用 | `num_last_images_to_include`：当前会话有效上下文中最近 1–5 张不同图片，按时间顺序传入 |
+| 兼容字段 | `referenceImages`、`size`、`quality`；保留原有取值 |
+
+引用方式互斥。缺失、被拒绝或无效的编辑引用在生图请求前报错。对话引用需要会话查询服务和附件服务。生成文件保留上游原始字节，对话内附件遵循宿主图片限制和模型能力。自动尺寸不承诺固定 4K 输出。
+
+原生接口：[Codex 搜索命令](https://github.com/openai/codex/blob/main/codex-rs/codex-api/src/search.rs)、[Codex 生图工具](https://github.com/openai/codex/blob/main/codex-rs/ext/image-generation/src/tool.rs)。
 
 ## Google Antigravity
 
