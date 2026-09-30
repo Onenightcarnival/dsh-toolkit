@@ -9,7 +9,7 @@ DeepSeek Harness 的 AI 订阅插件，支持 ChatGPT 与 Google Antigravity。�
 独立包与集成包互斥：
 
 ```sh
-dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
+dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.7.0.tgz
 ```
 
 ## ChatGPT

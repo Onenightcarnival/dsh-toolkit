@@ -7,7 +7,7 @@ Browser control bridge between dsh and the Chrome / Firefox extension.
 | Boundary | Contract |
 |---|---|
 | Transport | `/ext/bridge` WebSocket; authenticated handshake, one active connection |
-| Host | dsh 0.1.7 Typert Remotes, Session and Remote Event streams |
+| Host | dsh 0.2.0 Typert Remotes, Session and Remote Event streams |
 | Tools | `browser_*` reads and operates the controlled tab with login state preserved |
 | Page | Structured text, stable element numbers and annotated screenshots |
 | Attachments | Image prompts and durable reads; limits advertised by the host attachment service |
@@ -31,11 +31,11 @@ Workspace grouping is best-effort. If the composition has no workspace domain, d
 Install the release `.tgz` into the dsh `web` profile:
 
 - DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」, then restart the app.
-- dsh CLI: `npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<path to .tgz>`, then `npx @deepseek-ai/dsh@0.1.7-rc.2 web`.
+- dsh CLI: `npx @deepseek-ai/dsh@0.2.0-rc.2 plugin --profile web add file:<path to .tgz>`, then `npx @deepseek-ai/dsh@0.2.0-rc.2 web`.
 
 Both register the package's `dsh.bundle` layer ([`cordis.patch.yml`](cordis.patch.yml)), so `dsh web` mounts the bridge without further options. A checkout produces the same `.tgz` with `pnpm run package` at the repository root.
 
-The workspace pins dsh 0.1.7-rc.2, the minimum supported runtime. Older DSH releases are not supported.
+The workspace pins dsh 0.2.0-rc.2, the minimum supported runtime. Older DSH releases are not supported.
 
 The extension is installed separately from the release zip (see the [root README](../../README.md#installation)). Local Chrome connections are discovered automatically and require no token entry. Firefox and non-loopback connections require the bearer token.
 

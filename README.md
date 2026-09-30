@@ -19,7 +19,8 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 
 | Toolkit version | dsh runtime |
 |---|---|
-| 0.6.x | `0.1.7-rc.2` (workspace pin) |
+| 0.7.x | `0.2.0-rc.2` (workspace pin) |
+| 0.6.x | `0.1.7-rc.2` |
 | 0.5.x | `0.1.5-rc.2` |
 
 Plugins and hosts use the same runtime line. A mismatch causes typert validation failures and prevents UI loading.

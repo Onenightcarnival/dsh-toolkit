@@ -9,7 +9,7 @@ ChatGPT and Google Antigravity subscriptions for DeepSeek Harness. Entry: **AI s
 The standalone package and toolkit are mutually exclusive:
 
 ```sh
-dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.6.0.tgz
+dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.7.0.tgz
 ```
 
 ## ChatGPT

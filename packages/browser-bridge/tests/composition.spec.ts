@@ -46,7 +46,7 @@ afterEach(async () => {
 })
 
 /**
- * Minimal structural implementation of the dsh 0.1.7 Host seams. Focused
+ * Minimal structural implementation of the dsh 0.2.0 Host seams. Focused
  * Remote-adapter tests pin the argument and stream contracts separately; this
  * fixture verifies Loader injection, real sockets, and real Session storage.
  */

@@ -33,7 +33,9 @@ function sha256(file) {
 function zipDirectory(dir, target) {
   rmSync(target, { force: true })
   if (shell) {
-    run('powershell', ['-NoProfile', '-Command', `Compress-Archive -Path ${JSON.stringify(join(dir, '*'))} -DestinationPath ${JSON.stringify(target)} -Force`], dir)
+    const literal = value => `'${value.replaceAll("'", "''")}'`
+    const script = `$ProgressPreference = 'SilentlyContinue'; Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory(${literal(dir)}, ${literal(target)})`
+    run('powershell', ['-NoProfile', '-OutputFormat', 'Text', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], dir)
     return
   }
   run('zip', ['-qr', target, '.'], dir)
@@ -52,8 +54,8 @@ if (!existsSync(join(EXTENSION_DIR, 'dist', 'manifest.json'))) {
   process.exit(1)
 }
 
-rmSync(OUT_DIR, { recursive: true, force: true })
 mkdirSync(OUT_DIR, { recursive: true })
+for (const name of readdirSync(OUT_DIR)) rmSync(join(OUT_DIR, name), { recursive: true, force: true })
 
 for (const dir of PLUGINS) {
   execFileSync('pnpm', ['pack', '--pack-destination', OUT_DIR], { cwd: join(ROOT, dir), stdio: 'inherit', shell })

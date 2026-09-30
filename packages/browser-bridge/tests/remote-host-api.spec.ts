@@ -48,7 +48,7 @@ function harness(options: {
   return { api: createRemoteHostApi(gateway, connection), invoke, open, fetch }
 }
 
-describe('dsh 0.1.7 Remote Host adapter', () => {
+describe('dsh 0.2.0 Remote Host adapter', () => {
   it('preserves V3 durable streams and orders reconnect baselines before transient frames without advancing the durable cursor', async () => {
     const baseline = {
       revision: 2,

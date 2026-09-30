@@ -12,7 +12,7 @@ Connect [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) to t
 |---|---|
 | `@onenightcarnival/dsh-bridge-browser` | Host RPC, browser tools and bridge discovery |
 | Chrome / Firefox MV3 extension | Tab operations, page reads and side-panel conversations |
-| dsh `0.1.7-rc.2` | Workspace pin and minimum supported runtime |
+| dsh `0.2.0-rc.2` | Workspace pin and minimum supported runtime |
 
 The browser module derives from [Lum1104/dsh-browser](https://github.com/Lum1104/dsh-browser). Release artifacts include the bridge `.tgz` and Chrome extension zip, with random host-port discovery for [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop).
 
@@ -27,7 +27,7 @@ Browser components in each [release](https://github.com/Onenightcarnival/dsh-too
 
 1. **Bridge plugin**
    - DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」, pick the `.tgz`, restart when prompted.
-   - dsh CLI: `npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<path to .tgz>`, then start (or restart) `dsh web`.
+   - dsh CLI: `npx @deepseek-ai/dsh@0.2.0-rc.2 plugin --profile web add file:<path to .tgz>`, then start (or restart) `dsh web`.
 2. **Chrome extension**: unzip into a folder you will keep, open `chrome://extensions`, enable Developer mode, choose "Load unpacked" and select that folder.
 3. Open any `http(s)` page and click the DeepSeek whale icon. The side panel shows **Connected**.
 
@@ -46,7 +46,7 @@ Install both files as described in [Install](#install).
 
 ### Compatibility
 
-The bridge is pinned to dsh 0.1.7-rc.2, the desktop app's bundled version. A desktop release on a new dsh line needs a rebased bridge and a reinstall.
+The bridge is pinned to dsh 0.2.0-rc.2, the desktop app's bundled version. A desktop release on a new dsh line needs a rebased bridge and a reinstall.
 
 ### Troubleshooting
 
@@ -147,7 +147,7 @@ The bridge address is still auto-discovered. Firefox's `moz-extension://` UUID d
 From a source checkout, run `pnpm start` in the repository root. The exact supported public runtime is:
 
 ```sh
-npx @deepseek-ai/dsh@0.1.7-rc.2 web
+npx @deepseek-ai/dsh@0.2.0-rc.2 web
 ```
 
 Local Chrome use requires no configuration; Firefox requires the local bridge token described above. Open a page, click the DeepSeek whale icon, and wait for **Connected**. Existing HTTP(S) tabs are instrumented on the first action. On browser-protected pages and extension stores, the model can read tab metadata and use browser-level HTTP(S) navigation, back, forward, and reload, but it cannot inspect or operate the protected page DOM.

@@ -1,5 +1,5 @@
 /**
- * dsh 0.1.7 Host adapter.
+ * dsh 0.2.0 Host adapter.
  *
  * Unary calls go directly through TypertGateway. Long-lived Session and
  * forwarded-event streams use the Gateway wire seam, while `$events/result`
@@ -23,7 +23,7 @@ import {
 } from './extension-sessions.ts'
 import type { RespondResult } from './protocol.ts'
 
-/** Structural subset of dsh 0.1.7's Host TypertGateway service. */
+/** Structural subset of dsh 0.2.0's Host TypertGateway service. */
 export interface TypertGatewayLike {
   readonly wireStream: {
     open(
@@ -50,7 +50,7 @@ function openStream(gateway: TypertGatewayLike, endpoint: string, payload: unkno
   return gateway.wireStream.open(endpoint, payload, EMPTY_UPLINK, undefined, signal)
 }
 
-/** Structural subset of dsh 0.1.7's Host Connection service. */
+/** Structural subset of dsh 0.2.0's Host Connection service. */
 export interface HostConnectionLike {
   createSharedFetchHandler(channel: '/api'): {
     fetch(request: Request): Promise<Response>
@@ -79,7 +79,7 @@ interface PendingQuestion {
   settled: boolean
 }
 
-/** Build the dsh 0.1.7 Host implementation. */
+/** Build the dsh 0.2.0 Host implementation. */
 export function createRemoteHostApi(
   gateway: TypertGatewayLike,
   connection: HostConnectionLike,

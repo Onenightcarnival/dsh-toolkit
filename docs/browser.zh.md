@@ -12,7 +12,7 @@
 |---|---|
 | `@onenightcarnival/dsh-bridge-browser` | 宿主 RPC、浏览器工具与桥地址发现 |
 | Chrome / Firefox MV3 扩展 | 标签页操作、页面读取与侧边栏对话 |
-| dsh `0.1.7-rc.2` | 工作区锁定的最低支持运行时 |
+| dsh `0.2.0-rc.2` | 工作区锁定的最低支持运行时 |
 
 浏览器模块源自 [Lum1104/dsh-browser](https://github.com/Lum1104/dsh-browser)。发布产物包含桥插件 `.tgz` 与 Chrome 扩展 zip，支持 [DeepSeek Harness Desktop](https://github.com/Onenightcarnival/deepseek-harness-desktop) 的随机宿主端口发现。
 
@@ -27,7 +27,7 @@
 
 1. **桥插件**
    - DeepSeek Harness Desktop：「插件 → 配置中心… → 插件 → 从 .tgz 安装」，选中 `.tgz`，按提示重启。
-   - dsh 命令行：`npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<.tgz 路径>`，然后启动（或重启）`dsh web`。
+   - dsh 命令行：`npx @deepseek-ai/dsh@0.2.0-rc.2 plugin --profile web add file:<.tgz 路径>`，然后启动（或重启）`dsh web`。
 2. **Chrome 扩展**：把 zip 解压到一个不会删的目录，打开 `chrome://extensions`，开启「开发者模式」，「加载已解压的扩展程序」选中该目录。
 3. 打开任意 `http(s)` 页面，点击 DeepSeek 鲸鱼图标。侧边栏显示**已连接**。
 
@@ -46,7 +46,7 @@ Firefox 没有打包产物，见 [Firefox 源码构建](#firefox-源码构建)�
 
 ### 兼容性
 
-桥插件钉在 dsh 0.1.7-rc.2，即桌面版当前内置版本。桌面版升级到新的 dsh 版本线后，桥插件需要重新适配并重新安装。
+桥插件钉在 dsh 0.2.0-rc.2，即桌面版当前内置版本。桌面版升级到新的 dsh 版本线后，桥插件需要重新适配并重新安装。
 
 ### 排查
 
@@ -147,7 +147,7 @@ pnpm --filter dsh-browser-extension run build:firefox
 使用源码 checkout 时，请在仓库根目录运行 `pnpm start`。受支持的精确公开版本为：
 
 ```sh
-npx @deepseek-ai/dsh@0.1.7-rc.2 web
+npx @deepseek-ai/dsh@0.2.0-rc.2 web
 ```
 
 Chrome 本机使用无需配置；Firefox 需要填写上述本地桥 token。打开页面，点击 DeepSeek 鲸鱼图标，等待侧边栏显示**已连接**。已有 HTTP(S) 标签页会在第一次操作时自动加载。在浏览器受保护页面和扩展商店中，模型可以读取标签页元数据，并通过浏览器级能力导航到 HTTP(S)、后退、前进和刷新，但不能读取或操作受保护页面的 DOM。

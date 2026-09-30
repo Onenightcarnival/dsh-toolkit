@@ -7,7 +7,7 @@ dsh 浏览器操作桥，连接宿主与 Chrome / Firefox 扩展。
 | 边界 | 契约 |
 |---|---|
 | 传输 | `/ext/bridge` WebSocket；握手认证、单活动连接 |
-| 宿主 | dsh 0.1.7 Typert Remotes、Session 与 Remote Event 流 |
+| 宿主 | dsh 0.2.0 Typert Remotes、Session 与 Remote Event 流 |
 | 工具 | `browser_*` 读取和操作受控标签页，保留登录态 |
 | 页面 | 结构化文本、稳定编号与带编号截图 |
 | 附件 | 图片消息与持久附件读取；图片限制由宿主附件服务声明 |
@@ -31,11 +31,11 @@ dsh 浏览器操作桥，连接宿主与 Chrome / Firefox 扩展。
 把 Release 的 `.tgz` 装进 dsh `web` profile：
 
 - DeepSeek Harness Desktop：「插件 → 配置中心… → 插件 → 从 .tgz 安装」，然后重启应用。
-- dsh 命令行：`npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile web add file:<.tgz 路径>`，然后 `npx @deepseek-ai/dsh@0.1.7-rc.2 web`。
+- dsh 命令行：`npx @deepseek-ai/dsh@0.2.0-rc.2 plugin --profile web add file:<.tgz 路径>`，然后 `npx @deepseek-ai/dsh@0.2.0-rc.2 web`。
 
 两种方式都会注册本包的 `dsh.bundle` 层（[`cordis.patch.yml`](cordis.patch.yml)），`dsh web` 无需额外参数即可挂载桥。源码 checkout 在仓库根目录运行 `pnpm run package` 可得到同一份 `.tgz`。
 
-当前工作区固定使用 dsh 0.1.7-rc.2，也是最低支持版本；不再支持旧版 DSH。
+当前工作区固定使用 dsh 0.2.0-rc.2，也是最低支持版本；不再支持旧版 DSH。
 
 扩展另从 Release 的 zip 安装（见[根 README](../../README.zh.md#安装)）。本机 Chrome 自动发现桥地址，无需输入 token。Firefox 和非回环连接需要 bearer token。
 

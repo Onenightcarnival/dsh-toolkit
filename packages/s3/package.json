@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-s3",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "S3 bucket browser for DeepSeek Harness (dsh): manage S3-compatible buckets in the web GUI, with an optional s3_* agent toolset.",
   "author": "onenightcarnival",
   "license": "MIT",
@@ -25,7 +25,7 @@
   ],
   "dsh": {
     "engines": {
-      "dsh": ">=0.1.7-rc.2"
+      "dsh": ">=0.2.0-rc.2"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -65,10 +65,10 @@
     "@aws-sdk/lib-storage": "^3.700.0",
     "@aws-sdk/s3-request-presigner": "^3.700.0",
     "@deepseek-ai/cordis": "^4.0.4",
-    "@deepseek-ai/dsh-host-webserver": "^0.1.7-rc.2",
-    "@deepseek-ai/dsh-llm": "^0.1.7-rc.2",
-    "@deepseek-ai/dsh-system-prompt": "^0.1.7-rc.2",
-    "@deepseek-ai/dsh-tools": "^0.1.7-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "^0.2.0-rc.2",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
     "@types/react-dom": "^18.3.5",

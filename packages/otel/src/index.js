@@ -21,7 +21,7 @@ import { DshTraceCoordinator } from "../node_modules/@loongsuite/dsh-plugin/dist
 // Export statistics share the collector's exporter shim instance.
 import { traceExportStats } from "./otlp-shims/trace.js";
 
-export const PLUGIN_VERSION = "0.6.0";
+export const PLUGIN_VERSION = "0.7.0";
 
 const CONFIG_KEY = "default";
 const TEST_TIMEOUT_MS = 15000;
