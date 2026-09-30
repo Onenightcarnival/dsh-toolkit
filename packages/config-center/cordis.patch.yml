@@ -1,4 +1,4 @@
-# Web profile row: host half (exports ".") serves /api/dsh-config-center; client half (exports "./client") adds the MCP and built-in plugin tabs to Settings → Plugins.
+# Web profile: host routes plus a main MCP panel, common-settings tab and environment dependencies section.
 - insert:
     - id: config-center
       name: '@onenightcarnival/dsh-config-center'

@@ -10,10 +10,16 @@ import { normalizeServer } from './mcp.ts'
 import { PatchError } from './patch-document.ts'
 import { API, type McpDeleteResponse, type McpListResponse, type McpSaveResponse, type McpServer, type McpTestResult, type SettingsResponse, type SettingsSaveResponse } from './protocol.ts'
 import { invalidSetting, type SettingValues } from './settings.ts'
+import { EnvironmentMissingError } from './environment.ts'
+import type { EnvironmentStatus } from './protocol.ts'
+import { validStdioTimeout } from './preferences.ts'
 
 /** Operations the routes expose; the host plugin implements them on the profile patch. */
 export interface RouteDeps {
+  environment(): Promise<EnvironmentStatus>
+  installEnvironment(): void
   listMcp(): Promise<McpListResponse>
+  saveMcpTimeout(seconds: number): Promise<void>
   saveMcp(server: McpServer, id: string | undefined): Promise<McpSaveResponse>
   deleteMcp(id: string): Promise<McpDeleteResponse>
   testMcp(server: McpServer): Promise<McpTestResult>
@@ -53,7 +59,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
 
   /** Refused edits are the caller's to fix (409); anything else is a host failure (500). */
   const fail = (res: ServerResponse, error: unknown): void => {
-    if (error instanceof PatchError) writeJson(res, 409, { error: error.message, issue: error.issue })
+    if (error instanceof PatchError || error instanceof EnvironmentMissingError) writeJson(res, 409, { error: error.message, issue: error.issue })
     else writeJson(res, 500, { error: errorMessage(error) })
   }
 
@@ -65,6 +71,33 @@ export function makeRoutes(deps: RouteDeps): Route[] {
   }
 
   return [
+    {
+      kind: 'exact',
+      path: API.mcpPreferences,
+      handler: async (req, res) => {
+        if (!guard(req, res, 'POST')) return
+        try {
+          const seconds = (await readJsonBody(req))?.stdioTimeoutSeconds
+          if (!validStdioTimeout(seconds)) {
+            writeJson(res, 400, { error: 'invalid stdio timeout', issue: 'stdioTimeout' })
+            return
+          }
+          await deps.saveMcpTimeout(seconds)
+          writeJson(res, 200, { stdioTimeoutSeconds: seconds })
+        } catch (error) { fail(res, error) }
+      },
+    },
+    {
+      kind: 'exact',
+      path: API.environment,
+      handler: async (req, res) => {
+        if (!guard(req, res, 'GET', 'POST')) return
+        try {
+          if (req.method === 'POST') deps.installEnvironment()
+          writeJson(res, req.method === 'POST' ? 202 : 200, await deps.environment())
+        } catch (error) { fail(res, error) }
+      },
+    },
     {
       kind: 'exact',
       path: API.mcp,
@@ -101,7 +134,8 @@ export function makeRoutes(deps: RouteDeps): Route[] {
         if (!guard(req, res, 'POST')) return
         const server = serverFrom(res, (await readJsonBody(req))?.server)
         if (server === undefined) return
-        writeJson(res, 200, { result: await deps.testMcp(server) })
+        try { writeJson(res, 200, { result: await deps.testMcp(server) }) }
+        catch (error) { fail(res, error) }
       },
     },
     {

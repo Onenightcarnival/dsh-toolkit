@@ -1,8 +1,8 @@
 /**
  * Host routes: /api/dsh-config-center, MCP servers and built-in plugin settings.
- * Storage: the active profile's patch (`cordis.patch.yml`); no store of its own.
+ * Storage: the active profile patch and plugin-owned runtimes under the DSH home.
  * Application: Loader reconciliation under hot reload, otherwise on restart.
- * Client: Settings → Plugins tabs in ./client.
+ * Client: MCP panel, common settings and environment dependencies in ./client.
  */
 
 import { readFile } from 'node:fs/promises'
@@ -17,6 +17,8 @@ import { testServer } from './probe.ts'
 import type { Application, McpListResponse, McpServerView, McpStatus, SettingsResponse } from './protocol.ts'
 import { makeRoutes } from './routes.ts'
 import { SETTING_GROUPS, SETTINGS } from './settings.ts'
+import { ManagedEnvironment } from './environment.ts'
+import { preferences } from './preferences.ts'
 
 /** Stable cordis plugin name. */
 export const name = 'config-center'
@@ -66,6 +68,8 @@ export const apply = mountOnce('dsh-config-center', applyImpl)
 function applyImpl(ctx: Context, config?: Config): void {
   if (config?.enabled === false) return
   const profile = ctx.profileContext
+  const environment = new ManagedEnvironment(profile.home)
+  const prefs = preferences(profile.dir)
   const optional = ctx as unknown as Optional
   const hotReload = (): boolean => optional.get('hmr') !== undefined
 
@@ -147,9 +151,9 @@ function applyImpl(ctx: Context, config?: Config): void {
     const tools = toolNames()
     const servers: McpServerView[] = []
     for (const { id, server } of listMcp(parsePatch(await readText()))) {
-      servers.push({ ...server, id, status: await statusOf(id, server.serverName, server.enabled, tools) })
+      servers.push({ ...environment.editable(server), id, status: await statusOf(id, server.serverName, server.enabled, tools) })
     }
-    return { servers, hotReload: hotReload() }
+    return { servers, hotReload: hotReload(), stdioTimeoutSeconds: await prefs.timeout() }
   }
 
   const settings = async (): Promise<SettingsResponse> => {
@@ -165,16 +169,41 @@ function applyImpl(ctx: Context, config?: Config): void {
   }
 
   const routes = makeRoutes({
+    environment: () => environment.status(),
+    installEnvironment: () => environment.install(async () => {
+      // Persist aliases as private absolute paths, including existing uv MCPs. The
+      // kernel can then restart them without relying on plugin mount order or PATH.
+      await mutate(document => {
+        for (const { id, server } of listMcp(document)) {
+          if (server.transport === 'stdio' && environment.tool(server.command)) upsertMcp(document, environment.invocation(server), id)
+        }
+      }, () => [])
+    }),
     listMcp: mcpList,
+    saveMcpTimeout: seconds => prefs.saveTimeout(seconds),
     saveMcp: async (server, id) => {
-      const { result, application } = await mutate(document => upsertMcp(document, server, id), saved => (server.enabled ? [saved] : []))
+      const prepared = await environment.prepare(server, server.enabled)
+      // Reject invalid edits before starting a preparation process.
+      upsertMcp(parsePatch(await readText()), prepared, id)
+      // Complete first-run package downloads before the kernel's own connection
+      // handshake, whose timeout is not configurable in the upstream MCP plugin.
+      const currentEntry = id === undefined ? undefined : entryOf(id)
+      const active = currentEntry?.fiber?.state === FIBER_ACTIVE && currentEntry.options.disabled !== true
+      if (server.enabled && server.transport === 'stdio' && !active) {
+        const seconds = await prefs.timeout()
+        const result = await testServer(prepared, { stdioTimeoutMs: seconds * 1000 })
+        if (!result.ok) throw new Error(result.code === 'timeout'
+          ? `${seconds} 秒内未完成 MCP 启动准备。${result.detail}`
+          : `MCP 启动准备失败：${result.detail || result.code}`)
+      }
+      const { result, application } = await mutate(document => upsertMcp(document, prepared, id), saved => (server.enabled ? [saved] : []))
       return { ...await mcpList(), id: result, application }
     },
     deleteMcp: async (id) => {
       const { application } = await mutate(document => removeMcp(document, id), () => [])
       return { ...await mcpList(), application }
     },
-    testMcp: server => testServer(server),
+    testMcp: async server => testServer(await environment.prepare(server), { stdioTimeoutMs: await prefs.timeout() * 1000 }),
     readSettings: settings,
     saveSettings: async (values) => {
       const enabling = SETTINGS.filter(option => option.kind === 'enable' && values[option.key] === true).map(option => option.entryId)

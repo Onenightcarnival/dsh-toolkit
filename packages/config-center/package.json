@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-config-center",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "description": "Configuration center for DeepSeek Harness (dsh): MCP server management with connection tests, and common settings of built-in plugins, edited in the profile patch and applied through the Loader.",
   "author": "onenightcarnival",
   "license": "MIT",

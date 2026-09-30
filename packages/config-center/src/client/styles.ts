@@ -47,7 +47,24 @@ export const styles = {
   stack: { display: 'flex', flexDirection: 'column', gap: 14 },
 } satisfies Record<string, CSSProperties>
 
-export type Notice = { kind: 'ok' | 'error' | 'info'; text: string }
+export type Notice = { kind: 'ok' | 'error' | 'info'; text: string; details?: string }
+
+/** MCP uses the host's controls and typography, with a quiet master/detail layout. */
+export const mcpStyles = {
+  ...styles,
+  page: { ...styles.page, maxWidth: 1000, width: '100%', margin: '0 auto', fontFamily: 'var(--dsw-font-family, sans-serif)' },
+  heading: { margin: 0, fontSize: 22, fontWeight: 600 },
+  split: { ...styles.split, gap: 24 },
+  row: { ...styles.row, minHeight: 40, border: 0, borderRadius: 10, fontFamily: 'inherit' },
+  rowSelected: { background: 'var(--dsw-alias-interactive-bg-hover)' },
+  rowName: { ...styles.rowName, fontFamily: 'inherit' },
+  card: { ...styles.card, border: 0, borderLeft: '1px solid var(--dsw-alias-border-l4)', borderRadius: 0, padding: '0 0 0 24px', gap: 18 },
+  field: { ...styles.field, gap: 8, fontSize: 14 },
+  textarea: { ...styles.textarea, fontFamily: 'inherit', fontSize: 14, lineHeight: 1.5, padding: '10px 12px', borderRadius: 12, background: 'var(--dsw-alias-bg-layer-1)', border: '0.5px solid var(--dsw-alias-border-l4)' },
+  select: { ...styles.select, fontFamily: 'inherit', minHeight: 40, borderRadius: 12, padding: '8px 12px', background: 'var(--dsw-alias-interactive-bg-hover)', border: 0 },
+  danger: { color: 'var(--dsw-alias-state-error-primary, #e55)' },
+  actions: { ...styles.actions, flexWrap: 'wrap', marginTop: 8 },
+} satisfies Record<string, CSSProperties>
 
 export function noticeStyle(notice: Notice): CSSProperties {
   return notice.kind === 'ok' ? styles.ok : notice.kind === 'error' ? styles.error : styles.info

@@ -1,6 +1,7 @@
 /** Form model of the MCP tab and the wording of test results. */
 
 import type { McpServer, McpServerView, McpStatus, McpTestResult, Transport } from '../protocol.ts'
+import { DEFAULT_STDIO_TIMEOUT_SECONDS } from '../protocol.ts'
 import { tt, ttOr } from './locales.ts'
 
 export type Pair = [key: string, value: string]
@@ -76,7 +77,7 @@ export function testText(result: McpTestResult): string {
     if (/ECONNREFUSED/.test(detail)) return tt('mcp.test.network.refused', { detail })
     if (/timeout|aborted/i.test(detail)) return tt('mcp.test.network.timeout', { detail })
   }
-  return tt(`mcp.test.${result.code}`, { detail }).trim()
+  return tt(`mcp.test.${result.code}`, { detail, seconds: result.timeoutSeconds ?? DEFAULT_STDIO_TIMEOUT_SECONDS }).trim()
 }
 
 /** Wording of a refused save or test; `fallback` is the host's own message. */

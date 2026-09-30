@@ -165,11 +165,6 @@ export function OtelSettings({ api }) {
       <div style={styles.pageHeader}>
         <div>
           <h3 style={styles.heading}>可观测</h3>
-          <p style={styles.description}>
-            将 DSH 的会话、Agent 循环、LLM 调用与工具生命周期作为 OpenTelemetry GenAI
-            调用链上报到 Langfuse 等 OTLP 兼容平台。填写平台的 Public Key、Secret Key
-            与 Endpoint，保存后立即生效，无需重启。
-          </p>
         </div>
         <div style={styles.badgeCol}>
           <span style={running ? styles.badgeOn : styles.badgeOff}>
@@ -186,10 +181,6 @@ export function OtelSettings({ api }) {
       {status?.lastExportError ? (
         <div style={styles.error}>
           最近一次上报失败：{status.lastExportError}
-          <div style={styles.errorHint}>
-            对话结束后点「回查最近导出」可逐条确认哪些 trace 真正入了库；网络类错误可尝试
-            高级设置里的 gzip 压缩或调低正文截断上限，再点「发送测试 Trace」验证。
-          </div>
         </div>
       ) : null}
 
@@ -200,7 +191,7 @@ export function OtelSettings({ api }) {
       <div style={styles.formCard}>
         <label style={styles.field}>
           <span>
-            Endpoint <span style={styles.hint}>OTLP/HTTP 基地址；填 Langfuse 站点地址（含自建，如 http://localhost:3000）且 key 为 pk-lf-/sk-lf- 时自动补全 /api/public/otel</span>
+            Endpoint
           </span>
           <input
             style={styles.input}
@@ -213,7 +204,7 @@ export function OtelSettings({ api }) {
 
         <label style={styles.field}>
           <span>
-            Public Key (pk) <span style={styles.hint}>Langfuse 项目设置 → API Keys；其他平台留空则不发送认证头</span>
+            Public Key
           </span>
           <input
             style={styles.input}
@@ -227,7 +218,7 @@ export function OtelSettings({ api }) {
 
         <label style={styles.field}>
           <span>
-            Secret Key (sk) <span style={styles.hint}>仅保存在本机 DSH 数据目录，不会回显</span>
+            Secret Key
           </span>
           <input
             style={styles.input}
@@ -256,7 +247,7 @@ export function OtelSettings({ api }) {
             />
             <span>
               采集正文
-              <span style={styles.hint}>（上报 prompt、回复、工具参数与结果；关闭则只上报结构元数据与 token 用量）</span>
+              <span style={styles.hint}>（含对话内容和工具输入输出）</span>
             </span>
           </label>
         </div>
@@ -279,13 +270,11 @@ export function OtelSettings({ api }) {
                 />
                 <span>
                   gzip 压缩
-                  <span style={styles.hint}>（压缩 OTLP 请求体；网关限制 body 大小时建议开启，需服务端支持）</span>
                 </span>
               </label>
               <label style={styles.field}>
                 <span>
                   正文截断上限（字符）
-                  <span style={styles.hint}>默认 {DEFAULT_CONTENT_MAX_CHARS}；网关限制严格时可调低（如 16000），直接影响单批请求体大小</span>
                 </span>
                 <input
                   style={styles.inputNarrow}
@@ -297,7 +286,6 @@ export function OtelSettings({ api }) {
               <label style={styles.field}>
                 <span>
                   单批最大 span 数
-                  <span style={styles.hint}>默认 {DEFAULT_MAX_EXPORT_BATCH_SIZE}；调低可进一步压小单次请求</span>
                 </span>
                 <input
                   style={styles.inputNarrow}
@@ -316,9 +304,9 @@ export function OtelSettings({ api }) {
             style={styles.secondary}
             disabled={testing || saving || verifying}
             onClick={handleVerifyRecent}
-            title="用 Langfuse API 逐条回查最近导出的 trace（含真实对话）是否真正入库"
+            title="检查最近的 Trace 是否已入库"
           >
-            {verifying ? "回查中…" : "回查最近导出"}
+            {verifying ? "检查中…" : "检查上报"}
           </button>
           <button
             type="button"
@@ -326,7 +314,7 @@ export function OtelSettings({ api }) {
             disabled={testing || saving || verifying}
             onClick={handleTest}
           >
-            {testing ? "测试中…" : "发送测试 Trace"}
+            {testing ? "测试中…" : "发送测试"}
           </button>
           <button
             type="button"
@@ -345,18 +333,16 @@ export function OtelSettings({ api }) {
 
       {running && status?.traceEndpoint ? (
         <p style={styles.meta}>
-          当前 Trace 上报地址：<code style={styles.code}>{status.traceEndpoint}</code>
-          {status.traceEndpoint.includes("/api/public/otel") ? "（Langfuse 平台不接收 OTLP 指标，已自动只上报 Trace）" : ""}
+          Trace：<code style={styles.code}>{status.traceEndpoint}</code>
         </p>
       ) : null}
 
       {status ? (
         <p style={styles.meta}>
-          累计导出（本次运行，含测试）：{status.exportedBatches ?? 0} 批 / {status.exportedSpans ?? 0} 个 span
+          本次运行：{status.exportedBatches ?? 0} 批 / {status.exportedSpans ?? 0} 个 span
           {status.lastExportAt
             ? `；最近一次 ${status.lastExportAt.replace("T", " ").slice(0, 19)}（${status.lastExportOk ? "成功" : "失败"}）`
             : ""}
-          。对话结束约 10 秒后点「刷新状态」：计数不增长说明该对话没有经过本插件导出。
         </p>
       ) : null}
     </div>

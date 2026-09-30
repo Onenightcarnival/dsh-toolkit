@@ -8,6 +8,21 @@
 |---|---|
 | 主侧栏 → MCP（AI 订阅前） | 服务器列表与运行状态；新增、编辑、启用 / 停用、删除；连接测试 |
 | 设置 → 内置插件 → 常用设置 | 内置插件的常用配置项：goal 目标模式的轮数上限；上下文自动压缩的开关与触发阈值 |
+| 设置 → 环境依赖 | 安装、检测和修复配置中心专属的 uv / uvx 环境 |
+
+## Python MCP 环境
+
+在「设置 → 环境依赖」点击安装，下载固定版本 uv 并校验发布时钉住的 SHA256。支持 Windows、macOS、glibc Linux 的 x64 / ARM64；插件包本身不携带二进制。下载失败可重试，损坏环境可修复。提供的 uv 版本随插件更新维护。
+
+环境保存在当前 DSH 数据目录的 `tools/dsh-config-center/`：`uv/<版本>/<平台>/` 存放可执行文件，`python/`、`cache/`、`tools/`、`bin/` 存放专属 Python、依赖缓存和工具环境。首次运行 Python MCP 时按需联网下载解释器和依赖，启动器仅使用托管 Python。插件不查找或复用系统和桌面壳的 uv，也不修改全局 PATH。
+
+MCP 命令填写 `uv` / `uvx` 时，测试和保存都解析为专属绝对路径，运行环境写入当前 profile 的 patch，重启后由官方 MCP 客户端直接使用。环境安装完成后，该 profile 中已有的裸 `uv` / `uvx` 命令也会转换；自定义绝对路径保持原样。手工配置在其他 overlay 中的条目不自动迁移。配置迁移到另一台机器后，需重新安装环境并调整路径。
+
+MCP 页的「连接设置 → stdio 启动等待（秒）」默认为 900，可设为 1–86400 秒，对当前 profile 的所有 stdio 服务器生效，保存在 profile 下的 `dsh-config-center.json`。测试连接，以及首次保存或启用前的依赖准备使用此值；正在运行的条目不额外启动准备进程。官方内核接管后的握手与工具调用仍使用内核策略。代理沿用 DSH 进程的网络配置，Python 下载源可通过 MCP 环境变量 `UV_PYTHON_INSTALL_MIRROR` 设置。系统 Python 与项目 uv 配置不作为默认运行环境，用户显式传入的命令参数仍按 uv 自身语义执行。
+
+开发验证：`node --test packages/config-center/test/*.test.mjs`；真实下载和 Python MCP 握手：`node packages/config-center/test/environment-live.mjs`（需联网，使用隔离目录）。
+
+`test/fixtures/python-mcp/` 中的 Python 文件和 `pyproject.toml` 仅为真实安装测试提供一个最小 MCP 包，不属于插件运行代码，也不包含在发布的 `.tgz` 中。
 
 ## 安装
 
@@ -19,7 +34,7 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-config-center-<版本>.
 
 ## 存储
 
-配置写在当前 profile 的 `cordis.patch.yml`，插件没有自己的数据文件。
+MCP 和常用设置写在当前 profile 的 `cordis.patch.yml`。运行环境的数据目录见上文。
 
 | 内容 | 在文件中的形态 |
 |---|---|
@@ -71,7 +86,7 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-config-center-<版本>.
 
 | 连接方式 | 过程 | 超时 |
 |---|---|---|
-| stdio | 以 dsh-mcp-client 相同的环境启动命令，完成 `initialize` 与 `tools/list`，然后结束进程 | 90 秒 |
+| stdio | 启动命令、准备依赖，完成 `initialize` 与 `tools/list`，然后结束进程 | 默认 900 秒，可配置 |
 | streamable-http | POST `initialize`，在同一会话上 `tools/list` | 每个请求 8 秒 |
 
 ## 接口
@@ -84,13 +99,16 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-config-center-<版本>.
 | `POST /mcp` | 新增或更新：`{ id?, server }` |
 | `DELETE /mcp?id=<id>` | 删除 |
 | `POST /mcp/test` | 连接测试：`{ server }` |
+| `POST /mcp/preferences` | 保存启动等待时间：`{ stdioTimeoutSeconds }`；`GET /mcp` 返回当前值 |
 | `GET /settings` | 设置项与当前覆盖值 |
 | `POST /settings` | 保存：`{ values }`，值为 `null` 表示恢复默认 |
+| `GET /environment` | 专属环境的版本、路径、可用状态和安装进度 |
+| `POST /environment` | 开始安装或修复；返回 `202`，轮询 `GET` 获取结果 |
 
 | 状态码 | 含义 |
 |---|---|
 | `400` | 字段无效，`issue` 为原因 |
-| `409` | 编辑被拒绝：名称重复、id 被占用、条目不存在 |
+| `409` | 编辑被拒绝：名称重复、id 被占用、条目不存在或专属环境未就绪 |
 | `500` | 写入或协调失败，文件已恢复 |
 
 ## 配置

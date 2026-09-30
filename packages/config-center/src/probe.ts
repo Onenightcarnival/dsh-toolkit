@@ -11,11 +11,12 @@ import { join } from 'node:path'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import { JS_PREFIX } from './mcp.ts'
 import type { McpServer, McpTestResult } from './protocol.ts'
+import { DEFAULT_STDIO_TIMEOUT_SECONDS } from './protocol.ts'
 
 const PROTOCOL_VERSION = '2025-03-26'
 const CLIENT_INFO = { name: 'dsh-config-center', version: '1' }
 /** `npx -y` and `uvx` download on first run. */
-export const STDIO_TIMEOUT_MS = 90_000
+export const STDIO_TIMEOUT_MS = DEFAULT_STDIO_TIMEOUT_SECONDS * 1000
 export const HTTP_TIMEOUT_MS = 8_000
 const STDERR_TAIL = 600
 
@@ -102,7 +103,7 @@ function testStdio(server: McpServer, timeoutMs: number): Promise<McpTestResult>
     const send = (message: unknown): void => {
       try { child.stdin?.write(JSON.stringify(message) + '\n') } catch { /* closed */ }
     }
-    const timer = setTimeout(() => finish({ ok: false, code: 'timeout', detail: tail() }), timeoutMs)
+    const timer = setTimeout(() => finish({ ok: false, code: 'timeout', detail: tail(), timeoutSeconds: timeoutMs / 1000 }), timeoutMs)
     child.stdin?.on('error', () => { /* reported by exit */ })
     child.stderr?.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-STDERR_TAIL) })
     child.stdout?.on('data', (chunk: Buffer) => {

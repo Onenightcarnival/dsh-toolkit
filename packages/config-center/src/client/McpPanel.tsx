@@ -3,7 +3,7 @@ import type { ComponentType } from 'react'
 import type { ConfigCenterApi } from './api.ts'
 import { McpTab } from './McpTab.tsx'
 import { tt } from './locales.ts'
-import { styles } from './styles.ts'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const PANEL_ID = 'dsh-config-center-mcp'
 const ACTIVATE_EVENT = 'dsh-panel-activate'
@@ -28,7 +28,7 @@ function McpIcon({ size }: { size: number }): JSX.Element {
 
 function McpPanel({ api, close }: { api: ConfigCenterApi; close: () => void }): JSX.Element {
   return <section aria-label="MCP" style={{ height: '100%', minHeight: 0, boxSizing: 'border-box', overflow: 'auto', padding: 20, color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-base)' }}>
-    <button type="button" onClick={close} style={styles.secondary}>← {tt('common.back')}</button>
+    <Button size="sm" onClick={close}>← {tt('common.back')}</Button>
     <McpTab api={api} />
   </section>
 }

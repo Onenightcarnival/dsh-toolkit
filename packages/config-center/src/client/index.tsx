@@ -10,6 +10,7 @@ import { ConfigCenterApi } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh, type Key } from './locales.ts'
 import { mountMcpPanel, type Layout } from './McpPanel.tsx'
 import { SettingsTab } from './SettingsTab.tsx'
+import { EnvironmentPage } from './EnvironmentPage.tsx'
 
 const NS = 'dsh-config-center'
 const SLOT = 'settings.plugins.tab'
@@ -46,6 +47,10 @@ export function apply(ctx: ClientContext): void {
   } catch { /* document-language fallback */ }
 
   const api = new ConfigCenterApi()
+  slots.inject('settings.section', () => {
+    if (slots.entries('settings.section').some(entry => entry.options.id === 'dsh-config-center-environment')) return () => {}
+    return slots.register({ name: 'settings.section', id: 'dsh-config-center-environment', order: 120, label: () => tt('environment.title'), locale: NS, inject: () => ({ api }) }, EnvironmentPage)
+  })
   ctx.effect(() => mountMcpPanel(slots, layout, api), 'dsh-config-center: MCP panel')
   slots.inject(SLOT, () => {
     const disposers: Array<() => void> = []

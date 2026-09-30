@@ -2,6 +2,7 @@
 
 import { API, type McpDeleteResponse, type McpListResponse, type McpSaveResponse, type McpServer, type McpTestResult, type SettingValue, type SettingsResponse, type SettingsSaveResponse } from '../protocol.ts'
 import { tt } from './locales.ts'
+import type { EnvironmentStatus } from '../protocol.ts'
 
 export class ApiError extends Error {
   readonly status: number | undefined
@@ -37,6 +38,17 @@ function post(path: string, body: unknown): Promise<Response> {
 }
 
 export class ConfigCenterApi {
+  async saveMcpTimeout(stdioTimeoutSeconds: number): Promise<{ stdioTimeoutSeconds: number }> {
+    return readJson(await post(API.mcpPreferences, { stdioTimeoutSeconds }))
+  }
+  async environment(): Promise<EnvironmentStatus> {
+    return readJson(await fetch(API.environment, { credentials: 'same-origin' }))
+  }
+
+  async installEnvironment(): Promise<EnvironmentStatus> {
+    return readJson(await post(API.environment, {}))
+  }
+
   async mcp(): Promise<McpListResponse> {
     return readJson(await fetch(API.mcp, { credentials: 'same-origin' }))
   }

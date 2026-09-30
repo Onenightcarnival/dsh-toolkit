@@ -3,11 +3,13 @@
  * form for the selected server (save, enable, test, delete).
  */
 import { useCallback, useEffect, useState } from 'react'
+import { Button, Input, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { McpServerView, McpStatus } from '../protocol.ts'
+import { DEFAULT_STDIO_TIMEOUT_SECONDS, MAX_STDIO_TIMEOUT_SECONDS } from '../protocol.ts'
 import { ApiError, type ConfigCenterApi } from './api.ts'
 import { emptyForm, fromForm, issueText, statusText, testText, toForm, type McpForm, type Pair } from './form.ts'
 import { tt } from './locales.ts'
-import { noticeStyle, styles, type Notice } from './styles.ts'
+import { noticeStyle, mcpStyles as styles, type Notice } from './styles.ts'
 import { Select } from './Select.tsx'
 
 const NEW = Symbol('new')
@@ -24,21 +26,28 @@ function dotStyle(status: McpStatus) {
   return styles.dot
 }
 
+function Feedback({ notice }: { notice: Notice }): JSX.Element {
+  return <div style={noticeStyle(notice)} role="status">
+    {notice.text}
+    {notice.details && <details style={{ marginTop: 8 }}><summary style={{ cursor: 'pointer' }}>{tt('mcp.details')}</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 180, overflow: 'auto', font: 'inherit' }}>{notice.details}</pre></details>}
+  </div>
+}
+
 function Pairs({ label, add, keyPlaceholder, pairs, onChange }: { label: string; add: string; keyPlaceholder: string; pairs: Pair[]; onChange: (pairs: Pair[]) => void }): JSX.Element {
   const set = (index: number, pair: Pair): void => onChange(pairs.map((item, i) => (i === index ? pair : item)))
   return (
     <div style={styles.field}>
-      <span>{label} <span style={styles.hint}>{tt('mcp.optional')}</span></span>
+      <span>{label}</span>
       <div>
         {pairs.map(([key, value], index) => (
-          <div key={index} style={styles.pair}>
-            <input style={{ ...styles.input, ...styles.pairKey }} value={key} placeholder={keyPlaceholder} spellCheck={false} onChange={event => set(index, [event.target.value, value])} />
-            <input style={styles.input} value={value} placeholder={tt('mcp.value')} spellCheck={false} autoComplete="off" onChange={event => set(index, [key, event.target.value])} />
-            <button type="button" style={styles.icon} title={tt('mcp.remove')} aria-label={tt('mcp.remove')} onClick={() => onChange(pairs.filter((_, i) => i !== index))}>×</button>
+          <div key={index} style={styles.pair} className="dsh-mcp-pair">
+            <Input value={key} placeholder={keyPlaceholder} aria-label={keyPlaceholder} spellCheck={false} onChange={event => set(index, [event.target.value, value])} />
+            <Input value={value} placeholder={tt('mcp.value')} aria-label={tt('mcp.value')} spellCheck={false} autoComplete="off" onChange={event => set(index, [key, event.target.value])} />
+            <Button size="sm" title={tt('mcp.remove')} aria-label={tt('mcp.remove')} onClick={() => onChange(pairs.filter((_, i) => i !== index))}>×</Button>
           </div>
         ))}
       </div>
-      <button type="button" style={styles.ghost} onClick={() => onChange([...pairs, ['', '']])}>＋ {add}</button>
+      <Button size="sm" style={{ alignSelf: 'flex-start' }} onClick={() => onChange([...pairs, ['', '']])}>＋ {add}</Button>
     </div>
   )
 }
@@ -49,6 +58,10 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
   const [form, setForm] = useState<McpForm>(emptyForm())
   const [busy, setBusy] = useState<'save' | 'test' | 'delete'>()
   const [notice, setNotice] = useState<Notice>()
+  const [timeout, setTimeoutValue] = useState(String(DEFAULT_STDIO_TIMEOUT_SECONDS))
+  const [savedTimeout, setSavedTimeout] = useState(DEFAULT_STDIO_TIMEOUT_SECONDS)
+  const [savingTimeout, setSavingTimeout] = useState(false)
+  const [timeoutNotice, setTimeoutNotice] = useState<Notice>()
 
   const select = useCallback((next: Selection, list: readonly McpServerView[]) => {
     setSelection(next)
@@ -58,7 +71,9 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
 
   const load = useCallback(async () => {
     try {
-      const { servers: list } = await api.mcp()
+      const { servers: list, stdioTimeoutSeconds } = await api.mcp()
+      setSavedTimeout(stdioTimeoutSeconds)
+      setTimeoutValue(String(stdioTimeoutSeconds))
       setServers(list)
       setSelection((current) => {
         if (current === NEW || (typeof current === 'string' && list.some(item => item.id === current))) return current
@@ -76,6 +91,22 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
 
   const patch = (changes: Partial<McpForm>): void => setForm(previous => ({ ...previous, ...changes }))
   const current = typeof selection === 'string' ? servers?.find(item => item.id === selection) : undefined
+
+  const saveTimeout = async (): Promise<void> => {
+    const seconds = Number(timeout)
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > MAX_STDIO_TIMEOUT_SECONDS) {
+      setTimeoutNotice({ kind: 'error', text: tt('mcp.issue.stdioTimeout') })
+      return
+    }
+    setSavingTimeout(true)
+    try {
+      const result = await api.saveMcpTimeout(seconds)
+      setSavedTimeout(result.stdioTimeoutSeconds)
+      setTimeoutValue(String(result.stdioTimeoutSeconds))
+      setTimeoutNotice({ kind: 'ok', text: tt('common.saved') })
+    } catch (error) { setTimeoutNotice(failure(error)) }
+    finally { setSavingTimeout(false) }
+  }
 
   const save = async (): Promise<void> => {
     const server = fromForm(form)
@@ -97,10 +128,10 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
   const test = async (): Promise<void> => {
     const server = fromForm(form)
     setBusy('test')
-    setNotice({ kind: 'info', text: tt(server.transport === 'stdio' ? 'mcp.testing.stdio' : 'mcp.testing') })
+    setNotice({ kind: 'info', text: tt(server.transport === 'stdio' ? 'mcp.testing.stdio' : 'mcp.testing', { seconds: savedTimeout }) })
     try {
       const result = await api.testMcp(server)
-      setNotice({ kind: result.ok ? 'ok' : 'error', text: testText(result) })
+      setNotice({ kind: result.ok ? 'ok' : 'error', text: testText({ ...result, detail: '' }), details: result.detail || undefined })
     } catch (error) {
       setNotice(failure(error))
     } finally {
@@ -131,20 +162,32 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
   const stdio = form.transport === 'stdio'
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="dsh-mcp-page">
+      <style>{`.dsh-mcp-pair>span{flex:1;min-width:0}.dsh-mcp-pair>span:first-child{flex:0 0 34%}.dsh-mcp-page input,.dsh-mcp-page button,.dsh-mcp-page label,.dsh-mcp-page summary{font-family:var(--dsw-font-family,sans-serif)}@media(max-width:720px){.dsh-mcp-split{flex-direction:column}.dsh-mcp-split>[role=listbox]{width:100%!important}.dsh-mcp-editor{width:100%;box-sizing:border-box;border-left:0!important;padding-left:0!important}}`}</style>
       <div style={styles.header}>
         <div>
           <h3 style={styles.heading}>{tt('mcp.title')}</h3>
-          <p style={styles.description}>{tt('mcp.intro')}</p>
         </div>
         <div style={styles.actions}>
-          <button type="button" style={styles.secondary} onClick={() => { void load() }}>{tt('common.refresh')}</button>
-          <button type="button" style={styles.primary} onClick={() => { setNotice(undefined); select(NEW, servers ?? []) }}>{tt('mcp.add')}</button>
+          <Button variant="ghost" onClick={() => { void load() }}>{tt('common.refresh')}</Button>
+          <Button variant="primary" onClick={() => { setNotice(undefined); select(NEW, servers ?? []) }}>{tt('mcp.add')}</Button>
         </div>
       </div>
 
+      <details style={{ marginBottom: 24, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' }}>
+        <summary style={{ cursor: 'pointer', padding: '4px 0' }}>{tt('mcp.connectionSettings')}</summary>
+        <div style={{ ...styles.actions, flexWrap: 'wrap' }}>
+          <label style={{ ...styles.field, flex: 1 }}>
+            <span>{tt('mcp.stdioTimeout')}</span>
+            <Input type="number" min={1} max={MAX_STDIO_TIMEOUT_SECONDS} step={1} value={timeout} disabled={savingTimeout || busy !== undefined} onChange={event => { setTimeoutValue(event.target.value); setTimeoutNotice(undefined) }} />
+          </label>
+          <Button variant="outline" disabled={savingTimeout || busy !== undefined || servers === undefined} onClick={() => { void saveTimeout() }}>{tt('mcp.saveTimeout')}</Button>
+        </div>
+        <p style={styles.meta}>{tt('mcp.stdioTimeout.hint')}</p>
+        {timeoutNotice && <Feedback notice={timeoutNotice} />}
+      </details>
       {servers === undefined ? <p style={styles.meta}>{tt('common.loading')}</p> : (
-        <div style={styles.split}>
+        <div style={styles.split} className="dsh-mcp-split">
           <div style={styles.list} role="listbox" aria-label={tt('mcp.title')}>
             {servers.length === 0 && selection !== NEW ? <div style={styles.empty}>{tt('mcp.empty')}</div> : null}
             {servers.map(server => (
@@ -171,19 +214,19 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
           </div>
 
           {selection === undefined ? <div style={{ ...styles.card, ...styles.empty }}>{tt('mcp.none')}</div> : (
-            <div style={styles.card}>
+            <div style={styles.card} className="dsh-mcp-editor">
               <div style={styles.cardHead}>
-                <h4 style={styles.cardTitle}>{current?.serverName ?? tt('mcp.new')}</h4>
-                <label style={styles.switch}>
-                  <input type="checkbox" checked={form.enabled} onChange={event => patch({ enabled: event.target.checked })} />
+                <h4 style={styles.cardTitle}>{current?.serverName ?? (form.serverName || tt('mcp.new'))}</h4>
+                <div style={styles.switch}>
                   <span>{tt('mcp.enabled')}</span>
-                </label>
+                  <Switch checked={form.enabled} label={tt('mcp.enabled')} onChange={enabled => patch({ enabled })} />
+                </div>
               </div>
               {current === undefined ? null : <p style={styles.meta}>{statusText(current.status)}</p>}
 
               <label style={styles.field}>
-                <span>{tt('mcp.name')} <span style={styles.hint}>{tt('mcp.name.hint')}</span></span>
-                <input style={styles.input} value={form.serverName} placeholder="my-server" spellCheck={false} onChange={event => patch({ serverName: event.target.value })} />
+                <span>{tt('mcp.name')}</span>
+                <Input value={form.serverName} placeholder="my-server" spellCheck={false} onChange={event => patch({ serverName: event.target.value })} />
               </label>
               <label style={styles.field}>
                 <span>{tt('mcp.transport')}</span>
@@ -198,8 +241,8 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
               {stdio ? (
                 <>
                   <label style={styles.field}>
-                    <span>{tt('mcp.command')} <span style={styles.hint}>{tt('mcp.command.hint')}</span></span>
-                    <input style={styles.input} value={form.command} placeholder="npx" spellCheck={false} onChange={event => patch({ command: event.target.value })} />
+                    <span>{tt('mcp.command')}</span>
+                    <Input value={form.command} placeholder="npx / uvx" spellCheck={false} onChange={event => patch({ command: event.target.value })} />
                   </label>
                   <label style={styles.field}>
                     <span>{tt('mcp.args')} <span style={styles.hint}>{tt('mcp.args.hint')}</span></span>
@@ -208,27 +251,26 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
                   <Pairs label={tt('mcp.env')} add={tt('mcp.env.add')} keyPlaceholder="API_KEY" pairs={form.env} onChange={env => patch({ env })} />
                   <label style={styles.field}>
                     <span>{tt('mcp.cwd')} <span style={styles.hint}>{tt('mcp.optional')}</span></span>
-                    <input style={styles.input} value={form.cwd} placeholder="/path/to/project" spellCheck={false} onChange={event => patch({ cwd: event.target.value })} />
+                    <Input value={form.cwd} placeholder="/path/to/project" spellCheck={false} onChange={event => patch({ cwd: event.target.value })} />
                   </label>
-                  <p style={styles.meta}>{tt('mcp.stdio.note')}</p>
                 </>
               ) : (
                 <>
                   <label style={styles.field}>
                     <span>{tt('mcp.url')}</span>
-                    <input style={styles.input} value={form.url} placeholder="http://127.0.0.1:8080/mcp" spellCheck={false} onChange={event => patch({ url: event.target.value })} />
+                    <Input value={form.url} placeholder="http://127.0.0.1:8080/mcp" spellCheck={false} onChange={event => patch({ url: event.target.value })} />
                   </label>
                   <Pairs label={tt('mcp.headers')} add={tt('mcp.headers.add')} keyPlaceholder="Authorization" pairs={form.headers} onChange={headers => patch({ headers })} />
                 </>
               )}
 
               <div style={styles.actions}>
-                <button type="button" style={styles.danger} disabled={busy !== undefined} onClick={() => { void remove() }}>{tt('mcp.delete')}</button>
+                <Button style={styles.danger} disabled={busy !== undefined} onClick={() => { void remove() }}>{tt('mcp.delete')}</Button>
                 <span style={styles.spacer} />
-                <button type="button" style={styles.secondary} disabled={busy !== undefined} onClick={() => { void test() }}>{busy === 'test' ? tt('mcp.testing') : tt('mcp.test')}</button>
-                <button type="button" style={styles.primary} disabled={busy !== undefined} onClick={() => { void save() }}>{busy === 'save' ? tt('common.saving') : tt('common.save')}</button>
+                <Button variant="outline" disabled={busy !== undefined || savingTimeout} onClick={() => { void test() }}>{busy === 'test' ? tt('mcp.testing') : tt('mcp.test')}</Button>
+                <Button variant="primary" disabled={busy !== undefined || savingTimeout} onClick={() => { void save() }}>{busy === 'save' ? tt('common.saving') : tt('common.save')}</Button>
               </div>
-              {notice === undefined ? null : <div style={noticeStyle(notice)} role="status">{notice.text}</div>}
+              {notice === undefined ? null : <Feedback notice={notice} />}
             </div>
           )}
         </div>

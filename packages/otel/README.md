@@ -61,7 +61,7 @@ ENTRY → AGENT → STEP → LLM / TOOL
 
 ## 诊断
 
-### 发送测试 Trace
+### 发送测试
 
 | 阶段 | 数据 | 验证范围 |
 |---|---|---|
@@ -78,7 +78,7 @@ Langfuse 测试使用同一组凭证，通过 `/api/public/traces/{id}` 回查�
 |---|---|
 | 最近一次上报失败 | 采集器导出错误，同时写入 dsh 日志 |
 | 累计导出 | 批次、span 数和最近一次结果 |
-| 回查最近导出 | 逐条查询 Langfuse 入库状态，区分真实对话与测试 |
+| 检查上报 | 逐条查询 Langfuse 入库状态，区分真实对话与测试 |
 | 对话结束约 10 秒后计数未增长 | 检查该对话所在 profile / 实例是否启用插件 |
 | 导出成功但未入库 | 接收端异步摄入待排查；trace ID 用于定位 worker 日志 |
 | 旧版 Langfuse 返回任务 JSON | `could not deserialize response` 显示为兼容性提示 |

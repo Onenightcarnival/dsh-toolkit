@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-otel",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "description": "Offline observability plugin for DeepSeek Harness: report OpenTelemetry GenAI traces/metrics to Langfuse and other OTLP backends, with a native DSH settings panel for pk/sk/endpoint.",
   "type": "module",
   "main": "lib/index.js",

@@ -4,7 +4,25 @@ export const API = {
   mcp: '/api/dsh-config-center/mcp',
   mcpTest: '/api/dsh-config-center/mcp/test',
   settings: '/api/dsh-config-center/settings',
+  environment: '/api/dsh-config-center/environment',
+  mcpPreferences: '/api/dsh-config-center/mcp/preferences',
 } as const
+
+export const DEFAULT_STDIO_TIMEOUT_SECONDS = 900
+export const MAX_STDIO_TIMEOUT_SECONDS = 86400
+
+export interface EnvironmentStatus {
+  state: 'missing' | 'ready' | 'downloading' | 'verifying' | 'installing' | 'error' | 'unsupported'
+  ready: boolean
+  supported: boolean
+  target: string
+  recommendedVersion: string
+  version?: string
+  path: string
+  dataDirectory: string
+  progress?: number
+  error?: string
+}
 
 export type Transport = 'stdio' | 'streamable-http'
 
@@ -43,6 +61,7 @@ export interface McpServerView extends McpServer {
 
 export interface McpListResponse {
   servers: McpServerView[]
+  stdioTimeoutSeconds: number
   /** Whether saved changes apply to the running host without a restart. */
   hotReload: boolean
 }
@@ -72,6 +91,7 @@ export interface McpTestResult {
   detail: string
   server?: string
   tools?: number
+  timeoutSeconds?: number
 }
 
 export type SettingType = 'posInt' | 'ratio' | 'bool'

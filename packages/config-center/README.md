@@ -8,6 +8,21 @@ Configuration center for [DeepSeek Harness](https://github.com/deepseek-ai/deeps
 |---|---|
 | Sidebar → MCP (before AI Subscriptions) | Server list with live state; add, edit, enable / disable, delete; connection test |
 | Settings → Plugins → Common settings | Common options of built-in plugins: round limit of goal mode; switch and trigger threshold of automatic context compaction |
+| Settings → Environment dependencies | Install, check and repair the plugin-owned uv / uvx runtime |
+
+## Python MCP environment
+
+Install uv from Settings → Environment dependencies. The plugin downloads a fixed release and checks a pinned SHA256 before extracting binaries. Windows, macOS and glibc Linux on x64 / ARM64 are supported. No binaries ship inside the plugin package. The provided uv version is maintained with plugin releases.
+
+All runtime data lives under `<DSH home>/tools/dsh-config-center/`: versioned binaries under `uv/`, managed interpreters under `python/`, and dedicated `cache/`, `tools/` and `bin/` directories. Python and MCP packages download on first use. System or desktop uv is never adopted and global PATH is unchanged.
+
+Bare `uv` / `uvx` MCP commands resolve to managed absolute paths for both connection tests and persisted configuration. Installation also converts existing bare commands in the current profile patch. The official MCP client can restart these entries without a plugin startup hook. Custom executable paths and entries in other overlays are left untouched. After moving a configuration to another machine, install the environment again and adjust paths.
+
+MCP → Connection settings → stdio startup wait defaults to 900 seconds (range 1–86400), shared by all stdio servers in the active profile. It persists in the profile's `dsh-config-center.json` and controls connection tests and dependency preparation before first save or activation. Active entries do not launch an extra preparation process. Subsequent kernel handshakes and tool calls retain upstream timeout policies. Downloads use the DSH network environment; `UV_PYTHON_INSTALL_MIRROR` can be set in MCP environment variables. The default interpreter policy is managed-only, with project uv configuration disabled; explicit user command arguments retain uv semantics.
+
+Run `node --test packages/config-center/test/*.test.mjs` for regression tests. The opt-in `node packages/config-center/test/environment-live.mjs` downloads uv and managed Python and checks an isolated Python MCP fixture.
+
+The Python file and `pyproject.toml` under `test/fixtures/python-mcp/` define the minimal package used by that installation test. They are not plugin runtime code and are excluded from published `.tgz` files.
 
 ## Installation
 
@@ -19,7 +34,7 @@ The integrated package `@onenightcarnival/dsh-toolkit` contains this plugin unde
 
 ## Storage
 
-Configuration lives in the active profile's `cordis.patch.yml`. The plugin has no data file of its own.
+MCP and common settings live in the active profile's `cordis.patch.yml`. Runtime downloads and caches use the separate directory described above.
 
 | Content | Form in the file |
 |---|---|
@@ -71,7 +86,7 @@ The test is independent of the running composition, uses the form's current valu
 
 | Transport | Procedure | Timeout |
 |---|---|---|
-| stdio | Starts the command with the environment dsh-mcp-client gives it, runs `initialize` and `tools/list`, then stops the process | 90 seconds |
+| stdio | Starts the command, prepares dependencies, runs `initialize` and `tools/list`, then stops the process | Configurable; default 900 seconds |
 | streamable-http | POST `initialize`, then `tools/list` on the same session | 8 seconds per request |
 
 ## Routes
@@ -84,13 +99,16 @@ Path prefix `/api/dsh-config-center`. Loopback only; the Web UI's browser sessio
 | `POST /mcp` | Create or update: `{ id?, server }` |
 | `DELETE /mcp?id=<id>` | Delete |
 | `POST /mcp/test` | Connection test: `{ server }` |
+| `POST /mcp/preferences` | Save `{ stdioTimeoutSeconds }`; `GET /mcp` returns the current value |
 | `GET /settings` | Options with their current overrides |
 | `POST /settings` | Save: `{ values }`; `null` restores the default |
+| `GET /environment` | Managed runtime version, paths, readiness and installation progress |
+| `POST /environment` | Start an installation or repair; returns `202`, poll `GET` for the result |
 
 | Status | Meaning |
 |---|---|
 | `400` | Invalid field; `issue` names the reason |
-| `409` | Edit refused: duplicate name, id taken, entry missing |
+| `409` | Edit refused: duplicate name, id taken, entry missing, or managed runtime unavailable |
 | `500` | Write or reconciliation failed; the file is restored |
 
 ## Config
