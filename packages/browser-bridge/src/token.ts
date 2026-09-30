@@ -2,9 +2,8 @@
  * Bridge bearer-token lifecycle: generation, constant-time verification, and
  * file persistence under the dsh home directory.
  *
- * The token authenticates the browser extension against the bridge WebSocket.
- * It is NOT the /api trust fence (that stays untouched); it is the bridge
- * path's own auth because the bridge route lives outside the fence by design.
+ * The token authenticates the bridge WebSocket independently of /api.
+ * The bridge route is outside the /api trust fence.
  *
  * @module
  */

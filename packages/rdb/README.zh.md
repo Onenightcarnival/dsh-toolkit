@@ -25,46 +25,67 @@
 dsh plugin --profile web add file:./onenightcarnival-dsh-rdb-<版本>.tgz
 ```
 
-发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与包含五个模块的集成包互斥。
+发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与集成包互斥。
 
 桌面版入口：插件 → 配置中心 → 插件 → 从 .tgz 安装，重启生效。数据库驱动已内联至 `lib/index.js`。
 
-## 使用
+## 连接配置
 
-1. 侧边栏点「数据库」，左栏「+ 新增」选类型：SQLite 填数据库文件路径；
-   PostgreSQL / MySQL / GaussDB 填主机、端口、数据库、用户名、密码，可勾选 SSL。
-   主机可填多个节点，逗号分隔，所有节点共用端口栏的端口。
-   可选项：显示名称（默认 `数据库@主机` 或文件名，agent 用它引用这条连接）、
-   目标节点、随机选择节点、「允许 agent 写入」（不勾时 agent 只能读）。
-   「测试连接」返回实际连上的节点、服务端版本和延迟。
+入口：数据库 → 新增。连接与工具开关保存到 `~/.dsh/dsh-rdb.json`（0600），即时生效。
 
-   多节点的选择规则与 libpq 的 `target_session_attrs` / `load_balance_hosts`
-   一致：按填写顺序（勾了「随机选择节点」则随机顺序）逐个尝试，连不上的跳过；
-   连上后查 `pg_is_in_recovery()` 和 `transaction_read_only`，不满足目标的断开
-   换下一个。目标节点：任意节点（不检查）、可读写（非恢复态且非只读）、只读
-   （恢复态或只读）、主库（非恢复态）、备库（恢复态）、优先备库（先在全部节点
-   里找备库，没有再接受任意节点）。连接中断后下一次使用会按同样规则重连，
-   主库宕机时自动落到列表里其他可用节点。GaussDB 对应 JDBC 的
-   `targetServerType=master / slave / preferSlave` 与 `autoBalance`。
-   MySQL / MariaDB 的判定：`SHOW REPLICA STATUS`（旧版 `SHOW SLAVE STATUS`）有
-   复制通道即为备库，`read_only` / `super_read_only` 为只读；账号没有
-   REPLICATION CLIENT 权限时按 read_only 同时判定两者。
-2. 对象树按 schema 切换，列出表和视图，支持名称过滤。MySQL 的 schema 即同一
-   服务器上的数据库，默认为连接填写的数据库，可切到有权限的其他库。选中一张表：
-   - 数据：每页 100 行，列头点击排序，单列过滤（`=`、`like`、`is null` 等），
-     双击单元格编辑（`∅` 置 NULL，Esc 取消），「新增行」「删除所选」，
-     底部「保存改动」先展示将要执行的 SQL，确认后在一个事务里提交。
-     没有主键的表只读，视图只读。「导出 CSV」下载整表。
-   - 结构：列（类型、可空、默认值、主键）、索引、DDL。
-   - SQL：Ctrl+Enter 执行光标所选或全部文本（单条语句，末尾分号与注释可带），
-     结果最多 1000 行，可导出；会改数据的语句先弹确认。MySQL 的 `USE 库名` 会
-     切换这条连接会话的默认库，直到连接重建。
-3. 顶部「允许 agent 使用」开关打开后，agent 获得这些工具：
-   `db_connections`（列连接）、`db_schema`（列表 / 描述表）、`db_query`
-   （只读，单条，最多 500 行）、`db_explain`（执行计划）、`db_execute`
-   （事务写入，需连接勾选「允许 agent 写入」且 `confirm=true`，工具描述要求
-   agent 先把 SQL 给用户确认）。关掉开关工具立刻注销。开关和连接都存在
-   `~/.dsh/dsh-rdb.json`（0600），保存即生效，无需重启。
+| 字段 | 取值 |
+|---|---|
+| SQLite | 数据库文件路径 |
+| PostgreSQL / MySQL / GaussDB | 主机、端口、数据库、用户名、密码；可选 SSL |
+| 多主机 | 逗号分隔，共用端口 |
+| 显示名称 | 默认数据库@主机或文件名；Agent 通过名称引用连接 |
+| 目标节点 | 任意、可读写、只读、主库、备库、优先备库 |
+| 随机选择节点 | 关闭时按填写顺序尝试，开启时随机排序 |
+| 允许 Agent 写入 | 默认关闭 |
+| 测试连接 | 返回实际节点、服务端版本与延迟 |
+
+### 节点选择
+
+节点选择遵循 libpq 的 `target_session_attrs` / `load_balance_hosts`。连接失败或目标不匹配时尝试下一节点；断线后按相同规则重连。
+
+| 目标 | 条件 |
+|---|---|
+| 任意 | 可连接 |
+| 可读写 | 非恢复态且非只读 |
+| 只读 | 恢复态或只读 |
+| 主库 / 备库 | 非恢复态 / 恢复态 |
+| 优先备库 | 先尝试全部备库，无备库时接受任意节点 |
+
+PostgreSQL / GaussDB 查询 `pg_is_in_recovery()` 与 `transaction_read_only`。GaussDB 对应 JDBC 的 `targetServerType=master / slave / preferSlave` 与 `autoBalance`。
+
+MySQL / MariaDB 通过 `SHOW REPLICA STATUS`（旧版 `SHOW SLAVE STATUS`）判断复制通道，通过 `read_only` / `super_read_only` 判断只读状态；无 REPLICATION CLIENT 权限时，两者均按 read_only 判断。
+
+## 数据与 SQL
+
+| 功能 | 行为 |
+|---|---|
+| 对象树 | 按 schema 切换与名称过滤，包含表和视图；MySQL schema 为同服务器上的数据库 |
+| 数据页 | 每页 100 行；列头排序，单列过滤 |
+| 编辑 | 双击单元格；`∅` 置 NULL，Esc 取消；支持新增行与删除所选 |
+| 保存改动 | SQL 预览与确认后，在一个事务中提交 |
+| 只读对象 | 无主键的表、视图 |
+| 结构页 | 列、类型、可空、默认值、主键、索引与 DDL |
+| SQL 执行 | Ctrl+Enter 执行选中内容或全文；单条语句，允许末尾分号与注释；写操作需确认 |
+| SQL 结果 | 最多 1000 行，支持 CSV 导出 |
+| 表导出 | CSV 最多 10 万行 |
+| MySQL `USE` | 切换当前连接的默认库，持续到连接重建 |
+
+## Agent 工具
+
+「允许 Agent 使用」开启时注册以下工具，关闭时立即注销。
+
+| 工具 | 契约 |
+|---|---|
+| `db_connections` | 列出连接 |
+| `db_schema` | 列出或描述表 |
+| `db_query` | 只读单条查询，最多 500 行 |
+| `db_explain` | 执行计划 |
+| `db_execute` | 事务写入；需连接写入权限及 `confirm=true`，执行前向用户展示 SQL 并确认 |
 
 ## 安全边界
 

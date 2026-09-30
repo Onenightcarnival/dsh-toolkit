@@ -12,17 +12,50 @@
 
 ## Python MCP 环境
 
-在「设置 → 环境依赖」点击安装，下载固定版本 uv 并校验发布时钉住的 SHA256。支持 Windows、macOS、glibc Linux 的 x64 / ARM64；插件包本身不携带二进制。下载失败可重试，损坏环境可修复。提供的 uv 版本随插件更新维护。
+入口：设置 → 环境依赖。
 
-环境保存在当前 DSH 数据目录的 `tools/dsh-config-center/`：`uv/<版本>/<平台>/` 存放可执行文件，`python/`、`cache/`、`tools/`、`bin/` 存放专属 Python、依赖缓存和工具环境。首次运行 Python MCP 时按需联网下载解释器和依赖，启动器仅使用托管 Python。插件不查找或复用系统和桌面壳的 uv，也不修改全局 PATH。
+| 项目 | 契约 |
+|---|---|
+| 安装 | 下载固定 uv 版本，校验钉住的 SHA256；支持重试与修复 |
+| 平台 | Windows、macOS、glibc Linux；x64 / ARM64 |
+| 分发 | 插件包不含二进制；uv 版本随插件维护 |
+| 运行 | 专属 Python 与依赖按需联网下载；不复用系统或桌面 uv，不修改全局 PATH |
+| 下载网络 | 沿用 DSH 网络配置；MCP 环境变量支持 `UV_PYTHON_INSTALL_MIRROR` |
+| 配置隔离 | 默认使用托管 Python，禁用项目 uv 配置；显式命令参数遵循 uv 语义 |
 
-MCP 命令填写 `uv` / `uvx` 时，测试和保存都解析为专属绝对路径，运行环境写入当前 profile 的 patch，重启后由官方 MCP 客户端直接使用。环境安装完成后，该 profile 中已有的裸 `uv` / `uvx` 命令也会转换；自定义绝对路径保持原样。手工配置在其他 overlay 中的条目不自动迁移。配置迁移到另一台机器后，需重新安装环境并调整路径。
+数据根目录：`<DSH home>/tools/dsh-config-center/`。
 
-MCP 页的「连接设置 → stdio 启动等待（秒）」默认为 900，可设为 1–86400 秒，对当前 profile 的所有 stdio 服务器生效，保存在 profile 下的 `dsh-config-center.json`。测试连接，以及首次保存或启用前的依赖准备使用此值；正在运行的条目不额外启动准备进程。官方内核接管后的握手与工具调用仍使用内核策略。代理沿用 DSH 进程的网络配置，Python 下载源可通过 MCP 环境变量 `UV_PYTHON_INSTALL_MIRROR` 设置。系统 Python 与项目 uv 配置不作为默认运行环境，用户显式传入的命令参数仍按 uv 自身语义执行。
+| 路径 | 内容 |
+|---|---|
+| `uv/<版本>/<平台>/` | 可执行文件 |
+| `python/` | 托管 Python |
+| `cache/`、`tools/`、`bin/` | 依赖缓存与工具环境 |
 
-开发验证：`node --test packages/config-center/test/*.test.mjs`；真实下载和 Python MCP 握手：`node packages/config-center/test/environment-live.mjs`（需联网，使用隔离目录）。
+### 命令与迁移
 
-`test/fixtures/python-mcp/` 中的 Python 文件和 `pyproject.toml` 仅为真实安装测试提供一个最小 MCP 包，不属于插件运行代码，也不包含在发布的 `.tgz` 中。
+- 测试与保存时，裸 `uv` / `uvx` 解析为专属绝对路径，运行环境写入当前 profile patch。
+- 安装环境后，当前 profile patch 中已有的裸命令自动转换；重启后由官方 MCP 客户端直接使用。
+- 自定义绝对路径与其他 overlay 中的条目保持不变。
+- 跨机器迁移后重新安装环境并调整路径。
+
+### stdio 启动等待
+
+| 项目 | 值 |
+|---|---|
+| 入口 | MCP → 连接设置 → stdio 启动等待（秒） |
+| 默认 / 范围 | 900 秒 / 1–86400 秒 |
+| 存储 | 当前 profile 的 `dsh-config-center.json` |
+| 生效范围 | 当前 profile 的 stdio 连接测试、首次保存或启用前的依赖准备 |
+| 活动条目 | 不额外启动准备进程 |
+| 内核阶段 | 后续握手与工具调用沿用官方内核超时策略 |
+
+### 环境验证
+
+| 命令或目录 | 用途 |
+|---|---|
+| `node --test packages/config-center/test/*.test.mjs` | 回归测试 |
+| `node packages/config-center/test/environment-live.mjs` | 联网下载与隔离 Python MCP 握手 |
+| `test/fixtures/python-mcp/` | 测试用 Python 包，包含 pyproject.toml；不进入发布产物 |
 
 ## 安装
 

@@ -9,7 +9,7 @@ import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import type { EnvironmentStatus, McpServer } from './protocol.ts'
 
 export const UV_VERSION = '0.12.10'
-// Release checksums from astral-sh/uv, pinned with the version rather than trusted at download time.
+// astral-sh/uv release version and SHA256 checksums are pinned together.
 const RELEASES: Record<string, { triple: string; sha256: string }> = {
   'win32-x64': { triple: 'x86_64-pc-windows-msvc', sha256: 'f65744f94072152b1f86ba2aace4d01f1124d9a8ecb235805039e3718c36cac2' },
   'win32-arm64': { triple: 'aarch64-pc-windows-msvc', sha256: 'ee985c51c0c9c1f82267a5d80f959b34a7ff888c109182bd3b2b35c4661bbcde' },

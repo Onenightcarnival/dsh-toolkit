@@ -350,8 +350,7 @@ export function OtelSettings({ api }) {
 }
 
 const styles = {
-  // Settings owns the foreground color in both light and dark appearances;
-  // inherit it rather than hard-coding a label color (see dsh-ssh-ops).
+  // Foreground color follows the host settings theme.
   page: { color: "inherit", maxWidth: 760 },
   pageHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, marginBottom: 16 },
   heading: { margin: 0, fontSize: 18 },

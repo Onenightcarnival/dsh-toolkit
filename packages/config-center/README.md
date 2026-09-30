@@ -12,17 +12,50 @@ Configuration center for [DeepSeek Harness](https://github.com/deepseek-ai/deeps
 
 ## Python MCP environment
 
-Install uv from Settings → Environment dependencies. The plugin downloads a fixed release and checks a pinned SHA256 before extracting binaries. Windows, macOS and glibc Linux on x64 / ARM64 are supported. No binaries ship inside the plugin package. The provided uv version is maintained with plugin releases.
+Entry: Settings → Environment dependencies.
 
-All runtime data lives under `<DSH home>/tools/dsh-config-center/`: versioned binaries under `uv/`, managed interpreters under `python/`, and dedicated `cache/`, `tools/` and `bin/` directories. Python and MCP packages download on first use. System or desktop uv is never adopted and global PATH is unchanged.
+| Item | Contract |
+|---|---|
+| Installation | Fixed uv release with pinned SHA256; retry and repair supported |
+| Platforms | Windows, macOS and glibc Linux; x64 / ARM64 |
+| Distribution | Plugin releases maintain the uv version; packages contain no binaries |
+| Runtime | Managed Python and dependencies download on demand; system/desktop uv and global PATH remain unchanged |
+| Network | DSH network configuration; `UV_PYTHON_INSTALL_MIRROR` supported in MCP environment variables |
+| Isolation | Managed Python and disabled project uv configuration by default; explicit arguments retain uv semantics |
 
-Bare `uv` / `uvx` MCP commands resolve to managed absolute paths for both connection tests and persisted configuration. Installation also converts existing bare commands in the current profile patch. The official MCP client can restart these entries without a plugin startup hook. Custom executable paths and entries in other overlays are left untouched. After moving a configuration to another machine, install the environment again and adjust paths.
+Data root: `<DSH home>/tools/dsh-config-center/`.
 
-MCP → Connection settings → stdio startup wait defaults to 900 seconds (range 1–86400), shared by all stdio servers in the active profile. It persists in the profile's `dsh-config-center.json` and controls connection tests and dependency preparation before first save or activation. Active entries do not launch an extra preparation process. Subsequent kernel handshakes and tool calls retain upstream timeout policies. Downloads use the DSH network environment; `UV_PYTHON_INSTALL_MIRROR` can be set in MCP environment variables. The default interpreter policy is managed-only, with project uv configuration disabled; explicit user command arguments retain uv semantics.
+| Path | Content |
+|---|---|
+| `uv/<version>/<platform>/` | Executables |
+| `python/` | Managed Python |
+| `cache/`, `tools/`, `bin/` | Dependency cache and tool environments |
 
-Run `node --test packages/config-center/test/*.test.mjs` for regression tests. The opt-in `node packages/config-center/test/environment-live.mjs` downloads uv and managed Python and checks an isolated Python MCP fixture.
+### Commands and migration
 
-The Python file and `pyproject.toml` under `test/fixtures/python-mcp/` define the minimal package used by that installation test. They are not plugin runtime code and are excluded from published `.tgz` files.
+- Tests and saves resolve bare `uv` / `uvx` to managed absolute paths and persist their environment in the current profile patch.
+- Environment installation converts existing bare commands in that patch. The official MCP client uses the saved paths after restart.
+- Custom absolute paths and entries in other overlays remain unchanged.
+- Moving configuration to another machine requires environment installation and path updates.
+
+### stdio startup wait
+
+| Item | Value |
+|---|---|
+| Entry | MCP → Connection settings → stdio startup wait |
+| Default / range | 900 seconds / 1–86400 seconds |
+| Storage | Active profile's `dsh-config-center.json` |
+| Scope | stdio connection tests and dependency preparation before first save or activation |
+| Active entries | No additional preparation process |
+| Kernel phase | Subsequent handshakes and tool calls retain upstream timeout policies |
+
+### Environment validation
+
+| Command or directory | Purpose |
+|---|---|
+| `node --test packages/config-center/test/*.test.mjs` | Regression tests |
+| `node packages/config-center/test/environment-live.mjs` | Network downloads and an isolated Python MCP handshake |
+| `test/fixtures/python-mcp/` | Test-only Python package with pyproject.toml; excluded from release artifacts |
 
 ## Installation
 

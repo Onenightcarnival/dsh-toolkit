@@ -19,26 +19,47 @@
 dsh plugin --profile web add file:./onenightcarnival-dsh-s3-<版本>.tgz
 ```
 
-发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与包含五个模块的集成包互斥。
+发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与集成包互斥。
 
 桌面版入口：插件 → 配置中心 → 插件 → 从 .tgz 安装，重启生效。AWS SDK已内联至 `lib/index.js`。
 
-## 使用
+## 连接配置
 
-1. 侧边栏点「S3」，左栏「+ 新增」填 bucket 名、Endpoint、AK、SK 四项即可，
-   「测试连接」验证。可选项：显示名称（默认用 bucket 名，agent 用它引用这个桶）、
-   Region（不确定填 us-east-1）、限定前缀（把这条记录锁在某个目录下，浏览和
-   agent 工具都出不去）、路径风格寻址（MinIO 与大多数自建服务需要勾选；
-   AWS、R2 不勾）。Endpoint 留空表示 AWS S3。
-2. 右侧按层级浏览（分页加载），拖拽或点「上传文件」上传（大文件自动
-   分片），点文件名预览文本 / 图片，行内可下载、复制分享链接、重命名、
-   删除；勾选多项可批量删除，删除前有确认清单，文件夹会连同内容一起删。
-3. 顶部「允许 agent 使用」开关打开后，会话中的 agent 获得这些工具：
-   `s3_buckets`、`s3_list`、`s3_stat`、`s3_get`、`s3_put`、`s3_upload`、
-   `s3_download`、`s3_copy`、`s3_presign`、`s3_mkdir`、`s3_delete`
-   （删除必须带 `confirm=true`，工具描述要求 agent 先向用户确认）。关掉
-   开关工具立刻注销，agent 完全看不到这些桶。开关和记录都存在
-   `~/.dsh/dsh-s3.json`（0600），保存即生效，无需重启。
+入口：S3 → 新增。连接与工具开关保存到 `~/.dsh/dsh-s3.json`（0600），即时生效。
+
+| 字段 | 取值 |
+|---|---|
+| Bucket、AK、SK | 桶名与访问凭证 |
+| Endpoint | S3 服务地址；留空使用 AWS S3 |
+| 显示名称 | 默认使用桶名；Agent 通过名称引用桶 |
+| Region | 按服务配置填写，默认 us-east-1 |
+| 限定前缀 | 浏览与 Agent 工具的共同访问范围 |
+| 路径风格寻址 | 适用于 MinIO 等自建服务；按服务要求启用 |
+| 测试连接 | 验证当前配置 |
+
+## 对象操作
+
+| 操作 | 行为 |
+|---|---|
+| 浏览 | 按层级分页加载 |
+| 上传 | 拖拽或选择文件，大文件自动分片 |
+| 预览 | 文本与图片 |
+| 下载 / 分享 | 下载文件或复制限时链接 |
+| 重命名 | 修改对象名称 |
+| 删除 | 支持批量操作，确认清单后执行；文件夹包含其全部内容 |
+
+## Agent 工具
+
+「允许 Agent 使用」开启时注册以下工具，关闭时立即注销。
+
+| 工具 | 功能 |
+|---|---|
+| `s3_buckets`、`s3_list`、`s3_stat` | 桶、对象列表与元数据 |
+| `s3_get`、`s3_put` | 读取与写入文本 |
+| `s3_upload`、`s3_download` | 本机与桶之间传输文件 |
+| `s3_copy`、`s3_mkdir` | 复制 / 移动对象、创建目录标记 |
+| `s3_presign` | 生成限时分享链接 |
+| `s3_delete` | 删除对象；需用户确认及 `confirm=true` |
 
 ## 安全边界
 

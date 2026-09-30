@@ -1,12 +1,9 @@
 /**
- * MAIN-world page hooks: dialog interception, console capture, and network
- * capture. The content script lives in an isolated world and cannot see
- * `window.alert` or `console.log` as the page calls them, so these hooks are
- * installed with `chrome.scripting.executeScript({ world: 'MAIN' })` and read
- * back the same way. Everything the hooks record is page-authored data.
+ * MAIN-world hooks for dialogs, console output and network events.
+ * Installation and read-back use chrome.scripting.executeScript in MAIN.
+ * Captured values are untrusted page-authored data.
  *
- * Install is idempotent per document and happens lazily on the first tool
- * dispatched to a tab, so pages the agent never touches are never modified.
+ * Installation is idempotent per document and deferred until the first tool call.
  *
  * @module
  */

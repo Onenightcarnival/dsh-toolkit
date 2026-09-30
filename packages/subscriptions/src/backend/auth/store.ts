@@ -1,16 +1,11 @@
 /**
- * On-disk OAuth session store at `~/.dsh/plugins/subscriptions/auth.json`.
+ * OAuth session store: ~/.dsh/plugins/subscriptions/auth.json.
+ * Format: provider id → accounts map and default account key.
+ * Writes use an atomic temporary-file rename with mode 0600.
+ * This module defines the durable session types.
  *
- * The file is a JSON object keyed by provider id, each entry holding that
- * provider's ACCOUNTS: a map of account key → session plus the default
- * account's key. Writes are atomic (tmp file + rename) with mode 0600
- * because they carry bearer tokens. Session shapes live here (not in the
- * provider modules) because this file owns the durable format.
- *
- * Backward compatibility: entries written by single-account versions hold
- * the session fields directly (no `accounts` wrapper); reads migrate them
- * in memory, and the next write persists the new shape — existing logins
- * survive the upgrade untouched.
+ * Legacy single-account entries migrate in memory on read and persist
+ * in the accounts format on the next write, retaining existing credentials.
  */
 
 import { decodeJwtPayload } from './jwt.js'

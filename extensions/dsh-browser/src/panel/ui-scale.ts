@@ -1,16 +1,7 @@
 /**
- * Panel text-scale preference.
- *
- * Chrome's side panel inherits no per-site zoom control, so a user who finds
- * the default type too small has nothing to reach for. The panel therefore
- * owns the preference: every `font-size` in `styles.css` is a multiple of the
- * `--ui-scale` custom property, and this module is the only place that decides
- * which multiples are legal, how to move between them, and where the choice is
- * stored.
- *
- * The value is deliberately panel-local (its own storage key rather than
- * `dshSettings`) because it is pure presentation: the service worker and the
- * bridge never need to know about it.
+ * Panel-local text scale: allowed steps, normalization and persistence.
+ * styles.css consumes --ui-scale; chrome.storage.local stores the preference
+ * under dshPanelUiScale, independently of bridge and service-worker settings.
  *
  * @module
  */

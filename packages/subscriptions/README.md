@@ -9,17 +9,26 @@ ChatGPT and Google Antigravity subscriptions for DeepSeek Harness. Entry: **AI s
 The standalone package and toolkit are mutually exclusive:
 
 ```sh
-dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.7.0.tgz
+dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-<version>.tgz
 ```
 
 ## ChatGPT
 
-Connect ChatGPT through browser OAuth. The callback tries local ports 1455 and 1457. If both are reserved or occupied, login automatically switches to manual callback mode: finish authorization, then copy the complete `localhost` URL from the browser address bar into the panel, even if that browser page cannot load. Credentials stay on the host. Add accounts, select the default, or disconnect them from the panel.
+1. Select **Connect ChatGPT** in AI subscriptions and complete browser OAuth.
+2. Select a model from the ChatGPT (Codex) group in the conversation picker.
 
-- **Models:** account-discovered models in the conversation picker; refresh, visibility controls, default reasoning effort and editable context windows. Enter `256K`, `1M`, `1.5M` or a positive integer (decimal units), then press Enter or Save. Clear and save or choose Reset to default to inherit the catalog value. Context settings are shared across accounts within each provider; explicitly advertised maximums still apply.
-- **Web Search:** `codex_web_search` uses the ChatGPT subscription directly, with DSH search cards and source URLs. DSH's web search provider setting is independent.
-- **Images:** `codex_image_generate` supports generation and attachment-based editing, local files and inline image previews/downloads. Files live under `plugins/subscriptions/images/` in the DSH home.
-- **Usage:** per-account quota windows and reset times, refreshed on demand. Missing usage is shown as unknown.
+Callbacks try local ports 1455 and 1457. If both are unavailable, manual mode accepts the complete localhost callback URL from the browser address bar, including when that page cannot load. Credentials remain on the host.
+
+| Page | Features |
+|---|---|
+| Accounts | Add, select default and disconnect |
+| Models | Refresh account catalog, visibility, default reasoning effort and context windows |
+| Tools | Codex Web Search and image generation switches |
+| Usage | Selected account's quota windows, reset times and refresh; missing data is unknown |
+
+Context accepts `256K`, `1M`, `1.5M` or a positive integer in decimal units. Enter or Save submits; blank or Reset to default restores the catalog value. Settings are shared across accounts of the same provider and cannot exceed advertised limits.
+
+Codex Web Search is independent of DSH's web search provider setting. Images live under `plugins/subscriptions/images/` in the DSH home; the attachment service provides inline preview, download and continued editing.
 
 ## Tools
 
@@ -90,7 +99,7 @@ OAuth client configuration, in precedence order:
 
 Resolved OAuth client configuration is stored locally for subsequent token refreshes. The pinned runtime dependency provides client constants.
 
-Project selection uses `antigravity.projectId`, then account discovery. Missing discovery endpoints (404) or absent project fields use the reference plugin’s account-specific compatibility identifier. This identifier does not create a Google Cloud project or grant access. Configure `antigravity.projectId` if the service requires a provisioned project. Authentication, permission and quota errors remain failures.
+Project selection uses `antigravity.projectId`, then account discovery. Missing discovery endpoints (404) or absent project fields use an account-specific compatibility identifier. This identifier does not create a Google Cloud project or grant access. Configure `antigravity.projectId` if the service requires a provisioned project. Authentication, permission and quota errors remain failures.
 
 Access depends on account entitlements and quota. Offline tests do not establish live account access.
 

@@ -9,16 +9,26 @@ DeepSeek Harness 的 AI 订阅插件，支持 ChatGPT 与 Google Antigravity。�
 独立包与集成包互斥：
 
 ```sh
-dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-0.7.0.tgz
+dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-<版本>.tgz
 ```
 
 ## ChatGPT
 
-1. 打开「AI 订阅」，点击「连接 ChatGPT」，在浏览器完成 OAuth 授权。自动回调依次尝试本机 1455、1457 端口；两者都被系统保留或占用时会自动切换为手动模式。完成授权后，即使浏览器的 localhost 页面显示无法访问，也请复制地址栏中的完整 URL，回到面板粘贴并提交。
-2. 在会话模型选择器的 ChatGPT (Codex) 分组选择模型。模型目录按账号发现，支持刷新、显示筛选、默认推理强度与上下文编辑。上下文可输入 `256K`、`1M`、`1.5M` 或正整数（十进制单位），按 Enter 或点击保存；清空并保存或点击「恢复默认」使用目录默认值。设置由多个账号共用，目录明确提供的最大值仍作为上限。
-3. 「工具」提供 Codex Web Search 和图像生成开关。`codex_web_search` 直接使用 ChatGPT 订阅，返回摘要、DSH 搜索结果卡片和来源链接；与 DSH 的联网搜索提供方设置独立。
-4. `codex_image_generate` 支持生图和图片附件编辑；生成文件保存在 DSH home 的 `plugins/subscriptions/images/`，有附件服务时支持对话内预览、下载和继续编辑。
-5. 「用量」显示所选账号的额度窗口与重置时间，支持刷新。可添加多个账号、设置默认账号或断开连接。
+1. 在「AI 订阅」点击「连接 ChatGPT」，完成浏览器 OAuth 授权。
+2. 在会话模型选择器的 ChatGPT (Codex) 分组选择模型。
+
+自动回调依次使用本机 1455、1457 端口。端口不可用时切换为手动模式：授权跳转到 localhost 后，将地址栏的完整 URL 粘贴回面板并提交；页面无法访问不影响提交。
+
+| 页面 | 功能 |
+|---|---|
+| 账号 | 添加、设为默认、断开连接 |
+| 模型 | 刷新账号目录、显示筛选、默认推理强度、上下文编辑 |
+| 工具 | Codex Web Search 与图像生成开关 |
+| 用量 | 当前账号的额度窗口、重置时间与刷新 |
+
+上下文接受 `256K`、`1M`、`1.5M` 或正整数，采用十进制单位。Enter 或「保存」提交；清空并保存或「恢复默认」使用目录默认值。设置由同类账号共用，不能超过目录给出的上限。
+
+Codex Web Search 独立于 DSH 的联网搜索提供方设置。生成图片保存到 DSH home 的 `plugins/subscriptions/images/`；附件服务提供对话内预览、下载与继续编辑。
 
 ## 工具
 
@@ -91,7 +101,7 @@ OAuth 客户端配置按以下顺序读取：
 
 登录解析后的客户端配置保存在本机，用于后续令牌刷新。客户端常量由固定的运行时依赖提供。
 
-项目标识优先使用 `antigravity.projectId`，其次读取账号项目发现结果。项目发现接口缺失（404）或未返回项目时，使用与参考插件一致的账号兼容标识。此标识不创建 Google Cloud 项目，也不改变账号权限；服务端要求真实项目时，可配置 `antigravity.projectId`。认证、权限与额度错误保留为失败。
+项目标识优先使用 `antigravity.projectId`，其次读取账号项目发现结果。项目发现接口缺失（404）或未返回项目时，使用账号兼容标识。此标识不创建 Google Cloud 项目，也不改变账号权限；服务端要求真实项目时，可配置 `antigravity.projectId`。认证、权限与额度错误保留为失败。
 
 ## 配置
 

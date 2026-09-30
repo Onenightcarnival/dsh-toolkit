@@ -1,8 +1,6 @@
 /**
- * Browser-half entry for dsh-rdb: runs inside the dsh web GUI, registers the
- * locale dictionaries and contributes the sidebar row and the database panel
- * through the shell's slots. Registration problems are logged, never thrown
- * (a plugin apply that throws fails the whole GUI boot).
+ * dsh-rdb client: locale dictionaries, sidebar entry and database panel.
+ * Registration failures are logged and contained within this plugin.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { IconDatabaseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'

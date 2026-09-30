@@ -1,12 +1,9 @@
 /**
  * Viewport screenshots with optional set-of-marks annotation.
  *
- * `chrome.tabs.captureVisibleTab` photographs whatever the window currently
- * shows, so it is only meaningful when the controlled tab is the active tab
- * of a visible window; the caller checks that before calling here. The
- * annotation pass draws each inventoried element's index next to its box so
- * a multimodal model can name a target from the picture alone. Drawing runs
- * on an OffscreenCanvas because a service worker has no DOM.
+ * Precondition: the controlled tab is active in a visible window.
+ * captureVisibleTab captures the viewport; OffscreenCanvas adds inventory
+ * indices beside element bounds.
  *
  * @module
  */

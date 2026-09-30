@@ -1,8 +1,6 @@
 /**
- * Browser-half entry for dsh-s3: runs inside the dsh web GUI, registers the
- * locale dictionaries and contributes the sidebar row and the database panel
- * through the shell's slots. Registration problems are logged, never thrown
- * (a plugin apply that throws fails the whole GUI boot).
+ * dsh-s3 client: locale dictionaries, sidebar entry and object storage panel.
+ * Registration failures are logged and contained within this plugin.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { IconArchiveOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'

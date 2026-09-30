@@ -145,8 +145,7 @@ export function collectorConfigFrom(record) {
     endpoint,
     headers: buildAuthHeaders(record.publicKey, record.secretKey),
     captureContent: record.captureContent,
-    // Langfuse has no OTLP metrics ingest; exporting there only produces
-    // periodic 4xx noise, so metrics stay on solely for generic backends.
+    // Metrics are enabled only for generic OTLP backends; Langfuse accepts traces.
     exportMetrics: !isLangfuseEndpoint(endpoint),
     ...record.contentMaxChars === undefined ? {} : { contentMaxChars: record.contentMaxChars },
     ...record.maxExportBatchSize === undefined ? {} : { maxExportBatchSize: record.maxExportBatchSize }
@@ -210,10 +209,7 @@ export async function runTestExport({ endpoint, headers, gzip = false, payloadBy
   try {
     const tracer = provider.getTracer("dsh-otel");
     if (genai) {
-      // A miniature of what the embedded collector really emits — ENTRY root
-      // plus an LLM child carrying the GenAI semantic attributes — so a
-      // backend that mishandles GenAI-shaped spans fails HERE, at button
-      // press, instead of silently on real conversations.
+      // GenAI probe: ENTRY root and LLM child with collector-compatible attributes.
       const messagesIn = JSON.stringify([{ role: "user", parts: [{ type: "text", content: "你好" }] }]);
       const messagesOut = JSON.stringify([{ role: "assistant", parts: [{ type: "text", content: "你好！" }] }]);
       const entry = tracer.startSpan("dsh-otel genai test", {
@@ -251,9 +247,7 @@ export async function runTestExport({ endpoint, headers, gzip = false, payloadBy
       traceId = span.spanContext().traceId;
       span.setAttribute("dsh.otel.test", true);
       if (payloadBytes > 0) {
-        // Incompressible content so the wire size stays close to payloadBytes
-        // even with gzip on — the point is to trip gateway body-size caps the
-        // way a real content-carrying trace batch would.
+        // Incompressible content keeps the gzip wire size near payloadBytes.
         span.setAttribute(
           "dsh.otel.test.payload",
           randomBytes(Math.ceil((payloadBytes * 3) / 4)).toString("base64")
@@ -263,8 +257,7 @@ export async function runTestExport({ endpoint, headers, gzip = false, payloadBy
     }
     await withTimeout(provider.forceFlush(), TEST_TIMEOUT_MS, "export timed out");
   } catch (error) {
-    // A failed export rejects forceFlush; fold it into the captured result
-    // instead of throwing so callers always get a { ok, message } verdict.
+    // forceFlush failures return the same { ok, message } result as export failures.
     if (capture === null) {
       const first = Array.isArray(error) ? error[0] : error;
       capture = { code: 1, error: first };
@@ -282,11 +275,8 @@ export async function runTestExport({ endpoint, headers, gzip = false, payloadBy
 }
 
 /**
- * Ask the Langfuse public API (same pk/sk, Basic auth) whether a trace was
- * actually persisted. OTLP returning 200 only means "accepted": Langfuse
- * ingests asynchronously, and a worker that chokes on a span drops it after
- * the fact with no signal back to the client. Returns "found", "not-found",
- * or "unreachable:<detail>".
+ * Query Langfuse persistence with the configured Basic auth credentials.
+ * Returns found, not-found or unreachable:<detail> independently of OTLP acceptance.
  */
 export async function checkLangfuseTrace(endpoint, headers, traceId, fetchImpl = fetch) {
   const apiBase = String(endpoint).replace(/\/api\/public\/otel$/i, "");
@@ -330,15 +320,15 @@ export async function verifyLangfuseTraces(endpoint, headers, ids, options = {})
 
 const TRACE_LABELS = {
   control: "普通",
-  genai: "GenAI 形态",
-  real: "真实管线复刻"
+  genai: "GenAI",
+  real: "采集管线"
 };
 
 /** Turn the per-trace verification states into an operator-facing verdict. */
 export function langfuseVerdict(states, ids) {
   const idLine = `（trace ID：${Object.entries(ids)
     .map(([k, v]) => `${TRACE_LABELS[k] ?? k}=${v}`)
-    .join("，")}，可在 UI 中直接搜索）`;
+    .join("，")}）`;
   const labels = Object.keys(states);
   const found = labels.filter((k) => states[k] === "found");
   const missing = labels.filter((k) => states[k] === "not-found");
@@ -347,51 +337,40 @@ export function langfuseVerdict(states, ids) {
   if (found.length === labels.length) {
     return {
       ok: true,
-      message: "服务端 API 已确认全部测试 trace 入库，包括真实管线复刻（与真实对话完全同形态）——"
-        + "插件→网关→Langfuse 全链路对真实对话形态完全正常。真实对话仍不出现时，问题在对话没有"
-        + "经过本插件导出：确认对话发生在启用了本插件的同一 profile/实例；对话结束后等 10 秒以上；"
-        + `对比面板「累计导出」统计在对话前后是否增长（不增长 = 该对话没经过本插件）${idLine}`
+      message: `全部测试 trace 已入库。${idLine}`
     };
   }
   if (found.length === 0 && unreachable.length > 0) {
     const detail = states[unreachable[0]].replace("unreachable:", "");
     return {
       ok: true,
-      message: "测试 trace 均已上报成功，但无法通过 Langfuse API 回查入库结果"
-        + `（${detail}——网关可能未转发 /api/public/traces 路径）。`
-        + `请在 UI 中分别搜索各 trace ID 确认是否都存在${idLine}`
+      message: `上报成功，Langfuse 入库查询失败：${detail}。${idLine}`
     };
   }
   if (states.control === "found" && missing.length > 0) {
     const missingLabels = missing.map((k) => TRACE_LABELS[k] ?? k).join("、");
     return {
       ok: false,
-      message: `已定位到服务端问题：普通 trace 入库成功，但 ${missingLabels} 的 trace 被服务端`
-        + "接收（OTLP 返回 200）后在异步入库阶段丢弃——这是该 Langfuse 版本对此类 span 处理的"
-        + `缺陷，请部署方升级 Langfuse 版本，并可用这些 trace ID 在 worker 日志中定位报错${idLine}`
+      message: `普通 trace 已入库；${missingLabels} 已上报，尚未查到入库记录。${idLine}`
     };
   }
   if (found.length === 0) {
     return {
       ok: true,
-      message: "测试 trace 已上报成功（OTLP 返回 200），但轮询约 20 秒内 API 中均未查到——"
-        + "Langfuse 异步入库可能延迟较大，请稍后在 UI 中搜索 trace ID；若始终不出现，"
-        + `说明服务端摄入管线（worker）有问题，请部署方查看 worker 日志${idLine}`
+      message: `上报成功，尚未查到入库记录。稍后按 trace ID 查询。${idLine}`
     };
   }
   return {
     ok: true,
     message: `回查结果不完整：${labels.map((k) => `${TRACE_LABELS[k] ?? k}=${states[k]}`).join("，")}。`
-      + `请在 UI 中搜索各 trace ID 进一步确认${idLine}`
+      + idLine
   };
 }
 
 /**
- * Replicate one full conversation turn through the collector's REAL mapping
- * pipeline: the bundled DshTraceCoordinator + createTelemetryPipeline (real
- * resource attributes, full gen_ai.* attribute set, ENTRY→AGENT→STEP→LLM
- * hierarchy, one batched export) — byte-for-byte the shape real conversations
- * produce, aimed at the configured backend.
+ * Export a synthetic turn through DshTraceCoordinator and createTelemetryPipeline.
+ * Includes resource attributes, gen_ai.* fields and ENTRY→AGENT→STEP→LLM spans
+ * in one batch to the configured backend.
  */
 export async function runRealPipelineTest({ endpoint, headers, gzip = false }) {
   const url = traceSignalUrl(endpoint);
@@ -490,18 +469,16 @@ export async function runRealPipelineTest({ endpoint, headers, gzip = false }) {
 /** Translate raw exporter failures into actionable operator guidance. */
 export function describeTestFailure(message) {
   if (/status code 413|Payload Too Large|Request Entity Too Large/i.test(message)) {
-    return `请求体过大被拒（${message}）——网关限制了 body 大小；可开启 gzip 压缩、`
-      + `调低正文截断上限，或请网关方调大限制（如 nginx client_max_body_size）`;
+    return `请求体过大：${message}。可开启 gzip 或降低正文上限。`;
   }
   if (/status code 401|status code 403|Unauthorized|Forbidden/i.test(message)) {
-    return `认证失败（${message}）——请检查 Public Key / Secret Key 是否正确、是否属于该项目`;
+    return `认证失败：${message}。检查项目密钥。`;
   }
   if (/status code 404/i.test(message)) {
-    return `接口不存在（${message}）——请检查 Endpoint 路径（Langfuse 应为 …/api/public/otel；`
-      + `经网关暴露时请确认网关转发了 /api/public/otel/* 路径）`;
+    return `接口不存在：${message}。检查 Endpoint 与网关路径。`;
   }
   if (/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|timed out|socket hang up/i.test(message)) {
-    return `无法连接到服务端（${message}）——请检查 Endpoint 地址与网络/代理`;
+    return `无法连接：${message}。检查地址、网络与代理。`;
   }
   return message;
 }
@@ -548,11 +525,8 @@ export default class DshOtelService extends TypertRemoteService {
   }
 
   /**
-   * Surface OTel-internal failures. Batch export errors from the embedded
-   * collector never reach dsh logs on their own — they go to the OTel diag
-   * channel — so bridge that channel into the dsh logger and remember the
-   * latest failure for the settings panel. This is what makes a gateway
-   * silently dropping real traffic visible.
+   * Forward OTel diagnostics to the dsh logger and retain the latest failure
+   * for the settings panel.
    */
   attachDiagBridge() {
     const note = (args) => {
@@ -756,53 +730,46 @@ export default class DshOtelService extends TypertRemoteService {
         };
       }
 
-      // Stage 2: a ~900KB span. A tiny test passing while real content-heavy
-      // traces vanish is the signature of a gateway body-size cap; this stage
-      // reproduces that failure at button-press time instead of in silence.
+      // Stage 2: ~900 KB payload probe for gateway body-size limits.
       const large = await runTestExport({ endpoint, headers, gzip, payloadBytes: PAYLOAD_TEST_BYTES });
       if (!large.ok) {
         return {
           ok: false,
           error: fail(
             "payload-limit",
-            `基础连通与认证正常，但约 900KB 的大负载测试失败：${describeTestFailure(large.message)}。`
-              + `开启正文采集的真实对话 Trace 通常有数百 KB～数 MB，会以同样方式被拒`
+            `负载测试失败（约 900 KB）：${describeTestFailure(large.message)}`
               + `（实际请求地址：${large.traceEndpoint}）`
           )
         };
       }
 
-      // Stage 3: a GenAI-shaped trace — the shape real conversations have.
-      // Some Langfuse versions accept it over OTLP (200) and then drop it in
-      // their async ingestion worker; only an API read-back can prove intake.
+      // Stage 3: GenAI trace with API read-back to verify asynchronous ingestion.
       const genaiTest = await runTestExport({ endpoint, headers, gzip, genai: true });
       if (!genaiTest.ok) {
         return {
           ok: false,
           error: fail(
             "genai-rejected",
-            `普通测试通过，但 GenAI 形态（真实对话形态）的 trace 被拒：${describeTestFailure(genaiTest.message)}`
+            `GenAI 测试失败：${describeTestFailure(genaiTest.message)}`
               + `（实际请求地址：${genaiTest.traceEndpoint}）`
           )
         };
       }
 
-      // Stage 4: replicate a full conversation through the collector's real
-      // mapping pipeline — the definitive "same shape as real traffic" probe.
+      // Stage 4: full conversation through the collector's mapping pipeline.
       const realTest = await runRealPipelineTest({ endpoint, headers, gzip });
       if (!realTest.ok) {
         return {
           ok: false,
           error: fail(
             "real-pipeline-failed",
-            `前三段测试通过，但真实管线复刻（与真实对话完全同形态，${realTest.spanCount} 个 span 单批导出）`
-              + `失败：${describeTestFailure(realTest.message)}（实际请求地址：${realTest.traceEndpoint}）`
+            `采集管线测试失败（${realTest.spanCount} span）：${describeTestFailure(realTest.message)}`
+              + `（请求地址：${realTest.traceEndpoint}）`
           )
         };
       }
 
-      const baseLine = `四段测试均上报成功（连通 / 约 900KB 大负载 / GenAI 形态 / 真实管线复刻 `
-        + `${realTest.spanCount} span 单批${gzip ? "，gzip 压缩" : ""}）。`;
+      const baseLine = `测试通过：连通、900 KB 负载、GenAI、采集管线（${realTest.spanCount} span${gzip ? "，gzip" : ""}）。`;
 
       if (isLangfuseEndpoint(endpoint)) {
         const ids = { control: small.traceId, genai: genaiTest.traceId, real: realTest.traceId };
@@ -817,7 +784,7 @@ export default class DshOtelService extends TypertRemoteService {
       return {
         ok: true,
         value: {
-          message: `${baseLine}可在平台上查看 dsh-otel connection/payload/genai test 及真实管线复刻的会话调用链`,
+          message: baseLine,
           traceEndpoint: small.traceEndpoint
         }
       };
@@ -827,10 +794,7 @@ export default class DshOtelService extends TypertRemoteService {
   }
 
   /**
-   * Read back the recently exported traces (real conversations and tests
-   * alike, captured by the exporter shim) against the Langfuse API — the
-   * direct answer to "the export succeeded, did my conversation actually
-   * make it into the platform?".
+   * Query Langfuse persistence for recent conversation and test traces.
    */
   async verifyRecent() {
     try {
@@ -843,11 +807,11 @@ export default class DshOtelService extends TypertRemoteService {
         isLangfuseKeyPair(record.publicKey, record.secretKey)
       );
       if (!isLangfuseEndpoint(endpoint)) {
-        return { ok: false, error: fail("not-langfuse", "回查依赖 Langfuse 公开 API，当前后端不是 Langfuse——请直接在平台上查询") };
+        return { ok: false, error: fail("not-langfuse", "当前后端不支持入库查询，请在接收平台查看。") };
       }
       const recent = [...traceExportStats.recent].slice(-8).reverse();
       if (recent.length === 0) {
-        return { ok: false, error: fail("no-exports", "本次运行还没有任何导出记录——先进行一轮对话，或点「发送测试 Trace」") };
+        return { ok: false, error: fail("no-exports", "暂无导出记录。可发送测试或完成一轮对话。") };
       }
       const headers = buildAuthHeaders(record.publicKey, record.secretKey);
       const states = new Map();
@@ -863,7 +827,7 @@ export default class DshOtelService extends TypertRemoteService {
           }
         }
       }
-      const describe = { "found": "已入库", "not-found": "未入库" };
+      const describe = { "found": "已入库", "not-found": "尚未查到" };
       const lines = recent.map((entry) => {
         const state = states.get(entry.traceId);
         const label = testTraceIds.has(entry.traceId) ? "测试" : "对话";
@@ -874,9 +838,8 @@ export default class DshOtelService extends TypertRemoteService {
       const missing = recent.filter((e) => states.get(e.traceId) === "not-found");
       const allFound = missing.length === 0;
       const summary = allFound
-        ? `最近 ${recent.length} 条导出的 trace 全部已在服务端入库：`
-        : `最近 ${recent.length} 条导出的 trace 中有 ${missing.length} 条已送达服务端（导出成功）但未入库`
-          + "——服务端异步摄入任务失败，请部署方按 trace ID 与时间在 worker 日志中定位：";
+        ? `最近 ${recent.length} 条 trace 查询结果：`
+        : `最近 ${recent.length} 条 trace 中，${missing.length} 条尚未查到入库记录：`;
       return { ok: true, value: { message: `${summary}\n${lines.join("\n")}`, allFound } };
     } catch (error) {
       return { ok: false, error: fail("verify-failed", String(error?.message ?? error)) };

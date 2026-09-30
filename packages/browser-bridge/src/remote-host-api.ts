@@ -1,10 +1,8 @@
 /**
  * dsh 0.2.0 Host adapter.
  *
- * Unary calls go directly through TypertGateway. Long-lived Session and
- * forwarded-event streams use the Gateway wire seam, while `$events/result`
- * goes through Connection because it is a Gateway-owned RPC endpoint rather
- * than a Typert Remote method.
+ * Unary calls use TypertGateway; Session and forwarded-event streams use
+ * the Gateway wire interface. The Gateway-owned `$events/result` RPC uses Connection.
  *
  * @module @onenightcarnival/dsh-bridge-browser/src/remote-host-api
  */

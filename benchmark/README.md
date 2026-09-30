@@ -60,7 +60,7 @@ node benchmark/report.mjs
 node benchmark/report.mjs benchmark/results/<file>.jsonl
 ```
 
-`--output` 必须指向一个尚不存在的新文件；runner 会拒绝向旧 JSONL 追加另一轮 benchmark，避免不同套件版本、模型或环境被静默汇总。报告生成器也会拒绝聚合包含多个 `benchmarkSuiteVersion` 的 JSONL。需要合并分析时应保留各自文件，并显式按套件版本和配置分组后分别生成报告。
+`--output` 仅接受新文件。每轮评测独立保存；报告拒绝混合 `benchmarkSuiteVersion`。合并分析按套件版本、模型与环境配置分组。
 
 ## 任务集
 
@@ -83,7 +83,7 @@ node benchmark/report.mjs benchmark/results/<file>.jsonl
 
 - 两边共享同一提示词、任务实例、DSH profile、模型选择、浏览器尺寸、locale 和时区。
 - Playwright 适配器使用与扩展相同的 `browser_snapshot`、`browser_click`、`browser_type` 等模型可见工具名、说明、参数 schema 和通用系统提示；动作后的 DOM 稳定等待策略也使用相同时间预算。
-- 两个 DSH 进程使用隔离的 session/storage 目录，避免相互污染；模型凭据仍来自同一个本机 DSH profile。
+- 两个 DSH 进程使用隔离的 session/storage 目录，共用本机 DSH profile 的模型凭据。
 - 同任务、同 seed 形成一个 pair，谁先运行由确定性哈希交替，降低固定顺序导致的热身偏差。
 - 提示词禁止非 `browser_*` 工具，validator 也会把使用其他工具的运行判为失败。
 - 两边都使用当前仓库构建产物；正式评测前必须先执行 `pnpm build`。
@@ -101,7 +101,7 @@ node benchmark/report.mjs benchmark/results/<file>.jsonl
 
 ## 解释边界
 
-这是完整浏览器后端的端到端比较，不是纯 WebSocket 或进程内调用的传输微基准。虽然模型可见工具契约已经对齐，两边的页面结构化表示、元素索引和动作执行实现仍然不同；这些差异会影响模型调用次数、token 和成功率，也正是被测后端的一部分。因此，报告中的速度比不能被表述为“扩展传输本身的开销”。
+评测范围为完整浏览器后端：页面表示、元素索引、动作执行与模型调用。模型可见工具契约一致，后端实现各自独立。速度比反映端到端耗时，不能单独归因于传输。
 
 模型服务端延迟也无法由本地 runner 隔离。正式结论必须同时看成功率、配对结果、失败惩罚比、运行顺序敏感性和置信区间，而不是只比较一次 P50。
 

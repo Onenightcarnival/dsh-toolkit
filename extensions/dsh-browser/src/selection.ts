@@ -33,9 +33,8 @@ export interface PageSelection extends SelectionCapture {
 }
 
 /**
- * Collapse a raw highlight into quotable text: horizontal whitespace runs
- * become single spaces while line structure survives, because a quoted
- * paragraph list is unreadable once its breaks are flattened.
+ * Normalize highlighted text: collapse horizontal whitespace to single
+ * spaces and preserve line breaks.
  * @param raw - the browser's selection string.
  * @returns the normalized text and whether the ceiling cut it.
  */

@@ -33,7 +33,7 @@ On MySQL, a schema is a database on the same server. A replication channel ident
 dsh plugin --profile web add file:./onenightcarnival-dsh-rdb-<version>.tgz
 ```
 
-Artifacts: [dsh-toolkit releases](https://github.com/Onenightcarnival/dsh-toolkit/releases). The standalone plugin and the five-module toolkit package are mutually exclusive.
+Artifacts: [dsh-toolkit releases](https://github.com/Onenightcarnival/dsh-toolkit/releases). The standalone plugin and the toolkit package are mutually exclusive.
 
 ## Data and access
 

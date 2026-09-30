@@ -1,15 +1,9 @@
 /**
- * On-disk discovered-model-catalog cache at
- * `~/.dsh/plugins/subscriptions/models.json` — the durable half of each
- * provider's {@link ModelCatalogCache}. One entry per provider: the last
- * successfully discovered catalog with its fetch time, so capability metadata
- * (reasoning efforts) survives restarts and network failures.
- *
- * Unlike the auth store, this file is a cache: a missing, corrupt, or
- * malformed file silently reads as absent, because the next successful
- * discovery rewrites it. Loads are strictly validated — a malformed entry
- * passed through `resolveModel` would make the harness's metadata validation
- * throw on every call, which is worse than having no fallback at all.
+ * Discovered-model cache: ~/.dsh/plugins/subscriptions/models.json.
+ * Each provider stores its last successful catalog and fetch time.
+ * Validated metadata remains available across restarts and network failures.
+ * Missing, corrupt or malformed snapshots read as absent and are replaced
+ * by the next successful discovery.
  */
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'

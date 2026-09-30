@@ -12,7 +12,7 @@
 
 ## 安装
 
-发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与包含五个模块的 `dsh-toolkit` 集成包互斥。
+发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与 `dsh-toolkit` 集成包互斥。
 
 ```sh
 dsh plugin --profile web add file:./onenightcarnival-dsh-otel-<版本>.tgz

@@ -176,8 +176,8 @@ function withError(error: unknown): void {
 }
 
 /**
- * Parse and validate a proxy URL. Only HTTP(S) proxies are supported because
- * the undici dispatcher speaks CONNECT over HTTP; socks5 is not supported.
+ * Parse and validate an HTTP(S) proxy URL for the undici CONNECT dispatcher.
+ * SOCKS proxies are unsupported.
  * @param raw - the URL the user configured.
  * @returns the parsed URL (credentials attached by the caller).
  */

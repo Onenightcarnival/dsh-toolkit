@@ -121,21 +121,21 @@ assert.equal(genericCfg.captureContent, false);
   const ids = { control: "aaa", genai: "bbb", real: "ccc" };
   const all = langfuseVerdict({ control: "found", genai: "found", real: "found" }, ids);
   assert.equal(all.ok, true);
-  assert.match(all.message, /全部测试 trace 入库/);
-  assert.match(all.message, /累计导出/);
+  assert.match(all.message, /全部测试 trace 已入库/);
+  assert.match(all.message, /ccc/);
   const dropped = langfuseVerdict({ control: "found", genai: "found", real: "not-found" }, ids);
   assert.equal(dropped.ok, false);
-  assert.match(dropped.message, /真实管线复刻.*丢弃/s);
+  assert.match(dropped.message, /采集管线.*尚未查到/s);
   assert.match(dropped.message, /ccc/);
   const droppedBoth = langfuseVerdict({ control: "found", genai: "not-found", real: "not-found" }, ids);
   assert.equal(droppedBoth.ok, false);
-  assert.match(droppedBoth.message, /GenAI 形态、真实管线复刻/);
+  assert.match(droppedBoth.message, /GenAI、采集管线/);
   const unreachable = langfuseVerdict({ control: "unreachable:HTTP 404", genai: "not-found", real: "not-found" }, ids);
   assert.equal(unreachable.ok, true);
-  assert.match(unreachable.message, /无法通过 Langfuse API 回查/);
+  assert.match(unreachable.message, /入库查询失败/);
   const none = langfuseVerdict({ control: "not-found", genai: "not-found", real: "not-found" }, ids);
   assert.equal(none.ok, true);
-  assert.match(none.message, /worker/);
+  assert.match(none.message, /尚未查到入库记录/);
 }
 
 // describeTestFailure
