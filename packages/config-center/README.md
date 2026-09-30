@@ -2,12 +2,12 @@
 
 **English** | [中文](README.zh.md)
 
-Configuration center for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): MCP server management and common settings of built-in plugins. It adds two tabs to Settings → Plugins.
+Configuration center for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): MCP server management in the main sidebar, and common settings of built-in plugins in Settings → Plugins.
 
-| Tab | Content |
+| Entry | Content |
 |---|---|
-| MCP servers | Server list with live state; add, edit, enable / disable, delete; connection test |
-| Common settings | Common options of built-in plugins: round limit of goal mode; switch and trigger threshold of automatic context compaction |
+| Sidebar → MCP (before AI Subscriptions) | Server list with live state; add, edit, enable / disable, delete; connection test |
+| Settings → Plugins → Common settings | Common options of built-in plugins: round limit of goal mode; switch and trigger threshold of automatic context compaction |
 
 ## Installation
 

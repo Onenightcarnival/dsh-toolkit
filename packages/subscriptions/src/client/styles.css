@@ -10,6 +10,7 @@
 .dsh-sub-panel button:focus-visible, .dsh-sub-panel a:focus-visible, .dsh-sub-panel summary:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
 .dsh-sub-panel input:not([type=checkbox]), .dsh-sub-panel select { padding: 7px 10px; background: var(--dsw-specific-input-major); border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; min-width: 0; }
 .dsh-sub-panel input:focus, .dsh-sub-panel select:focus { outline-color: var(--dsw-alias-state-business-primary); }
+.dsh-sub-panel select option { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }
 .dsh-sub-panel a, .dsh-sub-panel button.dsh-sub-link { color: var(--dsw-alias-state-business-primary); }
 .dsh-sub-panel button.dsh-sub-link { padding: 0; border: 0; font-size: 12px; }
 .dsh-sub-panel button.dsh-sub-primary { background: var(--dsw-alias-button-info-fill); color: var(--dsw-alias-label-primary-foreground); border: 0; }

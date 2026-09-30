@@ -1,6 +1,6 @@
 /**
  * dsh-otel browser plugin entry: mounts the dshOtel Remote contribution, then
- * registers the native Settings → Plugins configuration tab where pk / sk /
+ * registers the native Settings → Observability page where pk / sk /
  * endpoint are entered.
  */
 import { createOtelApi } from "./api.js";
@@ -35,22 +35,22 @@ async function mount(ctx, remote) {
 
   ctx.locale.register(NS, {
     zh: {
-      settingsTab: "可观测上报"
+      settingsTab: "可观测"
     },
     en: {
       settingsTab: "Observability"
     }
   });
 
-  // The native configuration surface: one tab inside Settings → Plugins,
-  // exactly like the dsh-ssh-ops resource tab.
-  ctx.slots.inject("settings.plugins.tab", () =>
+  const t = ctx.locale.bind(NS);
+  // Side cards uses order 100; place Observability immediately below it.
+  ctx.slots.inject("settings.section", () =>
     ctx.slots.register(
       {
-        name: "settings.plugins.tab",
+        name: "settings.section",
         id: "dsh-otel-settings",
-        order: 70,
-        label: "可观测上报",
+        order: 110,
+        label: () => t("settingsTab"),
         locale: NS,
         inject: () => ({ api })
       },

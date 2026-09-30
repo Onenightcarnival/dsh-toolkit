@@ -1,7 +1,8 @@
 /** dsh-config-center surface copy: zh is the key source, en mirrors every key. */
 
 export const zh = {
-  'tab.mcp': 'MCP 服务器',
+  'nav.mcp': 'MCP',
+  'common.back': '返回对话',
   'tab.settings': '常用设置',
   'common.loading': '加载中…',
   'common.save': '保存',
@@ -10,7 +11,7 @@ export const zh = {
   'common.savedRestart': '已保存，重启 dsh 后生效',
   'common.refresh': '刷新',
   'common.error.disabled': '配置中心的接口不可用：插件未启用，或 dsh 需要重启。',
-  'mcp.title': 'MCP 服务器',
+  'mcp.title': 'MCP',
   'mcp.intro': '模型可调用的外部 MCP 服务器。配置写入当前 profile 的 cordis.patch.yml，保存即生效。',
   'mcp.add': '添加',
   'mcp.empty': '还没有服务器。点「添加」新建一个。',
@@ -37,7 +38,6 @@ export const zh = {
   'mcp.value': '值',
   'mcp.remove': '移除',
   'mcp.stdio.note': '命令以当前用户身份在本机执行，只添加信任的服务器。首次运行 npx / uvx 会下载依赖。',
-  'mcp.expression.note': '以「!!js 」开头的值是表达式，例如 !!js process.env.GITHUB_TOKEN，密钥可以留在环境变量里。',
   'mcp.delete': '删除',
   'mcp.delete.confirm': '删除服务器「{name}」？',
   'mcp.deleted': '已删除',
@@ -102,7 +102,8 @@ export const zh = {
 export type Key = keyof typeof zh
 
 export const en: Record<Key, string> = {
-  'tab.mcp': 'MCP servers',
+  'nav.mcp': 'MCP',
+  'common.back': 'Back to chat',
   'tab.settings': 'Common settings',
   'common.loading': 'Loading…',
   'common.save': 'Save',
@@ -111,7 +112,7 @@ export const en: Record<Key, string> = {
   'common.savedRestart': 'Saved; applies after dsh restarts',
   'common.refresh': 'Refresh',
   'common.error.disabled': 'The configuration center API is unavailable: the plugin is disabled, or dsh needs a restart.',
-  'mcp.title': 'MCP servers',
+  'mcp.title': 'MCP',
   'mcp.intro': 'External MCP servers the model can call. Entries live in the active profile\'s cordis.patch.yml and apply on save.',
   'mcp.add': 'Add',
   'mcp.empty': 'No servers yet. Choose Add to create one.',
@@ -138,7 +139,6 @@ export const en: Record<Key, string> = {
   'mcp.value': 'Value',
   'mcp.remove': 'Remove',
   'mcp.stdio.note': 'The command runs on this machine as the current user; add trusted servers only. The first npx / uvx run downloads dependencies.',
-  'mcp.expression.note': 'A value starting with "!!js " is an expression, e.g. !!js process.env.GITHUB_TOKEN, so secrets can stay in environment variables.',
   'mcp.delete': 'Delete',
   'mcp.delete.confirm': 'Delete server "{name}"?',
   'mcp.deleted': 'Deleted',

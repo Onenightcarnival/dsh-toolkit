@@ -1,5 +1,5 @@
 /**
- * Settings → Plugins → MCP servers: server list with live state, and one
+ * Main sidebar → MCP: server list with live state, and one
  * form for the selected server (save, enable, test, delete).
  */
 import { useCallback, useEffect, useState } from 'react'
@@ -8,6 +8,7 @@ import { ApiError, type ConfigCenterApi } from './api.ts'
 import { emptyForm, fromForm, issueText, statusText, testText, toForm, type McpForm, type Pair } from './form.ts'
 import { tt } from './locales.ts'
 import { noticeStyle, styles, type Notice } from './styles.ts'
+import { Select } from './Select.tsx'
 
 const NEW = Symbol('new')
 type Selection = string | typeof NEW | undefined
@@ -186,10 +187,12 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
               </label>
               <label style={styles.field}>
                 <span>{tt('mcp.transport')}</span>
-                <select style={styles.select} value={form.transport} onChange={event => patch({ transport: event.target.value === 'stdio' ? 'stdio' : 'streamable-http' })}>
-                  <option value="streamable-http">{tt('mcp.transport.http')}</option>
-                  <option value="stdio">{tt('mcp.transport.stdio')}</option>
-                </select>
+                <Select style={styles.select} label={tt('mcp.transport')} value={form.transport}
+                  onChange={value => patch({ transport: value === 'stdio' ? 'stdio' : 'streamable-http' })}
+                  options={[
+                    { value: 'streamable-http', label: tt('mcp.transport.http') },
+                    { value: 'stdio', label: tt('mcp.transport.stdio') },
+                  ]} />
               </label>
 
               {stdio ? (
@@ -218,7 +221,6 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
                   <Pairs label={tt('mcp.headers')} add={tt('mcp.headers.add')} keyPlaceholder="Authorization" pairs={form.headers} onChange={headers => patch({ headers })} />
                 </>
               )}
-              <p style={styles.meta}>{tt('mcp.expression.note')}</p>
 
               <div style={styles.actions}>
                 <button type="button" style={styles.danger} disabled={busy !== undefined} onClick={() => { void remove() }}>{tt('mcp.delete')}</button>

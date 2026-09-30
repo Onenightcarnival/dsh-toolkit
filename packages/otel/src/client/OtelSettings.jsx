@@ -1,5 +1,5 @@
 /**
- * Settings → Plugins → 可观测上报: the native DSH configuration surface for
+ * Settings → 可观测: the native DSH configuration surface for
  * dsh-otel. Three primary fields (endpoint / public key / secret key), the
  * enable and content-capture switches, save with hot-restart, and a
  * one-click test that sends a real trace through the configured pipeline.
@@ -164,7 +164,7 @@ export function OtelSettings({ api }) {
     <div style={styles.page}>
       <div style={styles.pageHeader}>
         <div>
-          <h3 style={styles.heading}>可观测上报（OpenTelemetry）</h3>
+          <h3 style={styles.heading}>可观测</h3>
           <p style={styles.description}>
             将 DSH 的会话、Agent 循环、LLM 调用与工具生命周期作为 OpenTelemetry GenAI
             调用链上报到 Langfuse 等 OTLP 兼容平台。填写平台的 Public Key、Secret Key
@@ -366,7 +366,7 @@ export function OtelSettings({ api }) {
 const styles = {
   // Settings owns the foreground color in both light and dark appearances;
   // inherit it rather than hard-coding a label color (see dsh-ssh-ops).
-  page: { padding: "20px 2px", color: "inherit", maxWidth: 760 },
+  page: { color: "inherit", maxWidth: 760 },
   pageHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, marginBottom: 16 },
   heading: { margin: 0, fontSize: 18 },
   description: { margin: "6px 0 0", fontSize: 13, color: "inherit", opacity: 0.76, lineHeight: 1.5 },

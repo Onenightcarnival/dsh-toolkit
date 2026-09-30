@@ -71,6 +71,7 @@
 .dsh-s3-input[data-mono] { font-family: var(--ds-font-family-code, ui-monospace, Menlo, Consolas, monospace); }
 .dsh-s3-filter { flex: 0 1 220px; padding: 5px 10px; font-size: 12.5px; }
 .dsh-s3-select { padding: 5px 8px; font-size: 12.5px; color: var(--dsw-alias-label-primary); background: var(--dsw-specific-input-major); border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; }
+.dsh-s3-select option { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }
 .dsh-s3-primary { padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary-foreground); background: var(--dsw-alias-button-info-fill); border: none; border-radius: 8px; cursor: pointer; white-space: nowrap; }
 .dsh-s3-primary:hover:not(:disabled) { background: var(--dsw-alias-button-info-hover); }
 .dsh-s3-primary:disabled { opacity: .5; cursor: default; }

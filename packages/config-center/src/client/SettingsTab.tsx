@@ -7,6 +7,7 @@ import type { SettingGroupView, SettingOptionView, SettingValue } from '../proto
 import type { ConfigCenterApi } from './api.ts'
 import { tt, ttOr } from './locales.ts'
 import { noticeStyle, styles, type Notice } from './styles.ts'
+import { Select } from './Select.tsx'
 
 /** Field text by option key: '' keeps the default; bool fields hold 'true' / 'false'. */
 type Draft = Record<string, string>
@@ -75,11 +76,12 @@ export function SettingsTab({ api }: { api: ConfigCenterApi }): JSX.Element {
     const change = (text: string): void => setDraft(previous => ({ ...previous, [option.key]: text }))
     if (option.type === 'bool') {
       return (
-        <select style={styles.selectNarrow} value={value} onChange={event => change(event.target.value)}>
-          <option value="">{tt('settings.bool.default', { value: tt(option.def === true ? 'settings.bool.on' : 'settings.bool.off') })}</option>
-          <option value="true">{tt('settings.bool.on')}</option>
-          <option value="false">{tt('settings.bool.off')}</option>
-        </select>
+        <Select style={styles.selectNarrow} label={label(option)} value={value} onChange={change}
+          options={[
+            { value: '', label: tt('settings.bool.default', { value: tt(option.def === true ? 'settings.bool.on' : 'settings.bool.off') }) },
+            { value: 'true', label: tt('settings.bool.on') },
+            { value: 'false', label: tt('settings.bool.off') },
+          ]} />
       )
     }
     return <input style={styles.inputNarrow} value={value} placeholder={tt('settings.default', { value: String(option.def) })} inputMode={option.type === 'posInt' ? 'numeric' : 'decimal'} spellCheck={false} onChange={event => change(event.target.value)} />

@@ -8,10 +8,10 @@
 |---|---|---|
 | [`@onenightcarnival/dsh-rdb`](packages/rdb/README.zh.md) | 关系数据库工作台：SQLite / PostgreSQL / MySQL / GaussDB，数据网格、结构、SQL 编辑器，`db_*` 工具 | 侧边栏「数据库」 |
 | [`@onenightcarnival/dsh-s3`](packages/s3/README.zh.md) | S3 兼容对象存储浏览器：MinIO / OSS / COS / R2，`s3_*` 工具 | 侧边栏「S3」 |
-| [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI 上报到 Langfuse 等 OTLP 后端 | 设置 → 插件 → 可观测上报 |
+| [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI 上报到 Langfuse 等 OTLP 后端 | 设置 → 可观测 |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.zh.md) | 浏览器桥：`browser_*` 工具经 Chrome / Firefox 扩展操作用户的标签页 | 设置 → 通用设置 → 浏览器桥地址 |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.zh.md) | ChatGPT、Google Antigravity 订阅模型及 Codex 搜索与生图工具 | 侧边栏「AI 订阅」 |
-| [`@onenightcarnival/dsh-config-center`](packages/config-center/README.zh.md) | 配置中心：MCP 服务器管理与连接测试，内置插件的常用设置 | 设置 → 插件 → MCP 服务器 / 常用设置 |
+| [`@onenightcarnival/dsh-config-center`](packages/config-center/README.zh.md) | 配置中心：MCP 服务器管理与连接测试，内置插件的常用设置 | 主侧栏 → MCP；设置 → 内置插件 → 常用设置 |
 | [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.zh.md) | 六个插件的集成包 | 各模块对应入口 |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.zh.md) | Chrome / Firefox MV3 扩展，与浏览器桥配对 | 浏览器侧边栏 |
 

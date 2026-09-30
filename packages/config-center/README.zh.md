@@ -2,12 +2,12 @@
 
 [English](README.md) | **中文**
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的配置中心：MCP 服务器管理，内置插件的常用设置。入口在「设置 → 插件」的两个页签。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的配置中心：主侧栏提供 MCP 服务器管理，「设置 → 内置插件」提供常用设置。
 
-| 页签 | 内容 |
+| 入口 | 内容 |
 |---|---|
-| MCP 服务器 | 服务器列表与运行状态；新增、编辑、启用 / 停用、删除；连接测试 |
-| 常用设置 | 内置插件的常用配置项：goal 目标模式的轮数上限；上下文自动压缩的开关与触发阈值 |
+| 主侧栏 → MCP（AI 订阅前） | 服务器列表与运行状态；新增、编辑、启用 / 停用、删除；连接测试 |
+| 设置 → 内置插件 → 常用设置 | 内置插件的常用配置项：goal 目标模式的轮数上限；上下文自动压缩的开关与触发阈值 |
 
 ## 安装
 

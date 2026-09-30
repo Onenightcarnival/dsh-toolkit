@@ -1,6 +1,6 @@
 /**
  * Browser-half entry for dsh-config-center: registers the dictionaries and
- * two tabs in Settings → Plugins (MCP servers, common settings). Tab ids are
+ * a main-sidebar MCP panel and a common-settings tab in Settings → Plugins. Ids are
  * registered once per page: a second mount (standalone package beside the
  * integrated toolkit) adds nothing.
  */
@@ -8,17 +8,17 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ComponentType } from 'react'
 import { ConfigCenterApi } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh, type Key } from './locales.ts'
-import { McpTab } from './McpTab.tsx'
+import { mountMcpPanel, type Layout } from './McpPanel.tsx'
 import { SettingsTab } from './SettingsTab.tsx'
 
 const NS = 'dsh-config-center'
 const SLOT = 'settings.plugins.tab'
 
 /** Required services (fiber inject waiting — the runtime must be up first). */
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'layout']
 
 interface Slots {
-  inject(name: string, register: () => unknown): unknown
+  inject(name: string, register: () => () => void): () => void
   register(options: Record<string, unknown>, component: ComponentType<any>): () => void
   entries(name: string): Array<{ options: { id?: string } }>
 }
@@ -29,12 +29,11 @@ interface Locale {
 }
 
 const TABS: Array<{ id: string; order: number; label: Key; component: ComponentType<{ api: ConfigCenterApi }> }> = [
-  { id: 'dsh-config-center-mcp', order: 40, label: 'tab.mcp', component: McpTab },
   { id: 'dsh-config-center-settings', order: 45, label: 'tab.settings', component: SettingsTab },
 ]
 
 export function apply(ctx: ClientContext): void {
-  const { slots, locale } = ctx as unknown as { slots: Slots; locale?: Locale }
+  const { slots, locale, layout } = ctx as unknown as { slots: Slots; locale?: Locale; layout: Layout }
   ctx.effect(() => {
     try {
       return locale?.register(NS, { zh, en }) ?? (() => {})
@@ -47,6 +46,7 @@ export function apply(ctx: ClientContext): void {
   } catch { /* document-language fallback */ }
 
   const api = new ConfigCenterApi()
+  ctx.effect(() => mountMcpPanel(slots, layout, api), 'dsh-config-center: MCP panel')
   slots.inject(SLOT, () => {
     const disposers: Array<() => void> = []
     try {
