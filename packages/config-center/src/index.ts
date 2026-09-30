@@ -1,8 +1,8 @@
 /**
- * Host routes: /api/dsh-config-center, MCP servers and built-in plugin settings.
+ * Host routes: /api/dsh-config-center, MCP servers, skills and built-in settings.
  * Storage: the active profile patch and plugin-owned runtimes under the DSH home.
  * Application: Loader reconciliation under hot reload, otherwise on restart.
- * Client: MCP panel, common settings and environment dependencies in ./client.
+ * Client: MCP / Skills panels, common settings and environment dependencies.
  */
 
 import { readFile } from 'node:fs/promises'
@@ -19,6 +19,7 @@ import { makeRoutes } from './routes.ts'
 import { SETTING_GROUPS, SETTINGS } from './settings.ts'
 import { ManagedEnvironment } from './environment.ts'
 import { preferences } from './preferences.ts'
+import { SkillStore } from './skills.ts'
 
 /** Stable cordis plugin name. */
 export const name = 'config-center'
@@ -169,6 +170,7 @@ function applyImpl(ctx: Context, config?: Config): void {
   }
 
   const routes = makeRoutes({
+    skills: new SkillStore(profile.home),
     environment: () => environment.status(),
     installEnvironment: () => environment.install(async () => {
       // Persist aliases as private absolute paths, including existing uv MCPs. The

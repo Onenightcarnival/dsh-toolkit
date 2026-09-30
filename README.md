@@ -11,7 +11,7 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI export to Langfuse and other OTLP backends | Settings → Observability |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.md) | Browser bridge: `browser_*` tools driving the user's tabs through the Chrome / Firefox extension | Settings → General → Browser bridge address |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.md) | ChatGPT and Google Antigravity models, Codex search and image tools | Sidebar "AI subscriptions" |
-| [`@onenightcarnival/dsh-config-center`](packages/config-center/README.md) | MCP management, dedicated uv / Python environment, common settings of built-in plugins | Sidebar → MCP; Settings → Environment dependencies / Plugins → Common settings |
+| [`@onenightcarnival/dsh-config-center`](packages/config-center/README.md) | MCP and skill management, dedicated uv / Python environment, common settings of built-in plugins | Sidebar → MCP / Skills; Settings → Environment dependencies / Plugins → Common settings |
 | [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.md) | Integrated package with all six plugins | Each module's entry point |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.md) | Chrome / Firefox MV3 extension paired with the bridge | Browser side panel |
 

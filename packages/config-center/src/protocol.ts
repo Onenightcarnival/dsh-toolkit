@@ -1,12 +1,23 @@
 /** Wire contract shared by the host routes and the browser client. */
 
 export const API = {
+  skills: '/api/dsh-config-center/skills',
+  skillDetail: '/api/dsh-config-center/skills/detail',
+  skillFile: '/api/dsh-config-center/skills/file',
+  skillInstall: '/api/dsh-config-center/skills/install',
+  skillOpen: '/api/dsh-config-center/skills/open',
   mcp: '/api/dsh-config-center/mcp',
   mcpTest: '/api/dsh-config-center/mcp/test',
   settings: '/api/dsh-config-center/settings',
   environment: '/api/dsh-config-center/environment',
   mcpPreferences: '/api/dsh-config-center/mcp/preferences',
 } as const
+
+export interface Skill { name: string; description: string; version: string; kind: 'bundle' | 'flat'; enabled: boolean }
+export interface SkillList { directory: string; skills: Skill[] }
+export interface SkillDetail extends Skill { path: string; entryFile: string; frontmatter: Record<string, unknown>; files: Array<{ path: string; size: number }>; truncated: boolean }
+export interface SkillFile { text: string; size: number; truncated: boolean }
+export interface SkillInstallResult { installed: string[]; skipped: string[]; conflicts: string[] }
 
 export const DEFAULT_STDIO_TIMEOUT_SECONDS = 900
 export const MAX_STDIO_TIMEOUT_SECONDS = 86400

@@ -1,6 +1,6 @@
 /**
  * Browser-half entry for dsh-config-center: registers the dictionaries and
- * a main-sidebar MCP panel and a common-settings tab in Settings → Plugins. Ids are
+ * main-sidebar MCP / Skills panels and a common-settings tab in Settings → Plugins. Ids are
  * registered once per page: a second mount (standalone package beside the
  * integrated toolkit) adds nothing.
  */
@@ -8,7 +8,8 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ComponentType } from 'react'
 import { ConfigCenterApi } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh, type Key } from './locales.ts'
-import { mountMcpPanel, type Layout } from './McpPanel.tsx'
+import { mountMcpPanel, mountMainPanel, type Layout } from './McpPanel.tsx'
+import { SkillsPage, SkillsIcon } from './SkillsPage.tsx'
 import { SettingsTab } from './SettingsTab.tsx'
 import { EnvironmentPage } from './EnvironmentPage.tsx'
 
@@ -52,6 +53,7 @@ export function apply(ctx: ClientContext): void {
     return slots.register({ name: 'settings.section', id: 'dsh-config-center-environment', order: 120, label: () => tt('environment.title'), locale: NS, inject: () => ({ api }) }, EnvironmentPage)
   })
   ctx.effect(() => mountMcpPanel(slots, layout, api), 'dsh-config-center: MCP panel')
+  ctx.effect(() => mountMainPanel(slots, layout, api, { id: 'dsh-config-center-skills', order: 56, label: () => tt('skills.title'), icon: SkillsIcon, component: SkillsPage }), 'dsh-config-center: skills panel')
   slots.inject(SLOT, () => {
     const disposers: Array<() => void> = []
     try {

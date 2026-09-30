@@ -1,6 +1,6 @@
 /**
  * The /api/dsh-config-center route family: MCP server list / save / delete /
- * connection test, and built-in plugin settings. Loopback-only, behind the
+ * connection test, skills and built-in plugin settings. Loopback-only, behind the
  * GUI's browser session.
  */
 
@@ -13,9 +13,11 @@ import { invalidSetting, type SettingValues } from './settings.ts'
 import { EnvironmentMissingError } from './environment.ts'
 import type { EnvironmentStatus } from './protocol.ts'
 import { validStdioTimeout } from './preferences.ts'
+import { SkillStore, MAX_SKILL_ZIP } from './skills.ts'
 
 /** Operations the routes expose; the host plugin implements them on the profile patch. */
 export interface RouteDeps {
+  skills: SkillStore
   environment(): Promise<EnvironmentStatus>
   installEnvironment(): void
   listMcp(): Promise<McpListResponse>
@@ -71,6 +73,33 @@ export function makeRoutes(deps: RouteDeps): Route[] {
   }
 
   return [
+    ...[API.skills, API.skillDetail, API.skillFile, API.skillInstall, API.skillOpen].map(path => ({
+      kind: 'exact' as const, path,
+      handler: async (req: IncomingMessage, res: ServerResponse) => {
+        const methods = path === API.skills ? ['GET', 'POST', 'DELETE'] : path === API.skillInstall || path === API.skillOpen ? ['POST'] : ['GET']
+        if (!guard(req, res, ...methods)) return
+        try {
+          const query = new URL(req.url ?? '', 'http://localhost').searchParams
+          const name = query.get('name') ?? ''
+          if (path === API.skillOpen) { await deps.skills.open(name || undefined); writeJson(res, 200, { ok: true }); return }
+          if (path === API.skillDetail) { writeJson(res, 200, deps.skills.detail(name)); return }
+          if (path === API.skillFile) { writeJson(res, 200, deps.skills.read(name, query.get('file') ?? '')); return }
+          if (path === API.skillInstall) {
+            const body = await readJsonBody(req, Math.ceil(MAX_SKILL_ZIP * 4 / 3) + 4096)
+            if (typeof body?.data !== 'string' || typeof body.filename !== 'string' || !['ask', 'skip', 'replace'].includes(String(body.policy))) throw new Error('安装参数无效')
+            writeJson(res, 200, deps.skills.install(Buffer.from(body.data, 'base64'), body.filename, body.policy as 'ask' | 'skip' | 'replace'))
+            return
+          }
+          if (req.method === 'DELETE') deps.skills.remove(name)
+          if (req.method === 'POST') {
+            const body = await readJsonBody(req)
+            if (typeof body?.name !== 'string' || typeof body.enabled !== 'boolean') throw new Error('技能参数无效')
+            deps.skills.setEnabled(body.name, body.enabled)
+          }
+          writeJson(res, 200, deps.skills.list())
+        } catch (error) { writeJson(res, 400, { error: errorMessage(error) }) }
+      },
+    })),
     {
       kind: 'exact',
       path: API.mcpPreferences,

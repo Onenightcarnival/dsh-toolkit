@@ -7,8 +7,19 @@ Configuration center for [DeepSeek Harness](https://github.com/deepseek-ai/deeps
 | Entry | Content |
 |---|---|
 | Sidebar → MCP (before AI Subscriptions) | Server list with live state; add, edit, enable / disable, delete; connection test |
+| Sidebar → Skills (below MCP) | ZIP installation, enable / disable, delete, metadata and source previews |
 | Settings → Plugins → Common settings | Common options of built-in plugins: round limit of goal mode; switch and trigger threshold of automatic context compaction |
 | Settings → Environment dependencies | Install, check and repair the plugin-owned uv / uvx runtime |
+
+## Skills
+
+Entry: Sidebar → Skills, below MCP.
+
+- Install individual skills or collections from ZIP; replace, skip or cancel name conflicts.
+- Enable, disable, delete, inspect metadata and preview source files.
+- Active directory: `<DSH home>/skills/`; disabled directory: `<DSH home>/config-center/disabled-skills/`.
+- Desktop supplies its previous disabled directory through `DSHDESKTOP_DISABLED_SKILLS`; existing files stay in place.
+- ZIP limit: 32 MB; expanded limit: 100 MB / 4000 entries; text previews: 256 KB.
 
 ## Python MCP environment
 

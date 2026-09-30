@@ -600,6 +600,9 @@ importers:
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       react:
         specifier: ^18.3.1
         version: 18.3.1

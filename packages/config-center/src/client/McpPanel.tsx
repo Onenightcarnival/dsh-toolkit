@@ -3,13 +3,12 @@ import type { ComponentType } from 'react'
 import type { ConfigCenterApi } from './api.ts'
 import { McpTab } from './McpTab.tsx'
 import { tt } from './locales.ts'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const PANEL_ID = 'dsh-config-center-mcp'
 const ACTIVATE_EVENT = 'dsh-panel-activate'
 const TAKEOVER_PANELS = ['ssh', 'taskboard']
 
-interface Slots {
+export interface Slots {
   inject(name: string, register: () => () => void): () => void
   register(options: Record<string, unknown>, component: ComponentType<any>): () => void
   entries(name: string): Array<{ options: { id?: string; key?: string } }>
@@ -27,25 +26,26 @@ function McpIcon({ size }: { size: number }): JSX.Element {
 }
 
 function McpPanel({ api, close }: { api: ConfigCenterApi; close: () => void }): JSX.Element {
-  return <section aria-label="MCP" style={{ height: '100%', minHeight: 0, boxSizing: 'border-box', overflow: 'auto', padding: 20, color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-base)' }}>
-    <Button size="sm" onClick={close}>← {tt('common.back')}</Button>
-    <McpTab api={api} />
-  </section>
+  return <McpTab api={api} close={close} />
 }
 
 export function mountMcpPanel(slots: Slots, layout: Layout, api: ConfigCenterApi): () => void {
-  const isOpen = (): boolean => layout.panelInfo.getSnapshot().activePanelId === PANEL_ID
+  return mountMainPanel(slots, layout, api, { id: PANEL_ID, order: 55, label: () => tt('nav.mcp'), icon: McpIcon, component: McpPanel })
+}
+
+export function mountMainPanel(slots: Slots, layout: Layout, api: ConfigCenterApi, panel: { id: string; order: number; label: () => string; icon: ComponentType<{ size: number }>; component: ComponentType<{ api: ConfigCenterApi; close: () => void }> }): () => void {
+  const isOpen = (): boolean => layout.panelInfo.getSnapshot().activePanelId === panel.id
   const close = (): void => { if (isOpen()) layout.selectPanel(null) }
   let ownsPanel = false
   const disposers = [
     slots.inject('sidebar.panellist', () => {
-      if (slots.entries('sidebar.panellist').some(entry => entry.options.id === PANEL_ID)) return () => {}
-      return slots.register({ name: 'sidebar.panellist', id: PANEL_ID, order: 55, locale: 'dsh-config-center', label: () => tt('nav.mcp') }, McpIcon)
+      if (slots.entries('sidebar.panellist').some(entry => entry.options.id === panel.id)) return () => {}
+      return slots.register({ name: 'sidebar.panellist', id: panel.id, order: panel.order, locale: 'dsh-config-center', label: panel.label }, panel.icon)
     }),
     slots.inject('main', () => {
-      if (slots.entries('main').some(entry => entry.options.key === PANEL_ID)) return () => {}
+      if (slots.entries('main').some(entry => entry.options.key === panel.id)) return () => {}
       ownsPanel = true
-      return slots.register({ name: 'main', key: PANEL_ID, locale: 'dsh-config-center', inject: () => ({ api, close }) }, McpPanel)
+      return slots.register({ name: 'main', key: panel.id, locale: 'dsh-config-center', inject: () => ({ api, close }) }, panel.component)
     }),
   ]
   const onTakeover = (event: Event): void => {

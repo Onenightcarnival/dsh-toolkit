@@ -52,7 +52,7 @@ function Pairs({ label, add, keyPlaceholder, pairs, onChange }: { label: string;
   )
 }
 
-export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
+export function McpTab({ api, close }: { api: ConfigCenterApi; close: () => void }): JSX.Element {
   const [servers, setServers] = useState<McpServerView[]>()
   const [selection, setSelection] = useState<Selection>()
   const [form, setForm] = useState<McpForm>(emptyForm())
@@ -160,122 +160,131 @@ export function McpTab({ api }: { api: ConfigCenterApi }): JSX.Element {
   }
 
   const stdio = form.transport === 'stdio'
-
   return (
-    <div style={styles.page} className="dsh-mcp-page">
-      <style>{`.dsh-mcp-pair>span{flex:1;min-width:0}.dsh-mcp-pair>span:first-child{flex:0 0 34%}.dsh-mcp-page input,.dsh-mcp-page button,.dsh-mcp-page label,.dsh-mcp-page summary{font-family:var(--dsw-font-family,sans-serif)}@media(max-width:720px){.dsh-mcp-split{flex-direction:column}.dsh-mcp-split>[role=listbox]{width:100%!important}.dsh-mcp-editor{width:100%;box-sizing:border-box;border-left:0!important;padding-left:0!important}}`}</style>
-      <div style={styles.header}>
-        <div>
-          <h3 style={styles.heading}>{tt('mcp.title')}</h3>
-        </div>
-        <div style={styles.actions}>
-          <Button variant="ghost" onClick={() => { void load() }}>{tt('common.refresh')}</Button>
-          <Button variant="primary" onClick={() => { setNotice(undefined); select(NEW, servers ?? []) }}>{tt('mcp.add')}</Button>
-        </div>
-      </div>
-
-      <details style={{ marginBottom: 24, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' }}>
+    <section aria-label="MCP" style={styles.page} className="dsh-mcp-page">
+      <style>{`
+        .dsh-mcp-pair>span{flex:1;min-width:0}
+        .dsh-mcp-pair>span:first-child{flex:0 0 34%}
+        .dsh-mcp-page input,.dsh-mcp-page button,.dsh-mcp-page label,.dsh-mcp-page summary{font-family:var(--dsw-font-family,sans-serif)}
+        .dsh-mcp-page [role=option]:hover{background:var(--dsw-alias-interactive-bg-hover)!important}
+        @container(max-width:640px){
+          .dsh-mcp-split{flex-direction:column}
+          .dsh-mcp-sidebar{width:auto!important;max-height:150px;border-right:0!important;border-bottom:1px solid var(--dsw-alias-border-l1);padding:0 0 8px!important}
+        }
+      `}</style>
+      <header style={styles.header}>
+        <h2 style={styles.heading}>{tt('mcp.title')}</h2>
+        <Button size="sm" variant="ghost" onClick={() => { void load() }}>{tt('common.refresh')}</Button>
+        <Button size="sm" variant="outline" onClick={close}>{tt('common.back')}</Button>
+      </header>
+      <details style={styles.settings}>
         <summary style={{ cursor: 'pointer', padding: '4px 0' }}>{tt('mcp.connectionSettings')}</summary>
-        <div style={{ ...styles.actions, flexWrap: 'wrap' }}>
-          <label style={{ ...styles.field, flex: 1 }}>
+        <div style={styles.settingsBody}>
+          <label style={{ ...styles.field, width: 220 }}>
             <span>{tt('mcp.stdioTimeout')}</span>
             <Input type="number" min={1} max={MAX_STDIO_TIMEOUT_SECONDS} step={1} value={timeout} disabled={savingTimeout || busy !== undefined} onChange={event => { setTimeoutValue(event.target.value); setTimeoutNotice(undefined) }} />
           </label>
-          <Button variant="outline" disabled={savingTimeout || busy !== undefined || servers === undefined} onClick={() => { void saveTimeout() }}>{tt('mcp.saveTimeout')}</Button>
+          <Button size="sm" variant="outline" disabled={savingTimeout || busy !== undefined || servers === undefined} onClick={() => { void saveTimeout() }}>{tt('mcp.saveTimeout')}</Button>
         </div>
         <p style={styles.meta}>{tt('mcp.stdioTimeout.hint')}</p>
         {timeoutNotice && <Feedback notice={timeoutNotice} />}
       </details>
       {servers === undefined ? <p style={styles.meta}>{tt('common.loading')}</p> : (
         <div style={styles.split} className="dsh-mcp-split">
-          <div style={styles.list} role="listbox" aria-label={tt('mcp.title')}>
-            {servers.length === 0 && selection !== NEW ? <div style={styles.empty}>{tt('mcp.empty')}</div> : null}
-            {servers.map(server => (
-              <button
-                key={server.id}
-                type="button"
-                role="option"
-                aria-selected={server.id === selection}
-                title={statusText(server.status)}
-                style={{ ...styles.row, ...(server.id === selection ? styles.rowSelected : {}) }}
-                onClick={() => { setNotice(undefined); select(server.id, servers) }}
-              >
-                <span style={dotStyle(server.status)} />
-                <span style={styles.rowName}>{server.serverName}</span>
-                {server.enabled ? null : <span style={styles.rowTag}>{tt('mcp.off')}</span>}
-              </button>
-            ))}
-            {selection === NEW ? (
-              <div style={{ ...styles.row, ...styles.rowSelected, cursor: 'default' }}>
-                <span style={styles.dot} />
-                <span style={styles.rowName}>{form.serverName.trim() === '' ? tt('mcp.new') : form.serverName}</span>
-              </div>
-            ) : null}
-          </div>
-
+          <aside style={styles.sidebar} className="dsh-mcp-sidebar">
+            <div style={styles.listHead}>
+              <span>{tt('mcp.servers')}</span>
+              <Button size="sm" onClick={() => { setNotice(undefined); select(NEW, servers ?? []) }}>＋ {tt('mcp.add')}</Button>
+            </div>
+            <div style={styles.list} role="listbox" aria-label={tt('mcp.title')}>
+              {servers.length === 0 && selection !== NEW ? <div style={styles.empty}>{tt('mcp.empty')}</div> : null}
+              {servers.map(server => (
+                <button
+                  key={server.id}
+                  type="button"
+                  role="option"
+                  aria-selected={server.id === selection}
+                  title={statusText(server.status)}
+                  style={{ ...styles.row, ...(server.id === selection ? styles.rowSelected : {}) }}
+                  onClick={() => { setNotice(undefined); select(server.id, servers) }}
+                >
+                  <span style={dotStyle(server.status)} />
+                  <span style={styles.rowName}>{server.serverName}</span>
+                  {server.enabled ? null : <span style={styles.rowTag}>{tt('mcp.off')}</span>}
+                </button>
+              ))}
+              {selection === NEW ? (
+                <div style={{ ...styles.row, ...styles.rowSelected, cursor: 'default' }}>
+                  <span style={styles.dot} />
+                  <span style={styles.rowName}>{form.serverName.trim() === '' ? tt('mcp.new') : form.serverName}</span>
+                </div>
+              ) : null}
+            </div>
+          </aside>
           {selection === undefined ? <div style={{ ...styles.card, ...styles.empty }}>{tt('mcp.none')}</div> : (
             <div style={styles.card} className="dsh-mcp-editor">
-              <div style={styles.cardHead}>
-                <h4 style={styles.cardTitle}>{current?.serverName ?? (form.serverName || tt('mcp.new'))}</h4>
-                <div style={styles.switch}>
-                  <span>{tt('mcp.enabled')}</span>
-                  <Switch checked={form.enabled} label={tt('mcp.enabled')} onChange={enabled => patch({ enabled })} />
+              <div style={styles.editorScroll} className="dsh-mcp-editor-scroll">
+                <div style={styles.form}>
+                  <div style={styles.cardHead}>
+                    <h4 style={styles.cardTitle}>{current?.serverName ?? (form.serverName || tt('mcp.new'))}</h4>
+                    <div style={styles.switch}>
+                      <span>{tt('mcp.enabled')}</span>
+                      <Switch checked={form.enabled} label={tt('mcp.enabled')} onChange={enabled => patch({ enabled })} />
+                    </div>
+                  </div>
+                  {current === undefined ? null : <p style={styles.meta}>{statusText(current.status)}</p>}
+                  <label style={styles.field}>
+                    <span>{tt('mcp.name')}</span>
+                    <Input value={form.serverName} placeholder="my-server" spellCheck={false} onChange={event => patch({ serverName: event.target.value })} />
+                  </label>
+                  <label style={styles.field}>
+                    <span>{tt('mcp.transport')}</span>
+                    <Select style={styles.select} label={tt('mcp.transport')} value={form.transport}
+                      onChange={value => patch({ transport: value === 'stdio' ? 'stdio' : 'streamable-http' })}
+                      options={[
+                        { value: 'streamable-http', label: tt('mcp.transport.http') },
+                        { value: 'stdio', label: tt('mcp.transport.stdio') },
+                      ]} />
+                  </label>
+                  {stdio ? (
+                    <>
+                      <label style={styles.field}>
+                        <span>{tt('mcp.command')}</span>
+                        <Input value={form.command} placeholder="npx / uvx" spellCheck={false} onChange={event => patch({ command: event.target.value })} />
+                      </label>
+                      <label style={styles.field}>
+                        <span>{tt('mcp.args')} <span style={styles.hint}>{tt('mcp.args.hint')}</span></span>
+                        <textarea style={styles.textarea} rows={4} value={form.args} placeholder={'-y\n@modelcontextprotocol/server-filesystem\n/path/to/dir'} spellCheck={false} onChange={event => patch({ args: event.target.value })} />
+                      </label>
+                      <Pairs label={tt('mcp.env')} add={tt('mcp.env.add')} keyPlaceholder="API_KEY" pairs={form.env} onChange={env => patch({ env })} />
+                      <label style={styles.field}>
+                        <span>{tt('mcp.cwd')} <span style={styles.hint}>{tt('mcp.optional')}</span></span>
+                        <Input value={form.cwd} placeholder="/path/to/project" spellCheck={false} onChange={event => patch({ cwd: event.target.value })} />
+                      </label>
+                    </>
+                  ) : (
+                    <>
+                      <label style={styles.field}>
+                        <span>{tt('mcp.url')}</span>
+                        <Input value={form.url} placeholder="http://127.0.0.1:8080/mcp" spellCheck={false} onChange={event => patch({ url: event.target.value })} />
+                      </label>
+                      <Pairs label={tt('mcp.headers')} add={tt('mcp.headers.add')} keyPlaceholder="Authorization" pairs={form.headers} onChange={headers => patch({ headers })} />
+                    </>
+                  )}
                 </div>
               </div>
-              {current === undefined ? null : <p style={styles.meta}>{statusText(current.status)}</p>}
-
-              <label style={styles.field}>
-                <span>{tt('mcp.name')}</span>
-                <Input value={form.serverName} placeholder="my-server" spellCheck={false} onChange={event => patch({ serverName: event.target.value })} />
-              </label>
-              <label style={styles.field}>
-                <span>{tt('mcp.transport')}</span>
-                <Select style={styles.select} label={tt('mcp.transport')} value={form.transport}
-                  onChange={value => patch({ transport: value === 'stdio' ? 'stdio' : 'streamable-http' })}
-                  options={[
-                    { value: 'streamable-http', label: tt('mcp.transport.http') },
-                    { value: 'stdio', label: tt('mcp.transport.stdio') },
-                  ]} />
-              </label>
-
-              {stdio ? (
-                <>
-                  <label style={styles.field}>
-                    <span>{tt('mcp.command')}</span>
-                    <Input value={form.command} placeholder="npx / uvx" spellCheck={false} onChange={event => patch({ command: event.target.value })} />
-                  </label>
-                  <label style={styles.field}>
-                    <span>{tt('mcp.args')} <span style={styles.hint}>{tt('mcp.args.hint')}</span></span>
-                    <textarea style={styles.textarea} rows={4} value={form.args} placeholder={'-y\n@modelcontextprotocol/server-filesystem\n/path/to/dir'} spellCheck={false} onChange={event => patch({ args: event.target.value })} />
-                  </label>
-                  <Pairs label={tt('mcp.env')} add={tt('mcp.env.add')} keyPlaceholder="API_KEY" pairs={form.env} onChange={env => patch({ env })} />
-                  <label style={styles.field}>
-                    <span>{tt('mcp.cwd')} <span style={styles.hint}>{tt('mcp.optional')}</span></span>
-                    <Input value={form.cwd} placeholder="/path/to/project" spellCheck={false} onChange={event => patch({ cwd: event.target.value })} />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <label style={styles.field}>
-                    <span>{tt('mcp.url')}</span>
-                    <Input value={form.url} placeholder="http://127.0.0.1:8080/mcp" spellCheck={false} onChange={event => patch({ url: event.target.value })} />
-                  </label>
-                  <Pairs label={tt('mcp.headers')} add={tt('mcp.headers.add')} keyPlaceholder="Authorization" pairs={form.headers} onChange={headers => patch({ headers })} />
-                </>
-              )}
-
+              {notice === undefined ? null : <div style={styles.feedback}><Feedback notice={notice} /></div>}
               <div style={styles.actions}>
                 <Button style={styles.danger} disabled={busy !== undefined} onClick={() => { void remove() }}>{tt('mcp.delete')}</Button>
                 <span style={styles.spacer} />
                 <Button variant="outline" disabled={busy !== undefined || savingTimeout} onClick={() => { void test() }}>{busy === 'test' ? tt('mcp.testing') : tt('mcp.test')}</Button>
                 <Button variant="primary" disabled={busy !== undefined || savingTimeout} onClick={() => { void save() }}>{busy === 'save' ? tt('common.saving') : tt('common.save')}</Button>
               </div>
-              {notice === undefined ? null : <Feedback notice={notice} />}
             </div>
           )}
         </div>
       )}
       {notice !== undefined && (servers === undefined || selection === undefined) ? <div style={{ ...noticeStyle(notice), marginTop: 12 }} role="status">{notice.text}</div> : null}
-    </div>
+    </section>
   )
 }

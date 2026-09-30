@@ -3,6 +3,7 @@
 import { API, type McpDeleteResponse, type McpListResponse, type McpSaveResponse, type McpServer, type McpTestResult, type SettingValue, type SettingsResponse, type SettingsSaveResponse } from '../protocol.ts'
 import { tt } from './locales.ts'
 import type { EnvironmentStatus } from '../protocol.ts'
+import type { SkillList, SkillDetail, SkillFile, SkillInstallResult } from '../protocol.ts'
 
 export class ApiError extends Error {
   readonly status: number | undefined
@@ -38,6 +39,22 @@ function post(path: string, body: unknown): Promise<Response> {
 }
 
 export class ConfigCenterApi {
+  async openSkills(name?: string): Promise<{ ok: boolean }> { return readJson(await post(`${API.skillOpen}${name ? `?name=${encodeURIComponent(name)}` : ''}`, {})) }
+  async skills(): Promise<SkillList> { return readJson(await fetch(API.skills, { credentials: 'same-origin' })) }
+  async skillDetail(name: string): Promise<SkillDetail> { return readJson(await fetch(`${API.skillDetail}?name=${encodeURIComponent(name)}`)) }
+  async skillFile(name: string, file: string): Promise<SkillFile> { return readJson(await fetch(`${API.skillFile}?name=${encodeURIComponent(name)}&file=${encodeURIComponent(file)}`)) }
+  async setSkillEnabled(name: string, enabled: boolean): Promise<SkillList> { return readJson(await post(API.skills, { name, enabled })) }
+  async deleteSkill(name: string): Promise<SkillList> { return readJson(await fetch(`${API.skills}?name=${encodeURIComponent(name)}`, { method: 'DELETE' })) }
+  async installSkills(file: File, policy: 'ask' | 'skip' | 'replace'): Promise<SkillInstallResult> {
+    if (file.size > 32 * 1024 * 1024) throw new Error(tt('skills.zipLimit'))
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result).split(',')[1])
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(file)
+    })
+    return readJson(await post(API.skillInstall, { filename: file.name, data, policy }))
+  }
   async saveMcpTimeout(stdioTimeoutSeconds: number): Promise<{ stdioTimeoutSeconds: number }> {
     return readJson(await post(API.mcpPreferences, { stdioTimeoutSeconds }))
   }
