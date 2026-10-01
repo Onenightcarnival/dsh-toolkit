@@ -26,6 +26,8 @@ Callbacks try local ports 1455 and 1457. If both are unavailable, manual mode ac
 | Tools | Codex Web Search and image generation switches |
 | Usage | Selected account's quota windows, reset times and refresh; missing data is unknown |
 
+Model selections and tool switches update immediately and save in order. Save status appears in the header; a failed save restores the saved preferences and offers Retry.
+
 Context accepts `256K`, `1M`, `1.5M` or a positive integer in decimal units. Enter or Save submits; blank or Reset to default restores the catalog value. Settings are shared across accounts of the same provider and cannot exceed advertised limits.
 
 Codex Web Search is independent of DSH's web search provider setting. Images live under `plugins/subscriptions/images/` in the DSH home; the attachment service provides inline preview, download and continued editing.

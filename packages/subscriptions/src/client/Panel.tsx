@@ -47,6 +47,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   const [tab, setTab] = useState<Tab>('models')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
+  const [savingPreferences, setSavingPreferences] = useState(false)
   const [catalogBusy, setCatalogBusy] = useState(false)
   const [usageBusy, setUsageBusy] = useState(false)
   const [error, setError] = useState('')
@@ -60,6 +61,10 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   const catalogSequence = useRef(0)
   const usageSequence = useRef(0)
   const statusSequence = useRef(0)
+  const preferenceWrites = useRef(Promise.resolve())
+  const preferenceRevision = useRef(0)
+  const draftPreferences = useRef<Preferences>({})
+  const savedPreferences = useRef<Preferences>({})
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
   const refreshStatus = useCallback(async (): Promise<Status> => {
@@ -76,8 +81,13 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
     const sequence = ++catalogSequence.current
     setCatalogBusy(true)
     try {
+      await preferenceWrites.current
       const next = await api.catalog(force)
-      if (mounted.current && sequence === catalogSequence.current) setCatalog(next)
+      if (mounted.current && sequence === catalogSequence.current) {
+        draftPreferences.current = next.settings
+        savedPreferences.current = next.settings
+        setCatalog(next)
+      }
     } finally {
       if (mounted.current && sequence === catalogSequence.current) setCatalogBusy(false)
     }
@@ -133,11 +143,29 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
       window.open(url, '_blank', 'noopener,noreferrer')
     })
   }
-  const save = (settings: Preferences): void => {
-    void run(async () => {
-      await api.save(settings)
-      setCatalog(previous => previous ? { ...previous, settings } : previous)
-      setNotice(tt('saved'))
+  /** 偏好立即显示，写入按顺序执行；最后一次写入失败时恢复已保存值。 */
+  const save = (change: (previous: Preferences) => Preferences): void => {
+    const settings = change(draftPreferences.current)
+    draftPreferences.current = settings
+    const revision = ++preferenceRevision.current
+    setCatalog(previous => previous ? { ...previous, settings } : previous)
+    setSavingPreferences(true)
+    setError(''); setNotice(''); retryAction.current = undefined
+    preferenceWrites.current = preferenceWrites.current.then(async () => {
+      try {
+        await api.save(settings)
+        savedPreferences.current = settings
+        if (mounted.current && revision === preferenceRevision.current) setNotice(tt('saved'))
+      } catch (error) {
+        if (mounted.current && revision === preferenceRevision.current) {
+          draftPreferences.current = savedPreferences.current
+          setCatalog(previous => previous ? { ...previous, settings: savedPreferences.current } : previous)
+          setError(messageOf(error))
+          retryAction.current = async () => { save(() => settings) }
+        }
+      } finally {
+        if (mounted.current && revision === preferenceRevision.current) setSavingPreferences(false)
+      }
     })
   }
   const account = status?.accounts.find(a => a.key === active)
@@ -149,9 +177,8 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   const currentUsage = usage && usage.account === active ? usage.value : undefined
 
   return <section className="dsh-sub-panel" data-dsh-plugin="subscriptions" data-dsh-part="panel">
-    <header className="dsh-sub-header"><h2>{tt('title')}</h2><button onClick={close}>{tt('back')}</button></header>
+    <header className="dsh-sub-header"><h2>{tt('title')}</h2><span className="dsh-sub-saveStatus" role="status">{notice}</span><button onClick={close}>{tt('back')}</button></header>
     {(error || status?.detail) && <div className="dsh-sub-banner" role="alert" data-kind="error"><span>{error || status?.detail}</span><button disabled={busy} onClick={() => { void run(retryAction.current ?? refreshStatus) }}>{tt('retry')}</button></div>}
-    {notice && <div className="dsh-sub-banner" role="status">{notice}</div>}
     <div className="dsh-sub-body">
       <aside className="dsh-sub-accounts">
         <div className="dsh-sub-asideHead"><span>{tt('accounts')}</span><button className="dsh-sub-link" disabled={busy || status?.busy || !status} onClick={login}>+ {tt('add')}</button></div>
@@ -187,20 +214,31 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
           <div className="dsh-sub-tabs" role="tablist" aria-label={profile.name}>{(['models', 'tools', 'usage'] as const).map(value => <button key={value} role="tab" id={`sub-tab-${value}`} aria-selected={tab === value} aria-controls={`sub-panel-${value}`} onClick={() => setTab(value)}>{tt(value)}{value === 'models' && catalog ? ` ${availableModels.length}` : ''}</button>)}</div>
           <div className="dsh-sub-tabBody" role="tabpanel" id={`sub-panel-${tab}`} aria-labelledby={`sub-tab-${tab}`}>
             {tab === 'models' && <>
-              <div className="dsh-sub-toolbar"><input aria-label={tt('search')} placeholder={tt('search')} value={query} onChange={e => setQuery(e.target.value)}/><button disabled={busy || catalogBusy} onClick={() => { void run(() => refreshCatalog(true)) }}>{catalogBusy ? tt('loading') : tt('refresh')}</button></div>
+              <div className="dsh-sub-toolbar"><input aria-label={tt('search')} placeholder={tt('search')} value={query} onChange={e => setQuery(e.target.value)}/><button disabled={busy || catalogBusy || savingPreferences} onClick={() => { void run(() => refreshCatalog(true)) }}>{catalogBusy ? tt('loading') : tt('refresh')}</button></div>
               <p className="dsh-sub-hint">{tt('modelHint')}</p>
               <p className="dsh-sub-hint">{tt('contextHint')}</p>
               {ownCatalog?.unavailable && <p className="dsh-sub-hint" role="status">{tt('unavailable')}</p>}
-              <label className="dsh-sub-check"><input type="checkbox" disabled={busy || !catalog || catalogBusy} checked={settings.visibleModels === undefined} onChange={e => save({ ...settings, visibleModels: e.target.checked ? undefined : catalog?.models.map(m => m.id) })}/>{tt('autoModels')}</label>
+              <label className="dsh-sub-check"><input type="checkbox" disabled={busy || !catalog || catalogBusy} checked={settings.visibleModels === undefined} onChange={e => {
+                const checked = e.target.checked
+                save(previous => ({ ...previous, visibleModels: checked ? undefined : catalog?.models.map(m => m.id) }))
+              }}/>{tt('autoModels')}</label>
               <div className="dsh-sub-tableWrap"><table><thead><tr><th>{tt('modelName')}</th><th>{tt('context')}</th><th>{tt('reasoning')}</th></tr></thead><tbody>
                 {models.map(model => <tr key={model.id}><td><label className="dsh-sub-check"><input type="checkbox" aria-label={model.name} disabled={busy || catalogBusy} checked={settings.visibleModels?.includes(model.id) ?? true} onChange={e => {
-                  const ids = new Set(settings.visibleModels ?? catalog?.models.map(m => m.id)); if (e.target.checked) ids.add(model.id); else ids.delete(model.id); save({ ...settings, visibleModels: [...ids] })
+                  const checked = e.target.checked
+                  save(previous => {
+                    const ids = new Set(previous.visibleModels ?? catalog?.models.map(m => m.id))
+                    if (checked) ids.add(model.id); else ids.delete(model.id)
+                    return { ...previous, visibleModels: [...ids] }
+                  })
                 }}/><span><strong>{model.name}</strong><small>{model.id}</small></span></label></td><td>
                   <ContextWindowInput model={model} configured={settings.contextWindows?.[model.id]} disabled={busy || catalogBusy} save={value => run(async () => {
-                    const contextWindows = { ...settings.contextWindows }
+                    await preferenceWrites.current
+                    const current = draftPreferences.current
+                    const contextWindows = { ...current.contextWindows }
                     if (value === undefined) delete contextWindows[model.id]; else contextWindows[model.id] = value
-                    const next = { ...settings, contextWindows: Object.keys(contextWindows).length ? contextWindows : undefined }
+                    const next = { ...current, contextWindows: Object.keys(contextWindows).length ? contextWindows : undefined }
                     await api.save(next)
+                    draftPreferences.current = savedPreferences.current = next
                     setCatalog(previous => previous ? { ...previous, settings: next } : previous)
                     await refreshCatalog()
                     setNotice(tt('saved'))
@@ -218,7 +256,10 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
                 <label className="dsh-sub-toggle">
                   <input type="checkbox" aria-label={tt(tool.title)} disabled={busy || !catalog || catalogBusy}
                     checked={settings.tools?.[tool.setting] !== false}
-                    onChange={e => save({ ...settings, tools: { ...settings.tools, [tool.setting]: e.target.checked } })}/>
+                    onChange={e => {
+                      const checked = e.target.checked
+                      save(previous => ({ ...previous, tools: { ...previous.tools, [tool.setting]: checked } }))
+                    }}/>
                   <span className="dsh-sub-switch" aria-hidden="true"/>
                 </label>
               </div>)}

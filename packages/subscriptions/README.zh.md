@@ -26,6 +26,8 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-<版本>.
 | 工具 | Codex Web Search 与图像生成开关 |
 | 用量 | 当前账号的额度窗口、重置时间与刷新 |
 
+模型勾选与工具开关即时显示并依次保存；保存状态位于页头，失败时恢复已保存值并提供重试。
+
 上下文接受 `256K`、`1M`、`1.5M` 或正整数，采用十进制单位。Enter 或「保存」提交；清空并保存或「恢复默认」使用目录默认值。设置由同类账号共用，不能超过目录给出的上限。
 
 Codex Web Search 独立于 DSH 的联网搜索提供方设置。生成图片保存到 DSH home 的 `plugins/subscriptions/images/`；附件服务提供对话内预览、下载与继续编辑。

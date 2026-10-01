@@ -20,6 +20,46 @@ const { SubscriptionsPanel } = module.exports
 const button = text => [...document.querySelectorAll('button')].find(b => b.textContent.includes(text))
 const click = async element => { assert.ok(element, 'missing UI element'); await act(async () => element.click()) }
 
+test('model toggles stay interactive, serialize saves and restore the last saved selection on failure', async () => {
+  const pending = []
+  let catalogCalls = 0
+  const models = ['m1', 'm2'].map(id => ({ id, name: id, efforts: [], contextWindow: 128000 }))
+  const api = {
+    status: async () => ({ busy: false, accounts: [{ key: 'a', isDefault: true }] }),
+    catalog: async () => { catalogCalls++; return { settings: {}, models, accounts: [] } },
+    save: next => new Promise((resolve, reject) => pending.push({ next, resolve, reject })),
+  }
+  const root = createRoot(document.getElementById('root'))
+  const checkbox = id => document.querySelector(`input[aria-label="${id}"]`)
+  try {
+    await act(async () => root.render(React.createElement(SubscriptionsPanel, { api, close() {} })))
+    const table = document.querySelector('table')
+    await click(checkbox('m1'))
+    assert.equal(checkbox('m1').checked, false, 'selection updates before the response')
+    assert.equal(checkbox('m2').disabled, false)
+    assert.equal(document.querySelector('input[aria-label="m1 Context"]').disabled, false)
+    await click(checkbox('m2'))
+    assert.equal(checkbox('m2').checked, false)
+    assert.equal(pending.length, 1, 'only one write runs at a time')
+    await act(async () => pending[0].resolve())
+    assert.equal(pending.length, 2)
+    assert.deepEqual(pending[1].next.visibleModels, [], 'rapid toggles retain both changes')
+    await act(async () => pending[1].resolve())
+    assert.equal(catalogCalls, 1, 'saving does not reload the catalog')
+    assert.equal(document.querySelector('table'), table)
+    assert.equal(document.querySelector('.dsh-sub-header [role=status]').textContent, 'Settings saved')
+    assert.equal(document.querySelector('.dsh-sub-banner[role=status]'), null)
+    await click(checkbox('m1'))
+    await act(async () => pending[2].reject(new Error('Save failed')))
+    assert.equal(checkbox('m1').checked, false, 'failed write restores confirmed preferences')
+    assert.match(document.querySelector('[role=alert]').textContent, /Save failed/)
+    await click(button('Retry'))
+    assert.equal(checkbox('m1').checked, true)
+    await act(async () => pending[3].resolve())
+    assert.deepEqual(pending[3].next.visibleModels, ['m1'])
+  } finally { await act(async () => root.unmount()) }
+})
+
 test('Google login failure is displayed and Retry repeats login', async () => {
   let attempts = 0
   const api = {

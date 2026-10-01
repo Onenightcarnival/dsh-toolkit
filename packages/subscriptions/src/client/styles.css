@@ -3,6 +3,7 @@
 .dsh-sub-panel * { box-sizing: border-box; }
 .dsh-sub-header, .dsh-sub-actions, .dsh-sub-toolbar, .dsh-sub-accountHeader { display: flex; align-items: center; gap: 10px; }
 .dsh-sub-header h2 { margin: 0; flex: 1; font-size: 16px; font-weight: 700; }
+.dsh-sub-saveStatus { flex: none; min-width: 4em; color: var(--dsw-alias-label-secondary); font-size: 12px; text-align: right; }
 .dsh-sub-panel button, .dsh-sub-panel input, .dsh-sub-panel select { font: inherit; color: inherit; }
 .dsh-sub-panel button { padding: 6px 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; background: transparent; cursor: pointer; white-space: nowrap; }
 .dsh-sub-panel button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
