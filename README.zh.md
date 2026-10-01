@@ -51,25 +51,7 @@ dsh web
 
 ### 模块配置
 
-web profile 插件 ID 为 `toolkit`。配置位于 `~/.dsh/profiles/web/cordis.patch.yml`。
-
-| 模块配置值 | 宿主与界面行为 |
-|---|---|
-| 省略或 `{}` | 启用模块，使用默认配置 |
-| 配置对象 | 启用模块，使用对应独立插件的配置 |
-| `false` | 禁用模块 |
-
-覆盖操作替换整段 `config`，已有自定义值需一并列出。以下配置禁用可观测上报，将浏览器发现端口设为 `43189`，其余模块使用默认配置：
-
-```yaml
-- id: toolkit
-  config:
-    otel: false
-    browser:
-      discoveryPort: 43189
-```
-
-其余键与各单包的配置一致：`rdb`、`s3` 见各自 README，`browser` 见 [浏览器桥的配置](packages/browser-bridge/README.zh.md#配置)，`configCenter` 见 [配置中心的配置](packages/config-center/README.zh.md#配置)。
+模块键、默认值与覆盖示例见[集成包配置](packages/toolkit/README.zh.md#模块配置)。
 
 ### 从旧版单包迁移
 

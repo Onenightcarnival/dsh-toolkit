@@ -140,7 +140,7 @@ pnpm install
 pnpm --filter dsh-browser-extension run build:firefox
 ```
 
-The bridge address is still auto-discovered. Firefox's `moz-extension://` UUID does not authenticate an add-on, so copy the bearer token from `~/.dsh/ext-bridge-token` into the extension settings (the dsh startup log reports that file's path). Signed distribution can package the same `dist-firefox/` output.
+The bridge address is auto-discovered. Firefox requires the bearer token from `~/.dsh/ext-bridge-token` in the extension settings; the dsh startup log reports the file path. Signed distribution can package the same `dist-firefox/` output.
 
 ### Start and use
 
@@ -156,12 +156,12 @@ Local Chrome use requires no configuration; Firefox requires the local bridge to
 
 **HTTP 400 after reading a page with emoji, including on follow-up messages**
 
-Update both the browser extension and the desktop bridge plugin. New page text preserves complete Unicode code points and replaces lone surrogates with `�`. An older version may already have saved a split character in the session history; updates do not rewrite history, so start a new session to continue.
+Update the extension and bridge plugin, then start a new session. Text extraction preserves Unicode code points and replaces lone surrogates with `�`; updates do not rewrite existing history.
 
 **Side panel stays "Not connected"**
 
 - Make sure dsh web is running locally (default `http://127.0.0.1:3080`).
-- Verify the bridge is loaded: open `http://127.0.0.1:3080/ext/bridge-config`. It should return JSON such as `{"wsUrl":"ws://127.0.0.1:3080/ext/bridge"}`. If it returns a web page instead of JSON, the running dsh predates the bridge registration — restart dsh and refresh the page; the extension reconnects on its own.
+- Verify the bridge is loaded: open `http://127.0.0.1:3080/ext/bridge-config`. It should return JSON such as `{"wsUrl":"ws://127.0.0.1:3080/ext/bridge"}`. A non-JSON response indicates that the bridge endpoint is unavailable. Check the plugin installation and configured port, then restart dsh.
 - The extension probes ports 3080, 3081 and 3090, the discovery-beacon window 43189–43192, and the legacy desktop port 14389 automatically. If dsh runs on another port with the beacon disabled — or you use a remote `--host 0.0.0.0` deployment — set the address (and bridge token) in the panel settings. Firefox always requires the token.
 
 ## Development
@@ -170,15 +170,81 @@ Development and release steps: [repository README](../README.md).
 
 ## Security
 
-- The bridge path sits outside the `/api` trust boundary and performs its own bearer-token authentication.
-- Local Chrome extension origins retain zero-configuration loopback access; Firefox origins are per-install UUIDs and must present the bearer token.
-- Privileged gateway methods such as `settings.*`, `credentials.*`, and `host.open*` reject non-loopback sources.
-- Password and payment-card values never leave the page through the text pipeline. Screenshots go through the same approval as page reads (and are blocked when page-content sharing is off), but password fields cannot be masked inside an image, so disable or decline screenshots on sensitive pages; captured images are saved through dsh's durable attachment service and handed to the model as image blocks. **Allow screenshots** in Settings turns `browser_screenshot` off entirely.
-- **Trusted input** (off by default) sends clicks, key presses, hovers, and drags through Chrome's debugger API as real input events, so Tab moves focus and canvas apps respond; it uses the manifest's `debugger` permission (Chrome does not allow it as an optional permission) and shows Chrome's "is debugging this browser" bar while a tab is attached; screenshots also fall back to it when the capture API refuses a tab. Turning it off detaches every tab immediately.
-- The first action on a page installs main-world hooks that answer `alert`/`confirm`/`prompt` (so a dialog cannot freeze the tab), and record console output and fetch/XHR metadata (URL, method, status, timing — never bodies). Pure reads install nothing. `browser_console`, `browser_network`, and `browser_evaluate` are refused unless **Allow unrestricted browser control** is on; everything they return is page-authored and wrapped as untrusted content.
-- `browser_upload` reads only files under the session's working directory — the same boundary as the agent's file tools — and never widens it.
-- When work begins, the assistant binds to the active tab (at prompt submission, or at the first direct browser-tool call). If you switch tabs manually, later browser actions pause and the side panel asks whether the assistant should continue on the original tab or follow the new one. Choosing the original tab permits background operation; the extension never silently retargets or changes your visible tab. Closing the controlled tab also pauses tools until you explicitly select the current page.
-- Text you highlight is captured only while a side panel is open and page sharing is not `off`, and never from password or payment-card fields. It stays inside the extension until you send the message, is dropped when you dismiss it or its page navigates or closes, and reaches the model inside the same untrusted-content boundary as page snapshots — including its source title and URL, which the page also controls.
-- Page-authored text is wrapped as untrusted input. The default `auto` mode reads only the controlled tab without an extra prompt; privacy-sensitive users can select `ask` for per-read confirmation or `off` to block reads entirely. In `ask` mode, the read dialog can allow one read or persistently switch back to `auto`; this can be reversed in Settings. Read page text is sent to the selected model.
-- Click, type, keypress, navigation, history, and reload calls fail closed until the user approves them. An origin may be trusted for the current side-panel session (cleared when the last panel closes or the service worker restarts), while permanent trust is managed explicitly in Settings. Explicit cross-origin `browser_navigate` calls and unknown history destinations always prompt again.
-- **Allow unrestricted browser control** is an explicit global opt-in. It becomes active only after the setting is saved successfully; while enabled, page reads, page actions, and tab list/follow/close operations run without approval prompts. Calls capture their access mode when received, so enabling unrestricted control never retroactively elevates an existing restricted call. Disabling it takes effect immediately, cancels calls that have not dispatched an action, waits for already-dispatched browser operations to settle, and only then saves the restrictive setting. A rapid re-enable remains restricted until that revocation finishes, and concurrent saves persist in request order. Browser-protected DOM content remains inaccessible in either mode.
+### Bridge access
+
+Authentication, privileged methods and token rotation: [bridge authentication](../packages/browser-bridge/README.md#bridge-authentication).
+
+### Page data
+
+| Data | Boundary |
+|---|---|
+| Page text | Sent to the selected model inside nonce-bound untrusted-content markers; page instructions grant no authority |
+| Sensitive fields | The text pipeline excludes passwords and payment-card values; accessible names exclude their current values |
+| Screenshots | Follow page-read approval and are blocked when sharing is off; images cannot mask password fields, so disable or decline screenshots on sensitive pages |
+| Screenshot storage | Saved by the host attachment service and sent as image blocks; Allow screenshots controls this tool |
+| Selection quotes | Captured only with an open panel and page sharing enabled; retained in the extension until submission, discarded on removal, navigation or tab closure |
+| Quote attribution | Source title, URL and selected text share the untrusted-content boundary |
+| Uploads | Read only files within the session workspace |
+
+### Read and action approval
+
+| Mode or action | Behavior |
+|---|---|
+| Page sharing auto (default) | Reads the controlled tab automatically |
+| Page sharing ask | Confirms each read; permits one read or a switch to auto, reversible in Settings |
+| Page sharing off | Blocks reads |
+| Page changes and navigation | Require approval by default; show exact origins and an action summary with typed content redacted |
+| Temporary trust | Applies to the current panel session; clears when the last panel closes or the service worker restarts |
+| Permanent trust | Managed in Settings |
+| Cross-origin navigation or unknown history destination | Prompts again |
+| Closed panel | Approval waits up to 60 seconds; optional notifications open the panel |
+| Session approval | Restores the requesting session before display |
+| Caller cancellation or bridge timeout | Withdraws pending approval; no action executes |
+
+### Unrestricted control
+
+- Allow unrestricted browser control takes effect after a successful save; page reads, actions and tab list/follow/close operations need no confirmation.
+- Calls capture their access mode on receipt; enabling the setting does not elevate existing restricted calls.
+- Disabling immediately restricts access and cancels undispatched calls; the restrictive setting is saved after dispatched operations settle.
+- Re-enabling remains restricted until revocation finishes; concurrent saves persist in request order.
+- Protected-page DOM content remains inaccessible.
+
+### Tab binding
+
+- Prompt submission or the first direct browser-tool call binds the active tab for the entire extension connection.
+- Manual tab or window switches pause subsequent actions; staying on the original tab permits background operation, while following resets page references.
+- The extension does not change the visible tab; a closed controlled tab requires an explicit selection of the current page.
+- Switching tabs withdraws open action approvals.
+
+### Page hooks and trusted input
+
+- The first page action installs main-world hooks for automatic alert/confirm/prompt answers, console output and fetch/XHR URL, method, status and timing. Request bodies are excluded. Pure reads install no hooks.
+- browser_console, browser_network and browser_evaluate require unrestricted control; their results are untrusted page content.
+- Trusted input is off by default. Chrome debugger API sends clicks, key presses, hovers and drags, including native Tab focus movement and canvas input.
+- Chrome displays its debugging bar while attached; screenshots may use the debugger when the capture API refuses. Disabling trusted input immediately detaches all tabs.
+
+### Extension permissions
+
+| Permission | Purpose |
+|---|---|
+| sidePanel / sidebar_action | Chrome side panel / Firefox sidebar |
+| storage | Settings and recent sessions |
+| notifications | Optional approval reminders while the panel is closed |
+| tabs, activeTab, scripting | Observe tab changes and inject or message the controlled page |
+| webNavigation | Enumerate frames and bind frame documents |
+| alarms | Background keepalive |
+| `<all_urls>` | Content scripts and captureVisibleTab |
+| debugger (Chrome) | Trusted input and screenshot fallback; required manifest permission |
+
+The Firefox AMO manifest declares browsing activity, website content/activity and personal communications sent to the configured dsh/model service.
+
+## Connections and limitations
+
+- Installation or reload stays passive until the first panel opening starts discovery and connection.
+- A healthy connection may receive background approvals after the panel closes; a dropped or replaced connection requires an open panel to reconnect.
+- Only one extension connection is active; replaced clients stop automatic reconnection.
+- Reopening resumes the latest active conversation, then the latest non-empty durable session, then creates a new session. Settings can disable resumption.
+- Element numbers persist across snapshots; reindexing is reported. Cross-origin frames use stable (frame, index) addresses; restricted or short-lived frames report unavailable individually.
+- Text snapshots flag unnamed controls; screenshot targeting requires model image input, and CAPTCHAs require user interaction.
+- Synthetic key events do not trigger native actions such as Tab focus movement; trusted input supports native behavior.
+- browser_wait uses page load and a fixed quiet window; continuously updating SPAs may be reported as stable.

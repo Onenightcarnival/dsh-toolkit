@@ -298,7 +298,7 @@ const EN: PanelCopy = {
     askAgain: 'Ask on tab switch',
     followCurrent: 'Follow current page',
     lostTitle: 'The controlled tab was closed',
-    lostBody: 'Browser actions are paused to avoid operating the wrong page.',
+    lostBody: 'Browser actions are paused. Select a page to continue.',
     useCurrent: 'Use current page',
   },
   question: {
@@ -551,7 +551,7 @@ const ZH: PanelCopy = {
     askAgain: '切换标签页时重新询问',
     followCurrent: '改为跟随当前页',
     lostTitle: '受控标签页已关闭',
-    lostBody: '为避免操作错页，浏览器操作已暂停。',
+    lostBody: '浏览器操作已暂停。选择页面后继续。',
     useCurrent: '使用当前页面',
   },
   question: {

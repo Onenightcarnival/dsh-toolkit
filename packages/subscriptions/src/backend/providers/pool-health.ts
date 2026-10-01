@@ -1,13 +1,8 @@
 /**
- * Health bookkeeping for pool members: which `(provider, account, model)`
- * member is cooling down after a failure, and for how long. Purely in-memory
- * — a restart re-probes members naturally, so nothing here is persisted.
- *
- * The failure classifier maps the adapters' stable `LlmError` codes (see
- * `httpLlmError`/`mapFetchFailure` in `common.ts`) to one of three actions:
- * switch to another member with a cooldown, switch without recording a
- * cooldown (transport blips say nothing about the account), or rethrow
- * (the request itself is at fault and another account would fail alike).
+ * In-memory cooldowns for each provider/account/model member.
+ * LlmError classification selects a switch with cooldown, a switch without
+ * cooldown for transport failures, or propagation of a request error.
+ * Restarting clears cooldown state.
  */
 
 import { CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'

@@ -103,9 +103,8 @@ function sanitizeModel(value: unknown): DiscoveredModel | undefined {
 }
 
 /**
- * Validate one persisted snapshot. Strict: any malformed field drops the
- * whole snapshot rather than repairing it — the next successful discovery
- * rewrites the entry anyway.
+ * Validate a persisted catalog snapshot. Any malformed field invalidates the
+ * whole snapshot; a successful discovery writes a complete replacement.
  * @param value - the raw per-provider file entry.
  * @returns the validated snapshot, or undefined when unusable.
  */

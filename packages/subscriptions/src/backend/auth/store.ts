@@ -230,10 +230,9 @@ function assertSessionShape(provider: ProviderId, account: string, value: unknow
 }
 
 /**
- * Read the whole store. A missing file is an empty store; malformed JSON or a
- * malformed entry throws, because silently discarding tokens would strand the
- * user without a diagnosis. Single-account entries are migrated in memory;
- * the next write persists the new shape.
+ * Read the credential store. Missing files return an empty map; invalid JSON
+ * or top-level structure throws. Invalid account entries are skipped.
+ * Single-account entries migrate in memory and persist on the next write.
  * @param path - store file path; defaults to {@link authFilePath}.
  * @returns the parsed session map.
  */
@@ -249,13 +248,8 @@ export async function loadStore(path = authFilePath()): Promise<SessionMap> {
 }
 
 /**
- * Parse and migrate store JSON read from `path`. An ACCOUNT entry whose shape
- * is invalid (empty or missing tokens — corruption seen in the wild from a
- * broken keychain import) is SKIPPED instead of rejected: one bad entry must
- * not blind every provider's status read, and a session without tokens is
- * unusable by definition, so nothing of value is discarded. The next write
- * persists the store without the skipped entry. Structural failures (invalid
- * JSON, a non-object file) still throw — those say the file itself is broken.
+ * Parse and migrate credential JSON. Invalid account entries are skipped;
+ * the next write omits them. Invalid JSON and non-object roots throw.
  */
 function parseStore(text: string, path: string): SessionMap {
   let parsed: unknown
@@ -412,12 +406,8 @@ export async function getAccountSession<K extends ProviderId>(
 }
 
 /**
- * Write one account's session, preserving the others. The first account of a
- * provider becomes its default.
- *
- * The session is validated before it lands: a corrupt entry written here
- * would fail every later read of the whole store (one bad entry breaks all
- * providers' status), so the write path must be as strict as the read path.
+ * Validate and store one account session while preserving other accounts.
+ * The first account for a provider becomes its default.
  * @param provider - the provider route.
  * @param account - the account key (see {@link accountKeyOf}).
  * @param session - the fresh session from a login or refresh.

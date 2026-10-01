@@ -28,7 +28,9 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-<版本>.
 
 模型勾选与工具开关即时显示并依次保存；保存状态位于页头，失败时恢复已保存值并提供重试。
 
-上下文接受 `256K`、`1M`、`1.5M` 或正整数，采用十进制单位。Enter 或「保存」提交；清空并保存或「恢复默认」使用目录默认值。设置由同类账号共用，不能超过目录给出的上限。
+- 上下文接受 `256K`、`1M`、`1.5M` 或正整数，采用十进制单位。
+- Enter 或「保存」提交；清空并保存或「恢复默认」使用目录默认值。
+- 设置由同类账号共用，不能超过目录给出的上限。
 
 Codex Web Search 独立于 DSH 的联网搜索提供方设置。生成图片保存到 DSH home 的 `plugins/subscriptions/images/`；附件服务提供对话内预览、下载与继续编辑。
 
@@ -41,7 +43,10 @@ Codex Web Search 独立于 DSH 的联网搜索提供方设置。生成图片保�
 | `codex_web_search` | 原生 `web.run` 命令；兼容简写 `query` | 页面正文、行号、链接编号、引用 ID、完整来源与结构化结果 |
 | `codex_image_generate` | `prompt`；可选 `transparent_background`、`referenced_image_paths`、`num_last_images_to_include` | 本地路径和图片附件 |
 
-Antigravity 搜索使用 Gemini 3 Flash 的 Google Search grounding；无来源引用时返回不可用错误。图片工具使用 Gemini 3.1 Flash Image，省略思考强度时读取模型默认设置。图片引用由 DSH 附件服务解析；工作区图片先通过 `read_image` 读取。工具请求只在 401 时刷新一次令牌、在 403/404 时切换地址，网络失败、限流和服务端错误不自动重发生图。
+- Antigravity 搜索使用 Gemini 3 Flash 的 Google Search grounding；无来源引用时返回不可用错误。
+- 图片工具使用 Gemini 3.1 Flash Image，省略思考强度时读取模型默认设置。
+- 图片引用由 DSH 附件服务解析；工作区图片先通过 `read_image` 读取。
+- 工具请求只在 401 时刷新一次令牌、在 403/404 时切换地址，网络失败、限流和服务端错误不自动重发生图。
 
 工具列表按会话创建时的开关设置生成；搜索关闭后也会立即阻止已有会话调用。持久化开关使用能力键 `web_search` 和 `image_generate`。
 
@@ -59,7 +64,12 @@ Antigravity 搜索使用 Gemini 3 Flash 的 Google Search grounding；无来源�
 | `finance`、`weather`、`sports`、`time` | 原生股票代码、地点、联赛、UTC 偏移等字段 |
 | `response_length` | `short`、`medium`、`long` |
 
-命令接受数组，可在一次调用中组合。`search_query` 每次最多四条；四条时须选择 `medium` 或 `long`。`query` 是单条搜索的兼容简写，与其他命令互斥。引用 ID 按会话隔离，可用于后续页面操作。来源不设八条上限，结构化 `results` 保留上游字段，不包含加密传输状态。外部内容视为不可信数据，引用使用来源 URL。
+- 命令接受数组，可在一次调用中组合。
+- `search_query` 每次最多四条；四条时须选择 `medium` 或 `long`。
+- `query` 是单条搜索的兼容简写，与其他命令互斥。
+- 引用 ID 按会话隔离，可用于后续页面操作。
+- 来源不设八条上限，结构化 `results` 保留上游字段，不包含加密传输状态。
+- 外部内容视为不可信数据，引用使用来源 URL。
 
 PDF 截图命令透传至订阅端点；该端点不保证返回图片字节及原生桌面媒体组件。仅有页面引用不代表已返回截图。模型和账号可用性由提供方决定。
 
@@ -74,7 +84,11 @@ PDF 截图命令透传至订阅端点；该端点不保证返回图片字节及�
 | 对话引用 | `num_last_images_to_include`：当前会话有效上下文中最近 1–5 张不同图片，按时间顺序传入 |
 | 兼容字段 | `referenceImages`、`size`、`quality`；保留原有取值 |
 
-引用方式互斥。缺失、被拒绝或无效的编辑引用在生图请求前报错。对话引用需要会话查询服务和附件服务。生成文件保留上游原始字节，对话内附件遵循宿主图片限制和模型能力。自动尺寸不承诺固定 4K 输出。
+- 引用方式互斥。
+- 缺失、被拒绝或无效的编辑引用在生图请求前报错。
+- 对话引用需要会话查询服务和附件服务。
+- 生成文件保留上游原始字节，对话内附件遵循宿主图片限制和模型能力。
+- 自动尺寸不承诺固定 4K 输出。
 
 原生接口：[Codex 搜索命令](https://github.com/openai/codex/blob/main/codex-rs/codex-api/src/search.rs)、[Codex 生图工具](https://github.com/openai/codex/blob/main/codex-rs/ext/image-generation/src/tool.rs)。
 
@@ -90,7 +104,9 @@ PDF 截图命令透传至订阅端点；该端点不保证返回图片字节及�
 | 图片模型 | Gemini 3.1 Flash Image 可在对话中生成图片；结果保存为 DSH 附件，支持预览与继续编辑。思考强度支持 Minimal / High，跟随提供方时默认为 Minimal。需要附件服务。 |
 | 工具 | 对话模型使用 DSH 会话工具；图片模型输出文本和图片，不调用会话工具。独立工具 `antigravity_web_search`、`antigravity_image_generate` 使用默认 Google 账号，开关位于 Antigravity 的「工具」页签 |
 
-模型目录合并默认与备用 Google 地址的结果。请求保留 Antigravity 客户端标识；单个地址的 403 支持切换到备用地址。用量窗口独立于模型目录和方案查询，部分接口不可用时保留已获取的数据。
+- 模型目录合并默认与备用 Google 地址的结果。
+- 请求保留 Antigravity 客户端标识；单个地址的 403 支持切换到备用地址。
+- 用量窗口独立于模型目录和方案查询，部分接口不可用时保留已获取的数据。
 
 旧插件与本接入使用相同的 `antigravity` 提供方，启用本接入前需停用旧插件。
 
@@ -103,7 +119,10 @@ OAuth 客户端配置按以下顺序读取：
 
 登录解析后的客户端配置保存在本机，用于后续令牌刷新。客户端常量由固定的运行时依赖提供。
 
-项目标识优先使用 `antigravity.projectId`，其次读取账号项目发现结果。项目发现接口缺失（404）或未返回项目时，使用账号兼容标识。此标识不创建 Google Cloud 项目，也不改变账号权限；服务端要求真实项目时，可配置 `antigravity.projectId`。认证、权限与额度错误保留为失败。
+- 项目标识优先使用 `antigravity.projectId`，其次读取账号项目发现结果。
+- 项目发现接口缺失（404）或未返回项目时，使用账号兼容标识。
+- 此标识不创建 Google Cloud 项目，也不改变账号权限；服务端要求真实项目时，可配置 `antigravity.projectId`。
+- 认证、权限与额度错误保留为失败。
 
 ## 配置
 

@@ -1,19 +1,8 @@
 /**
- * Capture of the text the user highlights in a page.
- *
- * The watcher stays disarmed until the service worker says a side panel is
- * open and page sharing is allowed: `selectionchange` fires on every drag in
- * every tab, and an always-on watcher would wake the MV3 service worker for
- * highlights nobody can see.
- *
- * Two page-authored risks shape the rest of this module. A page can move the
- * selection itself (`getSelection().selectAllChildren(…)`), so an event-driven
- * capture requires transient user activation — the user's own drag or keyboard
- * selection — before it is reported. And a selection can sit inside a password
- * or payment field, so the whole selected range is checked against the same
- * privacy boundary the snapshot uses, including contenteditable widgets and
- * fields inside shadow roots.
- *
+ * Capture page selections while a side panel is open and page sharing is enabled.
+ * Event-driven capture requires transient user activation when the API exists.
+ * The entire range must pass sensitive-field checks, including contenteditable
+ * widgets and fields inside shadow roots.
  * @module
  */
 
@@ -89,12 +78,9 @@ function selectedText(): string {
 }
 
 /**
- * Whether the page currently holds transient user activation.
- *
- * `selectionchange` is not a UIEvent, so it carries no `isTrusted` signal that
- * would separate the user's drag from a page moving the selection itself.
- * Activation is the closest available proxy. Where the API is missing the
- * check cannot run, so it does not block the capture.
+ * Whether the page has transient user activation.
+ * The check permits capture when the activation API is unavailable.
+ * selectionchange does not expose a user-action isTrusted signal.
  */
 function hasUserGesture(): boolean {
   const activation = navigator.userActivation
@@ -114,11 +100,8 @@ export function readSelectionCapture(): SelectionCapture | null {
 }
 
 /**
- * Debounced `selectionchange` watcher for one frame.
- *
- * Emits only settled, changed, non-empty selections: a drag fires the event
- * per character, and re-emitting an unchanged highlight would replace the
- * panel's capture with an identical one.
+ * Debounced selectionchange watcher for one frame.
+ * Emits settled, changed, non-empty selections only.
  */
 export class SelectionWatcher {
   private enabled = false

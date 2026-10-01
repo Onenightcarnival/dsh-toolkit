@@ -26,16 +26,14 @@ export function generateToken(bytes: number = 32): string {
 }
 
 /**
- * Constant-time token comparison. Length mismatch fails fast (still constant
- * time on the compared prefix) — a wrong-length token can never verify.
+ * Constant-time UTF-8 comparison for non-empty tokens of equal byte length.
+ * Empty or different-length tokens return false before comparison.
  * @param expected - the configured token.
  * @param actual - the token presented by the client.
- * @returns true only when both are equal-length hex and byte-equal.
+ * @returns true only when both non-empty tokens have equal UTF-8 bytes.
  */
 export function verifyToken(expected: string, actual: string): boolean {
-  // UTF-8 byte comparison, not hex decoding: hex would silently truncate
-  // non-hex configured tokens (Buffer.from('fixed-token','hex') is empty)
-  // and collapse 'deadbeef-team' to 'deadbeef', losing token entropy.
+  // Configured tokens may contain non-hex characters.
   const expectedBuf = Buffer.from(expected, 'utf8')
   const actualBuf = Buffer.from(actual, 'utf8')
   if (expectedBuf.length === 0 || expectedBuf.length !== actualBuf.length) return false

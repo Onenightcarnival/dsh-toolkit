@@ -191,11 +191,8 @@ export interface AuthController {
 export class BadRequest extends Error {}
 
 /**
- * Structural face of `connection.fetch.register` shared by both dsh lines.
- * The 0.1.2-alpha typings list only `GET`/`HEAD` methods and no
- * `requestBody`, while the 0.1.5 line adds `POST` plus the body mode; the
- * runtime on both lines dispatches any declared method to the exact route,
- * so the route is typed here rather than against either line's declaration.
+ * Structural contract for connection.fetch.register.
+ * Registers exact Fetch paths, HTTP methods and request body modes.
  */
 interface FetchRouteCompat {
   readonly path: string
@@ -227,12 +224,9 @@ function serverResponse(rpcId: string, result: RpcResult<unknown>): Response {
 }
 
 /**
- * Wrap one endpoint's RPC handler as an exact Fetch route: decode the
- * `client-request` envelope the browser rpc caller posts, run the handler,
- * and answer with the matching `server-response` envelope — the same wire
- * contract the dedicated-channel bridge used to apply, reproduced here so
- * `rpc.call('/api', 'subscriptions-auth.<endpoint>', payload)` keeps working
- * unchanged on the browser side.
+ * Expose an auth RPC endpoint as a Fetch route.
+ * Accepts a client-request envelope at /api/subscriptions-auth.<endpoint>
+ * and returns a server-response envelope with the matching RPC id.
  */
 function fetchRouteFor(endpoint: string, handler: AuthRpcHandler): FetchRouteCompat {
   const method = `${SUBSCRIPTIONS_AUTH_PREFIX}${endpoint}`

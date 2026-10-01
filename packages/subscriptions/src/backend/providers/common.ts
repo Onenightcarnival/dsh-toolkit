@@ -253,12 +253,9 @@ export class OAuthEndpointError extends Error {
 }
 
 /**
- * Read an OAuth JSON error body into an {@link OAuthEndpointError}. Two body
- * shapes are understood: RFC 6749 (`{ error: "invalid_grant", error_description }`)
- * and the OpenAI API envelope the auth.openai.com token endpoint now answers
- * with (`{ error: { code: "refresh_token_reused", message } }`). The code
- * must land in `oauthCode` either way — the permanent-failure classifiers
- * key on it, and an unrecognized shape would keep a dead login forever.
+ * Parse an OAuth endpoint error from RFC 6749 error/error_description fields
+ * or an API error object with code/message fields. Both populate oauthCode
+ * for permanent-failure classification.
  * @param response - the failed token-endpoint response.
  * @param label - diagnostic prefix naming the provider.
  * @returns the error to throw.
@@ -504,22 +501,10 @@ export interface ReasoningBlock {
 }
 
 /**
- * Fold a configured per-model default effort into a reasoning block, keeping
- * the DSH runtime invariant `defaultEffort ∈ efforts` (the runtime rejects an
- * unknown default with `INVALID_MODEL_REASONING`).
- *
- * A configured level the base set does not advertise is *dropped*, not
- * appended: the base may be the provider's live catalog,
- * i.e. the truth about what the model accepts, so honouring a stale override
- * would put an unsupported effort on every single request instead of letting
- * the harness reject it before provider I/O. The override then simply falls
- * back to the provider's own default until the user picks a level the catalog
- * still lists.
- *
- * `extendable` opts into the opposite rule for a base that is a *built-in
- * fallback* rather than discovered truth (codex, whose static effort list is
- * known to trail the backend): there, appending the configured level is how a
- * newly shipped tier becomes selectable at all.
+ * Merge a configured reasoning default with the base reasoning block.
+ * The result preserves defaultEffort ∈ efforts. Unsupported overrides fall
+ * back to the provider default; extendable permits adding an override to a
+ * built-in fallback catalog.
  * @param configuredDefault - the user-configured default effort id, or undefined.
  * @param base - the discovered/built-in reasoning block, or undefined.
  * @param options - `extendable` marks the base as a fallback that may be extended.

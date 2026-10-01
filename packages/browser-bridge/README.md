@@ -16,36 +16,30 @@ Browser control bridge between dsh and the Chrome / Firefox extension.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `token` | `string` | generated | Fixed bearer token. When absent, a token is generated on first boot, persisted at `~/.dsh/ext-bridge-token` (chmod 0600), and printed in the boot log. |
-| `toolTimeoutMs` | `number` | 90000 | Per-tool-call budget, leaving time for the extension's 60-second approval window. |
+| `token` | `string` | generated | Fixed bearer token. When absent, a token is generated on first boot, persisted at `~/.dsh/ext-bridge-token` (chmod 0600), with its file path reported in the boot log. |
+| `toolTimeoutMs` | `number` | 90000 | Per-tool-call timeout. |
 | `snapshotMaxChars` | `number` | 200000 | Upper bound on one rendered snapshot's characters, minimum 500 (also negotiated to the extension via `hello.ok` caps). |
 | `maxInteractiveItems` | `number` | 400 | Upper bound on interactive inventory items per snapshot. |
-| `sessionWorkspacePath` | `string` | `~/.dsh/browser-sessions` | Dedicated Host Workspace for extension-created sessions. The plugin creates and idempotently registers the directory on the first implicit `session.create`; the session cwd becomes this path, so the GUI shows a `browser-sessions` workspace group. Set `""` to keep sessions Ungrouped. |
-| `deferSessionCreate` | `boolean` | `true` | Sessions materialize only on the first message: `session.create` answers with a provisional id (nothing persisted), history reads empty, and the first `session.prompt` creates the real session (same id, original payload). Opening the panel without chatting leaves zero trace in the session store/GUI. |
+| `sessionWorkspacePath` | `string` | `~/.dsh/browser-sessions` | Dedicated Host Workspace for extension-created sessions. The plugin creates and idempotently registers the directory on the first implicit `session.create`; the session cwd uses this path and the GUI shows a `browser-sessions` workspace group. Set `""` to keep sessions Ungrouped. |
+| `deferSessionCreate` | `boolean` | `true` | Sessions materialize only on the first message: `session.create` answers with a provisional id (nothing persisted), history reads empty, and the first `session.prompt` creates the real session (same id, original payload). Opening the panel alone creates no stored session. |
 | `discoveryPort` | `number` | 43189 | Discovery beacon: a loopback listener that answers only `/ext/bridge-config` with this instance's bridge URL, for hosts on a random web port (DeepSeek Harness Desktop). Falls back through the next three ports when taken; `0` disables. |
 
-Workspace grouping is best-effort. If the composition has no workspace domain, directory creation fails, or `workspace.create` rejects the path, the plugin logs one warning and sends every session creation without an injected workspace so browser chat remains usable.
+Workspace grouping is best-effort. If the composition has no workspace domain, directory creation fails, or `workspace.create` rejects the path, the plugin logs one warning and sends every session creation without an injected workspace with browser chat still available.
 
-## Usage
+## Usage and permissions
 
-Install the release `.tgz` into the dsh `web` profile:
+Installation, tools and page permissions: [browser control guide](../../docs/browser.md). Runtime versions: [compatibility table](../../README.md#runtime-compatibility).
 
-- DeepSeek Harness Desktop: 插件 → 配置中心… → 插件 → 「从 .tgz 安装」, then restart the app.
-- dsh CLI: `npx @deepseek-ai/dsh@0.2.0-rc.2 plugin --profile web add file:<path to .tgz>`, then `npx @deepseek-ai/dsh@0.2.0-rc.2 web`.
+Installation registers the `dsh.bundle` layer in [`cordis.patch.yml`](cordis.patch.yml); `dsh web` mounts the bridge automatically.
 
-Both register the package's `dsh.bundle` layer ([`cordis.patch.yml`](cordis.patch.yml)), so `dsh web` mounts the bridge without further options. A checkout produces the same `.tgz` with `pnpm run package` at the repository root.
+### Bridge authentication
 
-The workspace pins dsh 0.2.0-rc.2, the minimum supported runtime. Older DSH releases are not supported.
-
-The extension is installed separately from the release zip (see the [root README](../../README.md#installation)). Local Chrome connections are discovered automatically and require no token entry. Firefox and non-loopback connections require the bearer token.
-
-## Security model
-
-- The bridge route lives **outside** the `/api` trust fence (which only guards client-connection's routes), so it carries its own bearer-token authentication: the first frame must be `hello` with the token within 5s, verified in constant time. Failed auth closes the socket.
-- Gateway methods the `/api` carrier pins to loopback (`settings.*`, `credentials.*`, `host.pickDirectory`, `host.openPath`) are refused for non-loopback remotes **even with a valid token** — defense in depth for `--host 0.0.0.0` deployments.
-- One active connection at a time; a new authenticated socket replaces the previous one.
-- The bridge is a confused-deputy boundary, not a general auth layer: never expose `dsh web --host 0.0.0.0` on untrusted networks.
-- Extracted page text is marked as untrusted model input. Page reads honor the extension's ask/auto/off policy, while state-changing tools require an origin-scoped side-panel decision and fail closed without a panel. Same-origin repetition can be trusted for the current panel session; permanent trust remains an explicit setting.
+- The first WebSocket frame must be `hello` within 5 seconds. Token comparison is constant-time; failed authentication closes the connection.
+- Loopback Chrome extension origins may connect without a token; Firefox and non-loopback connections require one.
+- `settings.*`, `credentials.*`, `host.pickDirectory` and `host.openPath` reject non-loopback connections even with a valid token.
+- A new authenticated connection replaces the previous connection.
+- Tokens have no expiry; rotate them through `~/.dsh/ext-bridge-token` or the `token` configuration.
+- Deploy the bridge only on trusted networks.
 
 ## Wire protocol
 
@@ -56,34 +50,17 @@ Frames are JSON objects discriminated by `t`, defined in [`protocol.ts`](src/pro
 
 Each `respond` carries a globally unique transport id as well as the host interaction's `rpcId`. The extension routes its receipt only to the panel that initiated it and rejects pending responses on timeout, panel closure, or bridge disconnection.
 
-## Tools
+## Calls and validation
 
-| Tool | Purpose |
+- Tool dispatch: `ctx.tools` → bridge protocol → extension action handler.
+- Snapshot budgets are negotiated through `hello.ok`; snapshots are ordinary tool results and are not cached server-side.
+- Actions wait for page execution and settle detection.
+- Extension end-to-end tests require usable Chromium and a built extension; otherwise they skip.
+
+| Error | Meaning |
 |---|---|
-| `browser_snapshot` / `browser_find` / `browser_get_text` | Structured text snapshot (`delta: true` returns only changes); search by text/role/selector; page or region as Markdown. |
-| `browser_screenshot` | Annotated viewport PNG delivered as an image block (model route must accept image input). |
-| `browser_click` / `browser_type` / `browser_form_input` / `browser_press` / `browser_hover` / `browser_drag` / `browser_upload` | Operate inventory items by stable index or viewport coordinates; upload reads files from the session working directory only. |
-| `browser_scroll` / `browser_navigate` / `browser_open_tab` / `browser_back` / `browser_forward` / `browser_reload` | Page movement. |
-| `browser_list_tabs` / `browser_follow_tab` / `browser_close_tab` | Tab management. |
-| `browser_wait` / `browser_wait_for` / `browser_batch` / `browser_handle_dialog` | Settle detection, conditional waits, up to 25 steps per round trip, dialog answers. |
-| `browser_console` / `browser_network` / `browser_evaluate` | Console/network capture and JavaScript evaluation; the extension refuses them unless the user enabled unrestricted browser control. |
-
-## Model Experience
-
-- **Token effect**: one `browser_snapshot` (default budget 200k chars, 400 items; typical pages are far smaller) costs roughly 8–10k tokens for a typical English page; the exact count depends on language and tokenizer, and delta snapshots cost a fraction of that. The system-prompt section tells the model to snapshot on demand rather than hoard page text.
-- **KV-cache effect**: none beyond ordinary tool results; snapshots are not cached server-side.
-- **Latency**: each action awaits the extension's real-page execution plus settle detection (typically 0.2–2s; navigation up to 5s).
-- **Failure modes**: `bridge-closed` (extension not connected), `timeout`, `no-active-tab`, `content-unavailable` (page needs a refresh), `action-failed` (stale inventory index — the model should re-snapshot).
-
-## Extension points
-
-- Tool dispatch: `ctx.tools` registration → bridge protocol (`protocol.ts`) → extension action handler.
-- Negotiated caps (`hello.ok`) let the plugin dictate snapshot budgets to the extension without a shared config file.
-
-## Runtime boundaries
-
-- One active extension connection (a second window replaces the first).
-- Accessible cross-origin iframes are snapshotted and operated with stable `(frame, index)` addresses. Restricted or short-lived frames are reported as unavailable without failing the whole page snapshot.
-- Token rotation is manual (edit `~/.dsh/ext-bridge-token` or set `token` in config); no expiry.
-- The Playwright-driven extension e2e self-skips without a usable Chromium executable or a built extension bundle.
-- The extension service worker enforces tool approval.
+| `bridge-closed` | Extension disconnected |
+| `timeout` | Call timed out |
+| `no-active-tab` | No operable tab |
+| `content-unavailable` | Page content script unavailable |
+| `action-failed` | Action failed; take a new snapshot for stale element indices |

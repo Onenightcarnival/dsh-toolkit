@@ -311,8 +311,7 @@ function mountBridge(
     return () => { for (const dispose of disposers.values()) dispose() }
   }, 'bridge-browser: browser tools')
 
-  // Optional system-prompt contribution: a one-line hint only — the model is
-  // told to fetch snapshots on demand instead of hoarding page text.
+  // Optional system-prompt section describing snapshot and tool usage.
   const systemPrompt = ctx.get('systemPrompt')
   if (systemPrompt !== undefined) {
     ctx.effect(() => systemPrompt.section({

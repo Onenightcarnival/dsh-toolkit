@@ -73,21 +73,14 @@ const CODEX_DEFAULT_MAX_TOKENS = 128_000
 export const CODEX_PREEMPT_MS = 5 * 60_000
 
 /**
- * Body fields the backend uses to name a reset. A window-exhaustion rejection
- * carries `usage_limit_reached` with the seconds left on the window — the case
- * that used to classify as a terminal quota and never be retried at all.
+ * Body fields containing the reset interval or instant for a rejected request.
  */
 const CODEX_RESET_FIELDS = ['resets_in_seconds', 'reset_after_seconds', 'resets_at', 'reset_at'] as const
 
 /**
- * Reads the reset instant of the Codex window that rejected a request.
- *
- * Body only. The `x-codex-{primary,secondary}-reset-after-seconds` headers are
- * rollover snapshots the backend attaches to every response, one per window,
- * so they say nothing about which window refused: a burst 429 that would clear
- * in seconds still carries a primary rollover hours out, and reading it would
- * park the turn for those hours. They reach the operator through
- * `rateLimitDiagnostics` instead.
+ * Read the rejecting Codex window's reset instant from the response body.
+ * Primary/secondary rollover headers identify no rejecting window and are
+ * used only by rateLimitDiagnostics.
  */
 export const codexRateLimitReset: RateLimitResetReader = (_response, body, now) =>
   resetFromFields(jsonBody(body), CODEX_RESET_FIELDS, now)
@@ -346,13 +339,9 @@ function codexUsageWindow(value: unknown, fallbackKind: UsageWindow['kind']): Us
 }
 
 /**
- * Fetch the codex subscription usage from the ChatGPT backend wham/usage
- * endpoint (the source of the codex CLI `/status` rate-limit lines). The
- * windows are classified by their reported duration (`limit_window_seconds`)
- * rather than by slot, since the backend has been observed to report the
- * weekly lane as `primary_window` without a secondary window; slot order is
- * kept only as a fallback when the duration is absent. The lookup itself
- * consumes no rate-limit budget.
+ * Fetch subscription usage from the ChatGPT wham/usage endpoint.
+ * Classifies windows by limit_window_seconds; slot order is the fallback when
+ * duration is absent. The request consumes no model rate-limit budget.
  * @param session - the stored session (used as-is; never refreshed here).
  * @param fetchFn - fetch implementation (injectable for tests).
  * @param signal - caller cancellation from the RPC transport.

@@ -28,7 +28,9 @@ Callbacks try local ports 1455 and 1457. If both are unavailable, manual mode ac
 
 Model selections and tool switches update immediately and save in order. Save status appears in the header; a failed save restores the saved preferences and offers Retry.
 
-Context accepts `256K`, `1M`, `1.5M` or a positive integer in decimal units. Enter or Save submits; blank or Reset to default restores the catalog value. Settings are shared across accounts of the same provider and cannot exceed advertised limits.
+- Context accepts `256K`, `1M`, `1.5M` or a positive integer in decimal units.
+- Enter or Save submits; blank or Reset to default restores the catalog value.
+- Settings are shared across accounts of the same provider and cannot exceed advertised limits.
 
 Codex Web Search is independent of DSH's web search provider setting. Images live under `plugins/subscriptions/images/` in the DSH home; the attachment service provides inline preview, download and continued editing.
 
@@ -41,7 +43,11 @@ Codex Web Search is independent of DSH's web search provider setting. Images liv
 | `codex_web_search` | Native `web.run` commands; compatibility shorthand `query` | Page text, line/link/reference IDs, complete sources and structured results |
 | `codex_image_generate` | `prompt`; optional `transparent_background`, `referenced_image_paths`, `num_last_images_to_include` | Local paths and image attachments |
 
-Antigravity search uses Gemini 3 Flash with Google Search grounding and requires source citations. The image tool uses Gemini 3.1 Flash Image; omitted reasoning effort inherits the model setting. Image references use DSH attachments; read workspace images with `read_image` first. Tool requests refresh once on 401 and permit endpoint fallback on 403/404. Network errors, rate limits and server failures do not automatically resend image requests.
+- Antigravity search uses Gemini 3 Flash with Google Search grounding and requires source citations.
+- The image tool uses Gemini 3.1 Flash Image; omitted reasoning effort inherits the model setting.
+- Image references use DSH attachments; read workspace images with `read_image` first.
+- Tool requests refresh once on 401 and permit endpoint fallback on 403/404.
+- Network errors, rate limits and server failures do not automatically resend image requests.
 
 Tool lists use the settings at conversation creation. Disabling search also blocks calls in existing conversations immediately. Persisted switches use the capability keys `web_search` and `image_generate`.
 
@@ -57,7 +63,13 @@ Tool lists use the settings at conversation creation. Disabling search also bloc
 | `finance`, `weather`, `sports`, `time` | Native ticker, location, league and UTC-offset fields |
 | `response_length` | `short`, `medium`, `long` |
 
-Commands accept arrays and can share one call. `search_query` accepts at most four queries; four require `medium` or `long`. `query` is a compatibility shorthand for one search and cannot accompany other commands. Reference IDs belong to one conversation and remain available to subsequent page operations. Sources have no eight-item cap. Structured `results` preserve upstream fields; encrypted transport state is excluded. External content is untrusted; citations use source URLs.
+- Commands accept arrays and can share one call.
+- `search_query` accepts at most four queries; four require `medium` or `long`.
+- `query` is a compatibility shorthand for one search and cannot accompany other commands.
+- Reference IDs belong to one conversation and remain available to subsequent page operations.
+- Sources have no eight-item cap.
+- Structured `results` preserve upstream fields; encrypted transport state is excluded.
+- External content is untrusted; citations use source URLs.
 
 PDF screenshot requests reach the subscription endpoint. Image bytes and native desktop media widgets are not guaranteed by that endpoint; a page reference alone is not a screenshot image. Model and account availability remain provider-controlled.
 
@@ -72,7 +84,11 @@ PDF screenshot requests reach the subscription endpoint. Image bytes and native 
 | Conversation references | `num_last_images_to_include`: 1–5 most recent distinct images on the current conversation surface, in chronological order |
 | Compatibility fields | `referenceImages`, `size`, `quality`; existing values remain accepted |
 
-Reference modes are mutually exclusive. Missing, denied or invalid edit references fail before the image request. Recent references require the session query and attachment services. Generated files retain the provider's bytes; inline attachments follow the host's image limits and model capabilities. Automatic dimensions do not establish a fixed 4K output guarantee.
+- Reference modes are mutually exclusive.
+- Missing, denied or invalid edit references fail before the image request.
+- Recent references require the session query and attachment services.
+- Generated files retain the provider's bytes; inline attachments follow the host's image limits and model capabilities.
+- Automatic dimensions do not establish a fixed 4K output guarantee.
 
 Native contracts: [Codex search commands](https://github.com/openai/codex/blob/main/codex-rs/codex-api/src/search.rs), [Codex image tool](https://github.com/openai/codex/blob/main/codex-rs/ext/image-generation/src/tool.rs).
 
@@ -88,7 +104,9 @@ Select **Antigravity · Google** in the sidebar, then **Connect Google Antigravi
 | Image models | Gemini 3.1 Flash Image returns DSH image attachments for preview and continued editing; supports Minimal / High thinking (provider default: Minimal); requires the attachment service |
 | Tools | Conversation models use DSH tools; image models produce text and images without function calls. Independent `antigravity_web_search` and `antigravity_image_generate` tools use the default Google account, with switches in the Antigravity Tools tab |
 
-Model catalogs merge results from the default and fallback Google endpoints. Requests preserve the Antigravity client identity; an endpoint-specific 403 permits fallback. Available quota windows remain visible when model catalog or plan lookups fail.
+- Model catalogs merge results from the default and fallback Google endpoints.
+- Requests preserve the Antigravity client identity; an endpoint-specific 403 permits fallback.
+- Available quota windows remain visible when model catalog or plan lookups fail.
 
 Disable the legacy plugin before enabling this integration: both register the `antigravity` provider.
 
@@ -101,7 +119,11 @@ OAuth client configuration, in precedence order:
 
 Resolved OAuth client configuration is stored locally for subsequent token refreshes. The pinned runtime dependency provides client constants.
 
-Project selection uses `antigravity.projectId`, then account discovery. Missing discovery endpoints (404) or absent project fields use an account-specific compatibility identifier. This identifier does not create a Google Cloud project or grant access. Configure `antigravity.projectId` if the service requires a provisioned project. Authentication, permission and quota errors remain failures.
+- Project selection uses `antigravity.projectId`, then account discovery.
+- Missing discovery endpoints (404) or absent project fields use an account-specific compatibility identifier.
+- This identifier does not create a Google Cloud project or grant access.
+- Configure `antigravity.projectId` if the service requires a provisioned project.
+- Authentication, permission and quota errors remain failures.
 
 Access depends on account entitlements and quota. Offline tests do not establish live account access.
 

@@ -69,11 +69,8 @@ function catalogPriority(model: LlmModelInfo): number {
 }
 
 /**
- * Merge per-account catalogs, keeping the first occurrence of each model id.
- * Rows that carry a numeric `priority` (Codex discovery) are then ordered by
- * it so a model only the second account lists — e.g. `gpt-5.6-sol` — still
- * sits with its generation instead of being appended after the default
- * account's older ids.
+ * Merge account catalogs, keeping the first occurrence of each model id.
+ * Numeric priority determines row order; unranked models follow ranked ones.
  */
 export async function unionAccountCatalogs(
   accounts: readonly string[],

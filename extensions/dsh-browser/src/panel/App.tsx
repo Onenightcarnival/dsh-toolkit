@@ -830,9 +830,7 @@ export function App(): React.JSX.Element {
     })
   }, [])
 
-  // 每次连接重启（连接配置变更/断线重连）都新建会话。状态消息逐条监听：
-  // React 会把 stopped/connecting 等瞬时状态合并进同一帧渲染，依赖渲染
-  // 状态无法可靠观察到"连接已重置"，因此在这里按消息粒度判定。
+  // 按消息监听连接状态；stopped/connecting 瞬时状态也参与会话恢复判定。
   const [sessionEpoch, setSessionEpoch] = useState(0)
   const lastStateRef = useRef<BridgeState | null>(null)
   useEffect(() => {
@@ -1495,7 +1493,7 @@ export function App(): React.JSX.Element {
     setBusy(true)
     setWorking(true)
     setError(null)
-    // 不渲染乐观行：live user/message 事件即时回显，避免同一消息出现两行。
+    // 用户消息由 live user/message 事件回显。
     try {
       const clientTimeZone = browserTimeZone()
       await api.rpc('session.prompt', {

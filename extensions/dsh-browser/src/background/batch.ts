@@ -10,11 +10,9 @@ export const MAX_BATCH_STEPS = 25
 const BATCH_TOOLS_DISALLOWED = new Set(['browser_batch', 'browser_screenshot'])
 
 /**
- * Run several tool steps in one round trip. Each step goes through exactly
- * the dispatch (and approval) path it would take on its own; the batch stops
- * at the first failure and reports every step's outcome so the model knows
- * how far it got. Screenshots are excluded (their image result cannot be
- * merged into text); take one after the batch instead.
+ * Execute a batch through each tool's dispatch and approval path.
+ * Stops at the first failure and reports completed step results.
+ * Screenshots require a separate call and are excluded from batches.
  */
 export async function runBatch(
   call: ToolCall,

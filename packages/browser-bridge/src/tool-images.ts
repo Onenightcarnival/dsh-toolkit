@@ -85,9 +85,8 @@ export async function resolveImageAdmission(ctx: Context, exec: Pick<ToolRunCont
 }
 
 /**
- * Build the model-facing content for a text + image tool result. When the
- * image cannot be admitted or stored, the reason is appended as text so the
- * model knows a picture existed and why it is missing.
+ * Build content blocks for a text and image tool result.
+ * Image admission or storage failures append a diagnostic to the text.
  * @param ctx - plugin context.
  * @param exec - tool execution.
  * @param text - the tool's text result, always delivered.

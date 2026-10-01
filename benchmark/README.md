@@ -25,7 +25,7 @@ node benchmark/run.mjs --dry-run --smoke
 pnpm --dir benchmark probe
 ```
 
-真实 smoke 会调用当前 DSH profile 配置的模型，因此会消耗模型额度：
+真实 smoke 调用当前 DSH profile 配置的模型并消耗模型额度：
 
 ```bash
 node benchmark/run.mjs --smoke
@@ -95,15 +95,20 @@ node benchmark/report.mjs benchmark/results/<file>.jsonl
 - `timings.stateReachedMs`：写操作首次在独立网页状态 API 中达到目标的时间，50ms 轮询精度。
 - `timings.ttftMs`：从主计时起点到第一个非空模型 stream delta。
 - `timings.toolWallMs`：runner 从 `tool/call` 到匹配 `tool/result` 观察到的工具耗时之和。
-- `tokens`：该 turn 中所有 assistant step 报告的 token 总和。报告将新输入、缓存读取、缓存写入和输出分列；总览中的 `prompt token` 是前三项之和，不再笼统称为“输入 token”。
+- `tokens`：该 turn 中所有 assistant step 报告的 token 总和。报告将新输入、缓存读取、缓存写入和输出分列；总览中的 `prompt token` 是前三项之和。
 
-报告只对成功运行计算常规延迟，并始终并列展示成功率。少于 10 个成功样本时不展示 P90，避免小样本的虚假精度。配对表会分别列出双方成功、仅一方成功和双方失败，并另提供失败惩罚指标：失败样本按 `2 × timeout` 计时，避免一个后端通过快速失败得到看似更低的耗时。
+| 统计项 | 规则 |
+|---|---|
+| 常规延迟 | 仅计算成功运行，并列展示成功率 |
+| P90 | 至少 10 个成功样本时展示 |
+| 配对结果 | 分列双方成功、仅一方成功和双方失败 |
+| 失败惩罚 | 失败样本按 `2 × timeout` 计时 |
 
 ## 解释边界
 
 评测范围为完整浏览器后端：页面表示、元素索引、动作执行与模型调用。模型可见工具契约一致，后端实现各自独立。速度比反映端到端耗时，不能单独归因于传输。
 
-模型服务端延迟也无法由本地 runner 隔离。正式结论必须同时看成功率、配对结果、失败惩罚比、运行顺序敏感性和置信区间，而不是只比较一次 P50。
+模型服务端延迟也无法由本地 runner 隔离。结论须同时包含成功率、配对结果、失败惩罚比、运行顺序敏感性和置信区间。
 
 ## 正式评测流程
 

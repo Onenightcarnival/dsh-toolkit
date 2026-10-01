@@ -51,25 +51,7 @@ dsh web
 
 ### Module configuration
 
-The web profile uses plugin ID `toolkit`. Configuration resides in `~/.dsh/profiles/web/cordis.patch.yml`.
-
-| Module value | Host and UI behavior |
-|---|---|
-| Omitted or `{}` | Enabled with default configuration |
-| Configuration object | Enabled with the standalone plugin's configuration |
-| `false` | Disabled |
-
-An override replaces the entire `config` object; retained custom values must be included. This configuration disables observability, sets browser discovery to port `43189`, and uses defaults for the remaining modules:
-
-```yaml
-- id: toolkit
-  config:
-    otel: false
-    browser:
-      discoveryPort: 43189
-```
-
-The keys take the standalone packages' config: `rdb` and `s3` per their READMEs, `browser` per the [bridge configuration](packages/browser-bridge/README.md#config), `configCenter` per the [configuration center](packages/config-center/README.md#config).
+Module keys, defaults and override examples: [integrated package configuration](packages/toolkit/README.md#module-configuration).
 
 ### Migrating from the standalone packages
 

@@ -113,10 +113,9 @@ export function imageRequestTarget(
 }
 
 /**
- * Resolve every ImageBlock's attachment reference to inline base64 bytes.
- * Messages without images pass through unchanged. A request carrying an image
- * with no attachment service available fails loudly rather than silently
- * dropping the image.
+ * Resolve image attachment references to inline base64 bytes.
+ * Messages without images pass through unchanged; image requests require an
+ * attachment service and fail when it is unavailable.
  * @param messages - the request's conversation messages.
  * @param attachments - the deployment's attachment service, when mounted.
  * @param signal - cancellation for the storage reads.

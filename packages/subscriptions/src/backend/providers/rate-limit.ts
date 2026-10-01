@@ -182,12 +182,8 @@ export function jsonBody(body: string): unknown {
 const MAX_BODY_DEPTH = 4
 
 /**
- * Find a reset instant under any of the named keys, anywhere in a parsed body.
- *
- * The search is by key rather than by path on purpose: providers move the same
- * field between containers (`detail`, `error`, top level) across endpoints and
- * versions, and a path-shaped reader silently stops working when they do. Only
- * the key list is provider-specific.
+ * Find reset instants by provider-specific field names at any body depth
+ * within the recursion limit. Returns the earliest matching instant.
  * @param value - the parsed body, or any nested value.
  * @param keys - field names this provider uses for a reset or delay.
  * @param now - the current epoch milliseconds.
@@ -233,12 +229,8 @@ export function earliestReset(...candidates: (number | undefined)[]): number | u
 }
 
 /**
- * Turn a reset instant into the wait to report as `providerRetryAfterMs`.
- *
- * Deliberately not capped: a reset beyond the policy's `maxDelayMs` makes the
- * retry plugin delegate immediately, failing the turn at once with the real
- * reset in the message, rather than clamping the wait down and burning the
- * retry budget against a window that is still closed.
+ * Convert a reset instant to providerRetryAfterMs without an upper cap.
+ * A wait above the retry policy maxDelayMs delegates immediately.
  * @param instant - epoch milliseconds the window reopens.
  * @param now - the current epoch milliseconds.
  * @returns the wait in milliseconds, never below {@link MIN_WAIT_MS}.
@@ -251,14 +243,9 @@ export function waitFromReset(instant: number, now: number): number {
 const DIAGNOSTIC_HEADER = /rate-?limit|retry|reset|^x-codex-/i
 
 /**
- * Render the rate-limit-shaped headers and the head of the body of a 429 whose
- * reset instant nothing parsed. Emitted through the adapter's `onWarn`, this is
- * how an unrecognized provider field gets named from live traffic instead of
- * being guessed at.
- *
- * It is also where the per-bucket rollover snapshots land by design — no reader
- * parks a turn on one, because on a 429 they cannot say which bucket refused —
- * so the operator still sees what the provider disclosed.
+ * Render rate-limit headers and the start of a 429 response body as one line.
+ * The adapter emits this diagnostic through onWarn when no reset is parsed.
+ * Per-bucket rollover snapshots are diagnostic data, not wait deadlines.
  * @param response - the failed response.
  * @param body - the complete response body.
  * @returns a one-line diagnostic.
@@ -337,15 +324,9 @@ export function resolveRateLimitWait(config: RateLimitConfig | undefined, path: 
 }
 
 /**
- * Resolve one route's retry policy, widening the delay ceiling to the
- * configured wait so a disclosed reset hours out is accepted rather than
- * refused.
- *
- * The ceiling is shared with local exponential backoff, so widening it also
- * raises how long an unrelated transient failure may back off for. That stays
- * bounded by the finite retry budget — the route's ten retries reach
- * 512 s per attempt at most — and it only governs when the provider disclosed
- * nothing, which is exactly the case where a longer wait is the safer guess.
+ * Resolve retry policy with a delay ceiling covering the configured reset wait.
+ * The same ceiling applies to exponential backoff; the retry count remains
+ * bounded by the route policy.
  * @param defaults - the route's retry shape.
  * @param rateLimit - resolved waiting behavior.
  * @param path - diagnostic path naming the provider route.

@@ -230,14 +230,9 @@ export class SubscriptionsAuthController implements AuthController {
   /** Last login failure per provider, surfaced as `detail` until the next success. */
   private lastError = new Map<ProviderId, string>()
   /**
-   * Logins per provider whose attempt has left its flow manager (the code
-   * arrived) but whose token exchange + persist
-   * is still running. In that window the flow manager says busy=false while
-   * no session exists yet (loggedIn=false); the Settings page polls only
-   * while busy, so without counting it the card would stop at "not logged
-   * in" one tick before the session lands and never refresh on its own. A
-   * count rather than a set: a superseded attempt finishing late must not
-   * clear the window of the attempt that replaced it.
+   * Per-provider count of OAuth attempts completing token exchange and storage.
+   * Counts remain busy after flow-manager completion and support overlapping
+   * attempts without a late completion clearing a newer attempt.
    */
   private finalizing = new Map<ProviderId, number>()
 
@@ -393,11 +388,8 @@ export class SubscriptionsAuthController implements AuthController {
   }
 
   /**
-   * Settle once no OAuth completion is running for a provider.
-   *
-   * @internal Exported for tests only: a login's token exchange outlives the
-   * `login()` call that started it, and a test asserting on what it stored
-   * would otherwise have to guess at a timeout.
+   * Wait until no OAuth completion remains for a provider.
+   * @internal Test synchronization for token exchange and persistence.
    */
   async settled(provider: ProviderId): Promise<void> {
     await this.completions.get(provider)
@@ -439,10 +431,9 @@ export class SubscriptionsAuthController implements AuthController {
 const STATUS_VERSION_WAIT_MS = 1000
 
 /**
- * Read the CLI version a route presents for the Settings page. The first
- * lookup is awaited (bounded by its own 5s deadline) so a slow registry is
- * not misreported as a fallback; a later refresh is waited on only briefly,
- * because the whole page waits on `status`, and the last result shows.
+ * Read the CLI version presented by the route. The first lookup awaits its
+ * 5-second deadline; subsequent refreshes wait up to waitMs and return the
+ * latest cached result.
  */
 export function presentedVersion(
   cache: Pick<NpmCliVersionCache, 'resolve' | 'current'>,

@@ -1,16 +1,8 @@
 /**
- * Pure state machine for binding browser tools to one user-visible tab.
- *
- * The controller deliberately separates Chrome event handling from the
- * affinity rules so transitions can be tested without a browser runtime.
- * A manual tab switch never silently changes the tool target: it creates a
- * handoff decision, and tool dispatch remains blocked until the user chooses.
- * `keep-always` is the one way out of that per-switch prompt: it pins the
- * controlled tab so later switches resolve straight to `background` instead of
- * asking again, and `ask-again` reverses it without disturbing the binding.
- * Pinning never widens what the tools may touch — the target is still exactly
- * the tab the user already approved — and any change of binding clears it.
- *
+ * Pure state machine binding browser tools to one approved tab.
+ * Manual switches require a handoff decision before later tools execute.
+ * keep-always pins that tab for background operation; ask-again restores
+ * switch prompts. A binding change clears the pin.
  * @module
  */
 

@@ -110,21 +110,9 @@ function hrefHeadline(href: string): string {
 }
 
 /**
- * Whether no ancestor hides the subtree by opacity.
- *
- * `opacity` does not inherit, so an element inside a faded-out subtree still
- * reports its own `opacity: 1` and keeps a non-zero rectangle. That is exactly
- * how a dismissable modal looks while it is closing or pre-rendered, so a
- * check that reads only the dialog itself would treat it as open and let its
- * invisible controls evict the ones actually on screen.
- *
- * The walk covers every `Element`, not only HTML: an HTML dialog can sit
- * inside an SVG `foreignObject`, and an SVG ancestor that fades the subtree
- * out hides it just as effectively. `display: none` and `visibility: hidden`
- * need no walk here: the first collapses the rectangle `isVisible` already
- * measures, and the second is inherited, so it is already visible in the
- * dialog's own computed style.
- *
+ * Check ancestor opacity across HTML and SVG elements, including foreignObject.
+ * A zero-opacity ancestor hides the candidate regardless of its own rectangle
+ * or computed opacity. isVisible handles display and visibility separately.
  * @param el - candidate element.
  * @returns true when no ancestor fades the subtree out.
  */
@@ -136,11 +124,8 @@ function ancestorsRendered(el: Element): boolean {
 }
 
 /**
- * Build a memoized "is this dialog open?" test.
- *
- * Openness depends only on the dialog, so the ancestor walk is evaluated once
- * per dialog rather than once per candidate element.
- *
+ * Memoize dialog openness for one snapshot pass.
+ * Ancestor visibility is evaluated once per dialog.
  * @returns a predicate over dialog elements.
  */
 function openDialogTest(): (dialog: Element) => boolean {

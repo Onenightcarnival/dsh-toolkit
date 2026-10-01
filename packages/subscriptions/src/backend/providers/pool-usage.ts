@@ -1,14 +1,6 @@
 /**
- * Quota tracking for pool members: polls the providers' usage endpoints
- * (the same normalized `ProviderUsage` shape the Settings page consumes) and
- * turns the windows into a scheduling score.
- *
- * The score is a REQUIRED BURN RATE: the fraction of the window that must be
- * consumed per millisecond for the quota to be exactly used up at reset time
- * (`remaining / timeUntilReset`). Subscription quota does not roll over, so a
- * window about to reset with plenty left is the most urgent to spend — the
- * `quota_aware` strategy therefore prefers the highest-urgency member, which
- * over time converges on every window hitting zero right at its reset.
+ * Quota tracking for pool members using normalized ProviderUsage snapshots.
+ * The quota_aware strategy ranks members by remaining quota / timeUntilReset.
  */
 
 import { isMissingOrInvalidCredential, OAuthEndpointError } from './common.js'
@@ -47,17 +39,9 @@ interface SnapshotEntry {
 }
 
 /**
- * A cached fetch failure — the negative-cache counterpart of {@link SnapshotEntry}.
- * Without this, a failing endpoint (a 429, a timeout) is retried on every
- * single `quotaFor`/`snapshotFor` call, since nothing about a rejected
- * promise ever reached `entries`. For an endpoint that rate-limits
- * progressively (each hit within the window pushes the next one further
- * out), that retry storm is a permanent lockout, not a transient blip.
- *
- * `lastSnapshot` carries forward the most recent successful fetch, when one
- * exists, so a member/display that was showing real data before this
- * failure keeps showing it (stale, but not blank) through the cooldown
- * instead of falling back to the zero-urgency/no-data degraded state.
+ * Cached fetch failure with a retry cooldown.
+ * lastSnapshot retains the latest successful fetch for display; routing uses
+ * the failure state until the cooldown expires and a new fetch succeeds.
  */
 interface FailureEntry {
   snapshot?: undefined
@@ -87,20 +71,10 @@ export class PoolUsageTracker {
   ) {}
 
   /**
-   * The quota view of one member. A cold cache awaits the first fetch; a
-   * stale one answers immediately while the refresh serves the NEXT call
-   * (member selection must never block on the network mid-conversation). A
-   * failure still cooling down degrades immediately with no network call.
-   *
-   * Deliberately does NOT fall back to `lastSnapshot` the way
-   * {@link snapshotFor} does: scoring routing decisions off data that is
-   * known to be stale-and-unrefreshable risks steering traffic by a urgency
-   * number the endpoint itself is no longer vouching for, whereas
-   * `snapshotFor`'s stale-display concern (the Settings page, the composer
-   * badge) has no such downside — showing an old percentage beats showing
-   * nothing.
-   * @param member - the pool member to score (account resolved).
-   * @returns availability plus the urgency score.
+   * Quota availability and urgency for one account. Cold caches await a fetch;
+   * stale successful entries return immediately and refresh in the background.
+   * Failures within their cooldown return degraded quota without a network call.
+   * Routing does not use lastSnapshot.
    */
   async quotaFor(member: ConcretePoolMember): Promise<MemberQuota> {
     const key = `${member.provider}/${member.account}`
@@ -125,16 +99,10 @@ export class PoolUsageTracker {
   }
 
   /**
-   * Same cache as {@link quotaFor}, for direct display (the Settings page):
-   * the raw snapshot, or the original fetch error, instead of a routing
-   * score.
-   * @param provider - the account's provider.
-   * @param account - the account key.
-   * @param force - bypass a fresh cached SNAPSHOT for an honest re-check (the
-   *   manual Refresh button). A live failure cooldown is never bypassed —
-   *   retrying through it is exactly what turns a 429 into a permanent
-   *   lockout, so even a forced call still answers from the negative cache.
-   * @returns `{ supported: false }` when the provider has no usage fetcher.
+   * Usage snapshot for display, sharing the quotaFor cache.
+   * A failed fetch returns the last successful snapshot when available, otherwise
+   * throws the stored error. force bypasses a successful snapshot TTL; active
+   * failure cooldowns still apply.
    */
   async snapshotFor(provider: ProviderId, account: string, force = false): Promise<ProviderUsage> {
     const fetcher = this.fetcherFor(provider, account)
@@ -145,10 +113,7 @@ export class PoolUsageTracker {
       if (entry.snapshot !== undefined) {
         if (!force) return entry.snapshot
       } else if (entry.lastSnapshot !== undefined) {
-        // A stale-but-real snapshot beats surfacing the cooldown error to
-        // every display surface — this is what was previously showing, so
-        // keep showing it (even through a forced refresh: retrying past the
-        // cooldown is exactly the retry storm `cooldownMs` exists to avoid).
+        // Display retains the last successful snapshot during the cooldown.
         return entry.lastSnapshot
       } else {
         throw entry.error
@@ -157,9 +122,7 @@ export class PoolUsageTracker {
     try {
       return await this.refresh(key, fetcher)
     } catch (error: unknown) {
-      // Same fallback as the already-cooling-down branch above, for the
-      // fetch that just failed on THIS call: `refresh` recorded whatever
-      // snapshot was on record before it ran onto the new failure entry.
+      // A failed refresh preserves the last successful display snapshot.
       const failed = this.entries.get(key)
       if (failed?.snapshot === undefined && failed?.lastSnapshot !== undefined) return failed.lastSnapshot
       throw error
@@ -178,12 +141,9 @@ export class PoolUsageTracker {
   }
 
   /**
-   * Run (or join) the single in-flight fetch for one account key, caching
-   * either outcome. A missing/invalid credential is deliberately NOT
-   * negative-cached: it costs no network round trip (the session lookup
-   * fails before the request goes out) and re-checking live means the
-   * member rejoins routing the instant its login is fixed, rather than
-   * waiting out a stale cooldown.
+   * Run or join the in-flight usage fetch for an account and cache its outcome.
+   * Missing or invalid credentials bypass the failure cache and are checked on
+   * the next call.
    */
   private refresh(key: string, fetcher: () => Promise<ProviderUsage>): Promise<ProviderUsage> {
     let pending = this.inflight.get(key)

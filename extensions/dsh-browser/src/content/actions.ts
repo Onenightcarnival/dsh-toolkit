@@ -1,12 +1,6 @@
 /**
- * Page actions: click/type/press/scroll/navigate/get_text/wait, executed in
- * the content script against the real page (preserving login state), each
- * returning a short text status. Navigations return a fresh full snapshot
- * because the document — and the id registry — reset.
- *
- * All browser action results use structured text, so a
- * status line tells the model what happened and what state remains.
- *
+ * Content-script page actions return structured text status.
+ * Navigation resets the document and element registry and returns a full snapshot.
  * @module
  */
 
@@ -367,14 +361,9 @@ async function clickAction(args: Record<string, unknown>, ctx: ActionContext): P
 }
 
 /**
- * The nearest editable host, or null when a `contenteditable="false"` island
- * blocks editing.
- *
- * The walk must stop at the nearest `[contenteditable]` boundary instead of
- * skipping disabled ones: an element inside a non-editable island nested in an
- * editable composer belongs to the island, and resolving past it would type
- * into the surrounding composer rather than refusing the target.
- *
+ * Resolve the nearest contenteditable boundary.
+ * A contenteditable="false" boundary blocks editing, including non-editable
+ * islands nested inside an editable composer.
  * @param el - element addressed by the action.
  * @returns the owning editable host, or null when editing is blocked.
  */

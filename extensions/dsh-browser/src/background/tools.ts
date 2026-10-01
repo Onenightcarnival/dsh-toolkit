@@ -1125,10 +1125,8 @@ export async function dispatchToolCall(
     return await dispatchTabNativeTool(tab.id, tab.url, tab.title, tab.windowId, call, effectiveBudget, signal, targetStillAllowed, tabManagement.commitAction)
       ?? unavailable('The current page DOM is protected by the browser.')
   }
-  // Dialog interception and console/network capture live in the page's
-  // main world; install them before the first action so a confirm() raised
-  // by that action is answered instead of freezing the tab. Pure reads leave
-  // the page untouched.
+  // Main-world dialog and console/network hooks precede the first action.
+  // Pure reads leave the page unmodified.
   if (!HOOK_FREE_TOOLS.has(call.name)) {
     const mainFrame = executionFrames.find((frame) => frame.frameId === 0)
     try {

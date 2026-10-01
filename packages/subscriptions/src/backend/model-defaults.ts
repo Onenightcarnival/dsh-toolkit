@@ -39,19 +39,14 @@ let ready: Promise<void> | undefined
 /** Last load failure, surfaced to callers that care; defaults stay empty. */
 let loadError: unknown
 /**
- * Serialises every write: the read-modify-write sequence must not interleave,
- * or a fast second save would compute its snapshot from the stale `current`
- * and silently drop the first update (the UI disables only the row being
- * saved, so overlaps are reachable).
+ * Serializes read-modify-write operations against the current settings snapshot.
  */
 let writeChain: Promise<void> = Promise.resolve()
 
 /**
- * Validate one persisted provider section: a string→string map, or undefined.
- * Malformed *entries* are skipped, not the whole section: one bad value (a
- * hand edit losing its quotes) must not silently un-configure every model in
- * that provider. What was dropped is reported so the caller can surface it
- * instead of the loss disappearing.
+ * Validate a provider section as a string-to-string map.
+ * Invalid entries are skipped and their model ids are appended to dropped.
+ * An invalid or empty section returns undefined.
  */
 function sanitizeProvider(value: unknown, dropped: string[]): ModelDefaultMap | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
@@ -132,11 +127,9 @@ async function atomicPersist(defaults: ModelDefaults, path: string): Promise<voi
 let persistDefaults: (defaults: ModelDefaults, path: string) => Promise<void> = atomicPersist
 
 /**
- * Clone one provider section, or undefined when nothing is configured for it.
- * The clone is prototype-less: model ids are provider-supplied catalog data
- * used as object keys, and consumers index the section directly (the RPC
- * catalog in index.ts does), so an id like `toString` would otherwise yield an
- * inherited *function* where a string is declared.
+ * Clone a provider section into a prototype-less object.
+ * Provider-supplied model ids are own keys, including names such as toString.
+ * Returns undefined when the provider has no configuration.
  */
 function sectionOf(defaults: ModelDefaults, provider: ProviderId): ModelDefaultMap | undefined {
   const section = defaults[provider]

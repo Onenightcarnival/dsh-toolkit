@@ -1,4 +1,4 @@
 # Bilingual documentation pair: Git blob hashes of the synchronized files.
 # Both languages carry equal authority.
-README.md: 16e8813c2b82ba5fb032ec6bc93b6cdb75002537
-README.zh.md: fddd2fefb22013b538b150c02e8e3ad07022b550
+README.md: ddd557e61fb93af268342d2461bdd285c0d35d3b
+README.zh.md: e9a89ebcad82623a3043ed3a97e0f1381d50b8c3

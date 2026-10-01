@@ -41,9 +41,9 @@ export function originMatchesTrusted(origin: string, trusted: Iterable<string>):
 }
 
 /**
- * Skip an action prompt only when its full destination boundary is known.
- * Cross-origin browser_navigate names both origins; history and invalid URLs
- * deliberately remain untrusted because their destination is not represented.
+ * Skip action approval only for a fully known trusted destination boundary.
+ * Cross-origin browser_navigate includes both origins; history and invalid
+ * URLs remain untrusted.
  */
 export function actionCoveredByTrustedOrigins(
   prompt: ApprovalPrompt,

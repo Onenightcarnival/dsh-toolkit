@@ -235,10 +235,9 @@ export function viewportRect(el: Element): { x: number; y: number; width: number
 }
 
 /**
- * Best-effort main-content extraction (readability-lite): prefer a main
- * landmark, then a single standalone article, else the largest block
- * containing at least two paragraphs. Multiple articles commonly represent
- * cards or feed entries, so selecting only the first would hide page content.
+ * Extract main text from a main landmark, a single standalone article, or
+ * the largest block containing at least two paragraphs, in that order.
+ * Multiple articles are evaluated within their containing region.
  * @param doc - the document.
  * @returns the cleaned main text (unbounded; callers apply budgets).
  */
