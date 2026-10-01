@@ -65,6 +65,8 @@ export class ManagedEnvironment {
       UV_PYTHON_PREFERENCE: 'only-managed',
       UV_PYTHON_DOWNLOADS: 'automatic',
       UV_NO_CONFIG: '1',
+      PYTHONUTF8: '1',
+      PYTHONIOENCODING: 'utf-8',
       UV_SYSTEM_CERTS: '1',
     }
   }

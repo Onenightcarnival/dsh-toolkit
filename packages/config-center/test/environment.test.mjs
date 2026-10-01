@@ -32,6 +32,8 @@ test('persisted managed invocation survives a new manager without changing PATH'
     assert.ok(prepared.command.includes(UV_VERSION))
     assert.equal(prepared.env.UV_PYTHON_PREFERENCE, 'only-managed')
     assert.equal(prepared.env.API_KEY, 'explicit-value')
+    assert.equal(prepared.env.PYTHONUTF8, '1')
+    assert.equal(prepared.env.PYTHONIOENCODING, 'utf-8')
     for (const key of ['UV_CACHE_DIR', 'UV_PYTHON_INSTALL_DIR', 'UV_TOOL_DIR', 'UV_TOOL_BIN_DIR']) assert.ok(prepared.env[key].startsWith(manager.root))
     const document = parsePatch('[]')
     upsertMcp(document, prepared)

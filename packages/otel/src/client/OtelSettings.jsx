@@ -5,6 +5,7 @@
  * one-click test that sends a real trace through the configured pipeline.
  */
 import * as React from "react";
+import { t, useLocale } from "./locales.js";
 
 const { useCallback, useEffect, useState } = React;
 
@@ -60,6 +61,7 @@ function advancedPayload(form) {
 }
 
 export function OtelSettings({ api }) {
+  useLocale();
   const [status, setStatus] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export function OtelSettings({ api }) {
       setForm(statusToForm(value));
       setNotice(null);
     } catch (error) {
-      setNotice({ kind: "error", text: String(error?.message ?? error) });
+      setNotice({ kind: "error", text: t("操作失败"), detail: String(error?.message ?? error) });
     } finally {
       setLoading(false);
     }
@@ -106,15 +108,16 @@ export function OtelSettings({ api }) {
       setStatus(value);
       setForm(statusToForm(value));
       setNotice({
-        kind: "ok",
+        kind: value.enabled && !value.running ? "error" : "ok",
         text: value.running
           ? "已保存，上报已启动"
           : value.enabled
-            ? `已保存，但采集器未能启动${value.lastError ? `：${value.lastError}` : ""}`
-            : "已保存，上报当前为停用状态"
+            ? "已保存，但采集器未能启动"
+            : "已保存，上报当前为停用状态",
+        detail: value.lastError
       });
     } catch (error) {
-      setNotice({ kind: "error", text: String(error?.message ?? error) });
+      setNotice({ kind: "error", text: t("操作失败"), detail: String(error?.message ?? error) });
     } finally {
       setSaving(false);
     }
@@ -130,9 +133,9 @@ export function OtelSettings({ api }) {
         gzip: form.gzip,
         ...secretPayload()
       });
-      setNotice({ kind: "ok", text: value.message });
+      setNotice({ kind: "ok", text: t("测试通过"), detail: value.message });
     } catch (error) {
-      setNotice({ kind: "error", text: String(error?.message ?? error) });
+      setNotice({ kind: "error", text: t("操作失败"), detail: String(error?.message ?? error) });
     } finally {
       setTesting(false);
     }
@@ -143,49 +146,49 @@ export function OtelSettings({ api }) {
     setNotice(null);
     try {
       const value = await api.verifyRecent();
-      setNotice({ kind: value.allFound ? "ok" : "error", text: value.message });
+      setNotice({ kind: value.allFound ? "ok" : "error", text: t(value.allFound ? "已查到最近的上报记录" : "部分上报记录尚未查到"), detail: value.message });
     } catch (error) {
-      setNotice({ kind: "error", text: String(error?.message ?? error) });
+      setNotice({ kind: "error", text: t("操作失败"), detail: String(error?.message ?? error) });
     } finally {
       setVerifying(false);
     }
   };
 
   if (loading) {
-    return <div style={styles.page}>加载中…</div>;
+    return <div style={styles.page}>{t("加载中…")}</div>;
   }
 
   const running = status?.running ?? false;
   const secretPlaceholder = status?.secretKeySet && !form.secretDirty
-    ? "已保存（留空保持不变）"
+    ? t("已保存（留空保持不变）")
     : "sk-lf-…";
 
   return (
     <div style={styles.page}>
       <div style={styles.pageHeader}>
         <div>
-          <h3 style={styles.heading}>可观测</h3>
+          <h3 style={styles.heading}>{t("可观测")}</h3>
         </div>
         <div style={styles.badgeCol}>
           <span style={running ? styles.badgeOn : styles.badgeOff}>
-            {running ? "上报中" : "未上报"}
+            {running ? t("上报中") : t("未上报")}
           </span>
-          <button type="button" style={styles.linkButton} onClick={refresh}>刷新状态</button>
+          <button type="button" style={styles.linkButton} onClick={refresh}>{t("刷新状态")}</button>
         </div>
       </div>
 
       {status?.lastError ? (
-        <div style={styles.error}>采集器启动失败：{status.lastError}</div>
+        <div style={styles.error}>{t("采集器启动失败：")}{status.lastError}</div>
       ) : null}
 
       {status?.lastExportError ? (
         <div style={styles.error}>
-          最近一次上报失败：{status.lastExportError}
+          {t("最近一次上报失败：")}{status.lastExportError}
         </div>
       ) : null}
 
       {status?.lastExportNote ? (
-        <p style={styles.meta}>提示：{status.lastExportNote}</p>
+        <p style={styles.meta}>{t("提示：")}{status.lastExportNote}</p>
       ) : null}
 
       <div style={styles.formCard}>
@@ -237,7 +240,7 @@ export function OtelSettings({ api }) {
               checked={form.enabled}
               onChange={(event) => patch({ enabled: event.target.checked })}
             />
-            <span>启用上报</span>
+            <span>{t("启用上报")}</span>
           </label>
           <label style={styles.switch}>
             <input
@@ -246,8 +249,7 @@ export function OtelSettings({ api }) {
               onChange={(event) => patch({ captureContent: event.target.checked })}
             />
             <span>
-              采集正文
-              <span style={styles.hint}>（含对话内容和工具输入输出）</span>
+              {t("采集正文")}<span style={styles.hint}>{t("（含对话内容和工具输入输出）")}</span>
             </span>
           </label>
         </div>
@@ -258,7 +260,7 @@ export function OtelSettings({ api }) {
             style={styles.linkButton}
             onClick={() => setShowAdvanced((v) => !v)}
           >
-            {showAdvanced ? "收起高级设置 ▴" : "高级设置 ▾"}
+            {showAdvanced ? t("收起高级设置 ▴") : t("高级设置 ▾")}
           </button>
           {showAdvanced ? (
             <div style={styles.advanced}>
@@ -269,13 +271,11 @@ export function OtelSettings({ api }) {
                   onChange={(event) => patch({ gzip: event.target.checked })}
                 />
                 <span>
-                  gzip 压缩
-                </span>
+                  {t("gzip 压缩")}</span>
               </label>
               <label style={styles.field}>
                 <span>
-                  正文截断上限（字符）
-                </span>
+                  {t("正文截断上限（字符）")}</span>
                 <input
                   style={styles.inputNarrow}
                   value={form.contentMaxChars}
@@ -285,8 +285,7 @@ export function OtelSettings({ api }) {
               </label>
               <label style={styles.field}>
                 <span>
-                  单批最大 span 数
-                </span>
+                  {t("单批最大 span 数")}</span>
                 <input
                   style={styles.inputNarrow}
                   value={form.maxExportBatchSize}
@@ -304,9 +303,9 @@ export function OtelSettings({ api }) {
             style={styles.secondary}
             disabled={testing || saving || verifying}
             onClick={handleVerifyRecent}
-            title="检查最近的 Trace 是否已入库"
+            title={t("检查最近的 Trace 是否已入库")}
           >
-            {verifying ? "检查中…" : "检查上报"}
+            {verifying ? t("检查中…") : t("检查上报")}
           </button>
           <button
             type="button"
@@ -314,7 +313,7 @@ export function OtelSettings({ api }) {
             disabled={testing || saving || verifying}
             onClick={handleTest}
           >
-            {testing ? "测试中…" : "发送测试"}
+            {testing ? t("测试中…") : t("发送测试")}
           </button>
           <button
             type="button"
@@ -322,13 +321,13 @@ export function OtelSettings({ api }) {
             disabled={saving || testing}
             onClick={handleSave}
           >
-            {saving ? "保存中…" : "保存"}
+            {saving ? t("保存中…") : t("保存")}
           </button>
         </div>
       </div>
 
       {notice ? (
-        <div style={notice.kind === "ok" ? styles.noticeOk : styles.error}>{notice.text}</div>
+        <div style={notice.kind === "ok" ? styles.noticeOk : styles.error}>{t(notice.text)}{notice.detail && <details><summary>{t("详情")}</summary><pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{notice.detail}</pre></details>}</div>
       ) : null}
 
       {running && status?.traceEndpoint ? (
@@ -339,9 +338,8 @@ export function OtelSettings({ api }) {
 
       {status ? (
         <p style={styles.meta}>
-          本次运行：{status.exportedBatches ?? 0} 批 / {status.exportedSpans ?? 0} 个 span
-          {status.lastExportAt
-            ? `；最近一次 ${status.lastExportAt.replace("T", " ").slice(0, 19)}（${status.lastExportOk ? "成功" : "失败"}）`
+          {t("本次运行：")}{status.exportedBatches ?? 0} {t("批 /")}{status.exportedSpans ?? 0} {t("个 span")}{status.lastExportAt
+            ? t("；最近一次 {0}（{1}）", status.lastExportAt.replace("T", " ").slice(0, 19), status.lastExportOk ? t("成功") : t("失败"))
             : ""}
         </p>
       ) : null}

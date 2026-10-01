@@ -1,3 +1,4 @@
+import { localizeError } from './error-locales.ts'
 import { useEffect, useState } from 'react'
 import type { EnvironmentStatus } from '../protocol.ts'
 import type { ConfigCenterApi } from './api.ts'
@@ -71,7 +72,7 @@ export function EnvironmentPage({ api }: { api: ConfigCenterApi }): JSX.Element 
           </button>
         </div>
       </>}
-      {(error || status?.error) && <div role="alert" style={styles.error}>{error || status?.error}</div>}
+      {(error || status?.error) && <div role="alert" style={styles.error}>{localizeError(error || status?.error || '')}</div>}
     </div>
   </section>
 }

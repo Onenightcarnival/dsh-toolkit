@@ -12,6 +12,7 @@ import { mountMcpPanel, mountMainPanel, type Layout } from './McpPanel.tsx'
 import { SkillsPage, SkillsIcon } from './SkillsPage.tsx'
 import { SettingsTab } from './SettingsTab.tsx'
 import { EnvironmentPage } from './EnvironmentPage.tsx'
+import { LogsPage } from './LogsPage.tsx'
 
 const NS = 'dsh-config-center'
 const SLOT = 'settings.plugins.tab'
@@ -48,6 +49,10 @@ export function apply(ctx: ClientContext): void {
   } catch { /* document-language fallback */ }
 
   const api = new ConfigCenterApi()
+  slots.inject('settings.section', () => {
+    if (slots.entries('settings.section').some(entry => entry.options.id === 'dsh-config-center-logs')) return () => {}
+    return slots.register({ name: 'settings.section', id: 'dsh-config-center-logs', order: 130, label: () => tt('logs.title'), locale: NS, inject: () => ({ api }) }, LogsPage)
+  })
   slots.inject('settings.section', () => {
     if (slots.entries('settings.section').some(entry => entry.options.id === 'dsh-config-center-environment')) return () => {}
     return slots.register({ name: 'settings.section', id: 'dsh-config-center-environment', order: 120, label: () => tt('environment.title'), locale: NS, inject: () => ({ api }) }, EnvironmentPage)

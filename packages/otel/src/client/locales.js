@@ -1,0 +1,46 @@
+import { useEffect, useReducer } from 'react';
+export const en = {
+  "已保存，但采集器未能启动": "Saved. Collector failed to start.",
+  "已保存，上报已启动": "Saved. Reporting is active.",
+  "已保存，但采集器未能启动{0}": "Saved. Collector failed to start{0}",
+  "已保存，上报当前为停用状态": "Saved. Reporting is disabled.",
+  "加载中…": "Loading…",
+  "已保存（留空保持不变）": "Saved (leave blank to keep)",
+  "可观测": "Observability",
+  "上报中": "Reporting",
+  "未上报": "Inactive",
+  "刷新状态": "Refresh status",
+  "采集器启动失败：": "Collector failed to start: ",
+  "最近一次上报失败：": "Last export failed: ",
+  "提示：": "Note: ",
+  "启用上报": "Enable reporting",
+  "采集正文": "Capture content",
+  "（含对话内容和工具输入输出）": " (conversations and tool inputs/outputs)",
+  "收起高级设置 ▴": "Hide advanced settings ▴",
+  "高级设置 ▾": "Advanced settings ▾",
+  "gzip 压缩": "gzip compression",
+  "正文截断上限（字符）": "Content limit (characters)",
+  "单批最大 span 数": "Maximum spans per batch",
+  "检查最近的 Trace 是否已入库": "Check whether recent traces were stored",
+  "检查中…": "Checking…",
+  "检查上报": "Check exports",
+  "测试中…": "Testing…",
+  "发送测试": "Send test",
+  "保存中…": "Saving…",
+  "保存": "Save",
+  "本次运行：": "This run: ",
+  "批 /": " batches / ",
+  "个 span": " spans",
+  "；最近一次 {0}（{1}）": "; last export {0} ({1})",
+  "成功": "Succeeded",
+  "失败": "Failed",
+  "测试通过": "Tests passed",
+  "已查到最近的上报记录": "Recent exports found",
+  "部分上报记录尚未查到": "Some exports were not found",
+  "操作失败": "Operation failed",
+  "详情": "Details"
+};
+export const zh = Object.fromEntries(Object.keys(en).map(key => [key, key]));
+export function t(key, ...values) { key = Object.keys(en).find(name => en[name] === key) ?? key; const lang = typeof document === 'undefined' ? 'zh' : document.documentElement.lang; return (lang.toLowerCase().startsWith('en') ? en[key] ?? key : key).replace(/\{(\d+)\}/g, (_, n) => String(values[Number(n)] ?? '')); }
+/** Mounted panels follow host language changes without resetting form state. */
+export function useLocale() { const [, update] = useReducer(value => value + 1, 0); useEffect(() => { const observer = new MutationObserver(update); observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] }); return () => observer.disconnect(); }, []); }

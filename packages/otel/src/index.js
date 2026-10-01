@@ -210,8 +210,8 @@ export async function runTestExport({ endpoint, headers, gzip = false, payloadBy
     const tracer = provider.getTracer("dsh-otel");
     if (genai) {
       // GenAI probe: ENTRY root and LLM child with collector-compatible attributes.
-      const messagesIn = JSON.stringify([{ role: "user", parts: [{ type: "text", content: "你好" }] }]);
-      const messagesOut = JSON.stringify([{ role: "assistant", parts: [{ type: "text", content: "你好！" }] }]);
+      const messagesIn = JSON.stringify([{ role: "user", parts: [{ type: "text", content: "Hello" }] }]);
+      const messagesOut = JSON.stringify([{ role: "assistant", parts: [{ type: "text", content: "Hello!" }] }]);
       const entry = tracer.startSpan("dsh-otel genai test", {
         attributes: {
           "gen_ai.span.kind": "ENTRY",
@@ -319,16 +319,16 @@ export async function verifyLangfuseTraces(endpoint, headers, ids, options = {})
 }
 
 const TRACE_LABELS = {
-  control: "普通",
+  control: "Control",
   genai: "GenAI",
-  real: "采集管线"
+  real: "Collector pipeline"
 };
 
 /** Turn the per-trace verification states into an operator-facing verdict. */
 export function langfuseVerdict(states, ids) {
   const idLine = `（trace ID：${Object.entries(ids)
     .map(([k, v]) => `${TRACE_LABELS[k] ?? k}=${v}`)
-    .join("，")}）`;
+    .join(", ")}）`;
   const labels = Object.keys(states);
   const found = labels.filter((k) => states[k] === "found");
   const missing = labels.filter((k) => states[k] === "not-found");
@@ -337,32 +337,32 @@ export function langfuseVerdict(states, ids) {
   if (found.length === labels.length) {
     return {
       ok: true,
-      message: `全部测试 trace 已入库。${idLine}`
+      message: ("All test traces were stored. " + String(idLine) + "")
     };
   }
   if (found.length === 0 && unreachable.length > 0) {
     const detail = states[unreachable[0]].replace("unreachable:", "");
     return {
       ok: true,
-      message: `上报成功，Langfuse 入库查询失败：${detail}。${idLine}`
+      message: ("Export succeeded; Langfuse lookup failed: " + String(detail) + ". " + String(idLine) + "")
     };
   }
   if (states.control === "found" && missing.length > 0) {
-    const missingLabels = missing.map((k) => TRACE_LABELS[k] ?? k).join("、");
+    const missingLabels = missing.map((k) => TRACE_LABELS[k] ?? k).join(", ");
     return {
       ok: false,
-      message: `普通 trace 已入库；${missingLabels} 已上报，尚未查到入库记录。${idLine}`
+      message: ("Control trace stored; " + String(missingLabels) + " exported but not found. " + String(idLine) + "")
     };
   }
   if (found.length === 0) {
     return {
       ok: true,
-      message: `上报成功，尚未查到入库记录。稍后按 trace ID 查询。${idLine}`
+      message: ("Export succeeded; traces not found yet. Query by trace ID later. " + String(idLine) + "")
     };
   }
   return {
     ok: true,
-    message: `回查结果不完整：${labels.map((k) => `${TRACE_LABELS[k] ?? k}=${states[k]}`).join("，")}。`
+    message: ("Incomplete lookup results: " + String(labels.map((k) => `${TRACE_LABELS[k] ?? k}=${states[k]}`).join(", ")) + ".")
       + idLine
   };
 }
@@ -419,21 +419,21 @@ export async function runRealPipelineTest({ endpoint, headers, gzip = false }) {
     coordinator.onSessionEvent(sess, evt("turn/start", { turn: 1 }, seq++, t0));
     coordinator.onSessionEvent(sess, evt(
       "user/message",
-      { id: "u1", role: "user", content: [{ type: "text", text: "你好（dsh-otel 真实管线测试）" }], source: { kind: "user" } },
+      { id: "u1", role: "user", content: [{ type: "text", text: "Hello (dsh-otel collector pipeline test)" }], source: { kind: "user" } },
       seq++, t0 + 10
     ));
     coordinator.onSessionEvent(sess, evt("step/start", { turn: 1, step: 1 }, seq++, t0 + 20));
     const llmOptions = {
       provider: "deepseek-official",
       model: "deepseek-chat",
-      messages: [{ id: "u1", role: "user", content: [{ type: "text", text: "你好" }], source: { kind: "user" } }],
+      messages: [{ id: "u1", role: "user", content: [{ type: "text", text: "Hello" }], source: { kind: "user" } }],
       system: "You are a helpful assistant.",
       sessionId
     };
     const fakeStream = () => (async function* () {
       yield { type: "block-start", index: 0, blockType: "text" };
-      yield { type: "text-delta", index: 0, text: "你好" };
-      yield { type: "block-end", index: 0, block: { type: "text", text: "你好！" } };
+      yield { type: "text-delta", index: 0, text: "Hello" };
+      yield { type: "block-end", index: 0, block: { type: "text", text: "Hello!" } };
       yield { type: "usage", usage: { inputTokens: 8, outputTokens: 3 } };
       yield { type: "finish", reason: { kind: "stop" } };
     })();
@@ -443,7 +443,7 @@ export async function runRealPipelineTest({ endpoint, headers, gzip = false }) {
       {
         turn: 1,
         step: 1,
-        message: { id: "a1", role: "assistant", content: [{ type: "text", text: "你好！" }], source: { kind: "model", provider: "deepseek-official", model: "deepseek-chat" } }
+        message: { id: "a1", role: "assistant", content: [{ type: "text", text: "Hello!" }], source: { kind: "model", provider: "deepseek-official", model: "deepseek-chat" } }
       },
       seq++, t0 + 300
     ));
@@ -469,16 +469,16 @@ export async function runRealPipelineTest({ endpoint, headers, gzip = false }) {
 /** Translate raw exporter failures into actionable operator guidance. */
 export function describeTestFailure(message) {
   if (/status code 413|Payload Too Large|Request Entity Too Large/i.test(message)) {
-    return `请求体过大：${message}。可开启 gzip 或降低正文上限。`;
+    return ("Payload too large: " + String(message) + ". Enable gzip or reduce the content limit.");
   }
   if (/status code 401|status code 403|Unauthorized|Forbidden/i.test(message)) {
-    return `认证失败：${message}。检查项目密钥。`;
+    return ("Authentication failed: " + String(message) + ". Check project credentials.");
   }
   if (/status code 404/i.test(message)) {
-    return `接口不存在：${message}。检查 Endpoint 与网关路径。`;
+    return ("Endpoint not found: " + String(message) + ". Check the endpoint and gateway path.");
   }
   if (/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|timed out|socket hang up/i.test(message)) {
-    return `无法连接：${message}。检查地址、网络与代理。`;
+    return ("Connection failed: " + String(message) + ". Check the address, network and proxy.");
   }
   return message;
 }
@@ -540,9 +540,9 @@ export default class DshOtelService extends TypertRemoteService {
         // Langfuse versions return their async ingestion-job JSON here. Not a
         // delivery failure; keep it as an informational note only.
         if (/Export succeeded but could not deserialize response/i.test(text)) {
-          this.lastExportNote = `${new Date().toISOString()} 服务端返回了非 OTLP 规范的响应体`
-            + "（旧版 Langfuse 以异步任务 JSON 应答的已知行为）——导出本身成功，数据已送达服务端，"
-            + "此提示可忽略";
+          this.lastExportNote = ("" + String(new Date().toISOString()) + " Server returned a non-OTLP response body. ")
+            + "Older Langfuse versions may return asynchronous task JSON. Export succeeded. "
+            + "No action required.";
           return;
         }
         this.lastExportError = `${new Date().toISOString()} ${text}`;
@@ -666,7 +666,7 @@ export default class DshOtelService extends TypertRemoteService {
     try {
       const table = this.configTable;
       if (table === null) {
-        return { ok: false, error: fail("not-ready", "配置存储尚未就绪，请稍后重试") };
+        return { ok: false, error: fail("not-ready", "Configuration storage is not ready. Try again later.") };
       }
       const previous = this.loadRecord();
       const secretKey = request.secretKey !== undefined
@@ -677,7 +677,7 @@ export default class DshOtelService extends TypertRemoteService {
         isLangfuseKeyPair(request.publicKey, secretKey)
       );
       if (request.enabled && endpoint === "") {
-        return { ok: false, error: fail("endpoint-required", "启用上报需要填写 Endpoint") };
+        return { ok: false, error: fail("endpoint-required", "An endpoint is required to enable reporting.") };
       }
       const now = new Date().toISOString();
       const record = {
@@ -713,7 +713,7 @@ export default class DshOtelService extends TypertRemoteService {
         isLangfuseKeyPair(request.publicKey, secretKey)
       );
       if (endpoint === "") {
-        return { ok: false, error: fail("endpoint-required", "请先填写 Endpoint") };
+        return { ok: false, error: fail("endpoint-required", "Enter an endpoint first.") };
       }
       const headers = buildAuthHeaders(request.publicKey, secretKey);
       const gzip = request.gzip ?? record?.gzip ?? false;
@@ -725,7 +725,7 @@ export default class DshOtelService extends TypertRemoteService {
           ok: false,
           error: fail(
             "test-failed",
-            `${describeTestFailure(small.message)}（实际请求地址：${small.traceEndpoint}）`
+            ("" + String(describeTestFailure(small.message)) + " (request URL: " + String(small.traceEndpoint) + ")")
           )
         };
       }
@@ -737,8 +737,8 @@ export default class DshOtelService extends TypertRemoteService {
           ok: false,
           error: fail(
             "payload-limit",
-            `负载测试失败（约 900 KB）：${describeTestFailure(large.message)}`
-              + `（实际请求地址：${large.traceEndpoint}）`
+            ("Payload test failed (about 900 KB): " + String(describeTestFailure(large.message)) + "")
+              + (" (request URL: " + String(large.traceEndpoint) + ")")
           )
         };
       }
@@ -750,8 +750,8 @@ export default class DshOtelService extends TypertRemoteService {
           ok: false,
           error: fail(
             "genai-rejected",
-            `GenAI 测试失败：${describeTestFailure(genaiTest.message)}`
-              + `（实际请求地址：${genaiTest.traceEndpoint}）`
+            ("GenAI test failed: " + String(describeTestFailure(genaiTest.message)) + "")
+              + (" (request URL: " + String(genaiTest.traceEndpoint) + ")")
           )
         };
       }
@@ -763,13 +763,13 @@ export default class DshOtelService extends TypertRemoteService {
           ok: false,
           error: fail(
             "real-pipeline-failed",
-            `采集管线测试失败（${realTest.spanCount} span）：${describeTestFailure(realTest.message)}`
-              + `（请求地址：${realTest.traceEndpoint}）`
+            ("Collector pipeline test failed (" + String(realTest.spanCount) + " spans): " + String(describeTestFailure(realTest.message)) + "")
+              + (" (request URL: " + String(realTest.traceEndpoint) + ")")
           )
         };
       }
 
-      const baseLine = `测试通过：连通、900 KB 负载、GenAI、采集管线（${realTest.spanCount} span${gzip ? "，gzip" : ""}）。`;
+      const baseLine = ("Tests passed: connectivity, 900 KB payload, GenAI, collector pipeline (" + String(realTest.spanCount) + " spans" + String(gzip ? ", gzip" : "") + "). ");
 
       if (isLangfuseEndpoint(endpoint)) {
         const ids = { control: small.traceId, genai: genaiTest.traceId, real: realTest.traceId };
@@ -800,18 +800,18 @@ export default class DshOtelService extends TypertRemoteService {
     try {
       const record = this.loadRecord();
       if (record === null) {
-        return { ok: false, error: fail("not-configured", "请先保存配置") };
+        return { ok: false, error: fail("not-configured", "Save the configuration first.") };
       }
       const endpoint = normalizeEndpoint(
         record.endpoint,
         isLangfuseKeyPair(record.publicKey, record.secretKey)
       );
       if (!isLangfuseEndpoint(endpoint)) {
-        return { ok: false, error: fail("not-langfuse", "当前后端不支持入库查询，请在接收平台查看。") };
+        return { ok: false, error: fail("not-langfuse", "This backend does not support trace lookup. Check the receiving platform.") };
       }
       const recent = [...traceExportStats.recent].slice(-8).reverse();
       if (recent.length === 0) {
-        return { ok: false, error: fail("no-exports", "暂无导出记录。可发送测试或完成一轮对话。") };
+        return { ok: false, error: fail("no-exports", "No exports yet. Send a test or complete a conversation turn.") };
       }
       const headers = buildAuthHeaders(record.publicKey, record.secretKey);
       const states = new Map();
@@ -827,19 +827,19 @@ export default class DshOtelService extends TypertRemoteService {
           }
         }
       }
-      const describe = { "found": "已入库", "not-found": "尚未查到" };
+      const describe = { "found": "Stored", "not-found": "Not found" };
       const lines = recent.map((entry) => {
         const state = states.get(entry.traceId);
-        const label = testTraceIds.has(entry.traceId) ? "测试" : "对话";
+        const label = testTraceIds.has(entry.traceId) ? "Test" : "Conversation";
         const time = entry.at.replace("T", " ").slice(5, 19);
-        const verdictText = describe[state] ?? `无法查询（${state.replace("unreachable:", "")}）`;
+        const verdictText = describe[state] ?? ("Lookup unavailable (" + String(state.replace("unreachable:", "")) + ")");
         return `${label} ${time} ${entry.spans}span ${entry.traceId} → ${verdictText}`;
       });
       const missing = recent.filter((e) => states.get(e.traceId) === "not-found");
       const allFound = missing.length === 0;
       const summary = allFound
-        ? `最近 ${recent.length} 条 trace 查询结果：`
-        : `最近 ${recent.length} 条 trace 中，${missing.length} 条尚未查到入库记录：`;
+        ? ("Lookup results for the latest " + String(recent.length) + " traces:")
+        : ("Of the latest " + String(recent.length) + " traces, " + String(missing.length) + " were not found:");
       return { ok: true, value: { message: `${summary}\n${lines.join("\n")}`, allFound } };
     } catch (error) {
       return { ok: false, error: fail("verify-failed", String(error?.message ?? error)) };

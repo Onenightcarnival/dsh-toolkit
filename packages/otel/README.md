@@ -117,3 +117,7 @@ node packages/otel/test/service.integration.mjs
 ## 许可
 
 本项目 MIT。采集管线来自 Apache-2.0 的 [@loongsuite/dsh-plugin](https://github.com/loongsuite/dsh-plugin)。第三方版权声明与许可全文见 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES)。
+
+## Interface language
+
+Settings labels, controls, status and operation summaries follow the host Chinese or English language. Expanded diagnostic details and synthetic test records use English.

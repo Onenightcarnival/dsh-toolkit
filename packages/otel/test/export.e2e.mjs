@@ -89,7 +89,7 @@ assert.equal(received.at(-1).hasLegacySession, true, "expected langfuse.session.
 // Auth failure path.
 const bad = await runTestExport({ endpoint, headers: buildAuthHeaders("pk", "wrong") });
 assert.equal(bad.ok, false);
-assert.match(describeTestFailure(bad.message), /认证失败|401/);
+assert.match(describeTestFailure(bad.message), /Authentication failed|401/);
 
 // Gateway body-size cap: a second stub rejects bodies over 500KB with 413,
 // the way nginx client_max_body_size does. The small test passes, the
@@ -109,7 +109,7 @@ assert.match(describeTestFailure(bad.message), /认证失败|401/);
   assert.equal(smallOk.ok, true);
   const bigRejected = await runTestExport({ endpoint: cappedEndpoint, headers: {}, gzip: true, payloadBytes: 900 * 1024 });
   assert.equal(bigRejected.ok, false);
-  assert.match(describeTestFailure(bigRejected.message), /请求体过大|413/);
+  assert.match(describeTestFailure(bigRejected.message), /Payload too large|413/i);
   capped.close();
 }
 
@@ -117,6 +117,6 @@ assert.match(describeTestFailure(bad.message), /认证失败|401/);
 server.close();
 const dead = await runTestExport({ endpoint, headers: {} });
 assert.equal(dead.ok, false);
-assert.match(describeTestFailure(dead.message), /无法连接|ECONNREFUSED|超时|timed out/i);
+assert.match(describeTestFailure(dead.message), /Cannot connect|ECONNREFUSED|timeout|timed out/i);
 
 console.log("export e2e tests passed");

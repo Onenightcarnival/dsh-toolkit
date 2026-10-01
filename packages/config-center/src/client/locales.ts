@@ -1,6 +1,14 @@
 /** dsh-config-center surface copy: zh is the key source, en mirrors every key. */
 
 export const zh = {
+  'logs.title': "本机日志",
+  'logs.auto': "自动刷新",
+  'logs.refresh': "刷新",
+  'logs.download': "下载",
+  'logs.empty': "暂无日志",
+  'logs.unavailable': "宿主未提供可读取的日志",
+  'logs.tail': "仅显示最近 256 KB。",
+  'logs.privacy': "下载前请检查日志中的私人信息。",
   'environment.title': '环境依赖',
   'environment.intro': '管理 MCP 服务使用的独立运行环境。',
   'environment.uvDescription': 'Python MCP 专属运行环境。',
@@ -150,6 +158,14 @@ export const zh = {
 export type Key = keyof typeof zh
 
 export const en: Record<Key, string> = {
+  'logs.title': "Local logs",
+  'logs.auto': "Auto refresh",
+  'logs.refresh': "Refresh",
+  'logs.download': "Download",
+  'logs.empty': "No logs",
+  'logs.unavailable': "No readable log provided by the host",
+  'logs.tail': "Showing the latest 256 KB.",
+  'logs.privacy': "Review private information before sharing logs.",
   'environment.title': 'Environment dependencies',
   'environment.intro': 'Manage the isolated runtime used by MCP servers.',
   'environment.uvDescription': 'Isolated runtime for Python MCP servers.',

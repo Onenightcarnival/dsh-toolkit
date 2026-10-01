@@ -14,9 +14,11 @@ import { EnvironmentMissingError } from './environment.ts'
 import type { EnvironmentStatus } from './protocol.ts'
 import { validStdioTimeout } from './preferences.ts'
 import { SkillStore, MAX_SKILL_ZIP } from './skills.ts'
+import type { LocalLogStore } from './logs.ts'
 
 /** Operations the routes expose; the host plugin implements them on the profile patch. */
 export interface RouteDeps {
+  logs?: LocalLogStore
   skills: SkillStore
   environment(): Promise<EnvironmentStatus>
   installEnvironment(): void
@@ -73,6 +75,17 @@ export function makeRoutes(deps: RouteDeps): Route[] {
   }
 
   return [
+    {
+      kind: 'exact', path: API.logs,
+      handler: async (req, res) => {
+        try {
+          if (!deps.rejection || deps.rejection(req) !== undefined) { writeJson(res, 401, { error: 'browser session required' }); return }
+        } catch { writeJson(res, 403, { error: 'forbidden' }); return }
+        if (!guard(req, res, 'GET')) return
+        try { writeJson(res, 200, await deps.logs?.read(new URL(req.url ?? '/', 'http://localhost').searchParams.get('source') ?? undefined) ?? { sources: [], text: '', truncated: false }) }
+        catch { writeJson(res, 400, { error: '日志不可用' }) }
+      },
+    },
     ...[API.skills, API.skillDetail, API.skillFile, API.skillInstall, API.skillOpen].map(path => ({
       kind: 'exact' as const, path,
       handler: async (req: IncomingMessage, res: ServerResponse) => {

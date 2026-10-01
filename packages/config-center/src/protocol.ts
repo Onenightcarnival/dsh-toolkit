@@ -1,6 +1,7 @@
 /** Wire contract shared by the host routes and the browser client. */
 
 export const API = {
+  logs: '/api/dsh-config-center/logs',
   skills: '/api/dsh-config-center/skills',
   skillDetail: '/api/dsh-config-center/skills/detail',
   skillFile: '/api/dsh-config-center/skills/file',
@@ -12,6 +13,13 @@ export const API = {
   environment: '/api/dsh-config-center/environment',
   mcpPreferences: '/api/dsh-config-center/mcp/preferences',
 } as const
+
+export interface LocalLogs {
+  sources: Array<{ id: string; size: number; updatedAt: string }>
+  selected?: string
+  text: string
+  truncated: boolean
+}
 
 export interface Skill { name: string; description: string; version: string; kind: 'bundle' | 'flat'; enabled: boolean }
 export interface SkillList { directory: string; skills: Skill[] }

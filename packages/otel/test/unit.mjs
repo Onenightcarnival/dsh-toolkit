@@ -121,29 +121,29 @@ assert.equal(genericCfg.captureContent, false);
   const ids = { control: "aaa", genai: "bbb", real: "ccc" };
   const all = langfuseVerdict({ control: "found", genai: "found", real: "found" }, ids);
   assert.equal(all.ok, true);
-  assert.match(all.message, /全部测试 trace 已入库/);
+  assert.match(all.message, /All test traces were stored/);
   assert.match(all.message, /ccc/);
   const dropped = langfuseVerdict({ control: "found", genai: "found", real: "not-found" }, ids);
   assert.equal(dropped.ok, false);
-  assert.match(dropped.message, /采集管线.*尚未查到/s);
+  assert.match(dropped.message, /Collector pipeline.*not found/s);
   assert.match(dropped.message, /ccc/);
   const droppedBoth = langfuseVerdict({ control: "found", genai: "not-found", real: "not-found" }, ids);
   assert.equal(droppedBoth.ok, false);
-  assert.match(droppedBoth.message, /GenAI、采集管线/);
+  assert.match(droppedBoth.message, /GenAI, Collector pipeline/);
   const unreachable = langfuseVerdict({ control: "unreachable:HTTP 404", genai: "not-found", real: "not-found" }, ids);
   assert.equal(unreachable.ok, true);
-  assert.match(unreachable.message, /入库查询失败/);
+  assert.match(unreachable.message, /lookup failed/);
   const none = langfuseVerdict({ control: "not-found", genai: "not-found", real: "not-found" }, ids);
   assert.equal(none.ok, true);
-  assert.match(none.message, /尚未查到入库记录/);
+  assert.match(none.message, /not found yet/);
 }
 
 // describeTestFailure
-assert.match(describeTestFailure("Export failed with status code 401"), /认证失败/);
-assert.match(describeTestFailure("Export failed with status code 413"), /请求体过大/);
-assert.match(describeTestFailure("Request Entity Too Large"), /请求体过大/);
-assert.match(describeTestFailure("Export failed with status code 404"), /接口不存在/);
-assert.match(describeTestFailure("getaddrinfo ENOTFOUND nope.example"), /无法连接/);
+assert.match(describeTestFailure("Export failed with status code 401"), /Authentication failed/);
+assert.match(describeTestFailure("Export failed with status code 413"), /Payload too large/);
+assert.match(describeTestFailure("Request Entity Too Large"), /Payload too large/);
+assert.match(describeTestFailure("Export failed with status code 404"), /Endpoint not found/);
+assert.match(describeTestFailure("getaddrinfo ENOTFOUND nope.example"), /Connection failed/);
 assert.equal(describeTestFailure("weird"), "weird");
 
 // The collector config passes the embedded plugin's own schema.

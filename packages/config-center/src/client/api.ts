@@ -1,3 +1,4 @@
+import { localizeError } from './error-locales.ts'
 /** Browser-side client for the /api/dsh-config-center route family (same origin, cookie auth). */
 
 import { API, type McpDeleteResponse, type McpListResponse, type McpSaveResponse, type McpServer, type McpTestResult, type SettingValue, type SettingsResponse, type SettingsSaveResponse } from '../protocol.ts'
@@ -27,7 +28,7 @@ async function readJson<T>(response: Response): Promise<T> {
   }
   if (!response.ok) {
     const { error, issue } = (body ?? {}) as { error?: unknown; issue?: unknown }
-    throw new ApiError(typeof error === 'string' ? error : `HTTP ${String(response.status)}`, response.status, typeof issue === 'string' ? issue : undefined)
+    throw new ApiError(typeof error === 'string' ? localizeError(error) : `HTTP ${String(response.status)}`, response.status, typeof issue === 'string' ? issue : undefined)
   }
   return body as T
 }
@@ -39,6 +40,7 @@ function post(path: string, body: unknown): Promise<Response> {
 }
 
 export class ConfigCenterApi {
+  async logs(source?: string): Promise<import('../protocol.ts').LocalLogs> { return readJson(await fetch(`${API.logs}${source ? `?source=${encodeURIComponent(source)}` : ''}`, { credentials: 'same-origin', cache: 'no-store' })) }
   async openSkills(name?: string): Promise<{ ok: boolean }> { return readJson(await post(`${API.skillOpen}${name ? `?name=${encodeURIComponent(name)}` : ''}`, {})) }
   async skills(): Promise<SkillList> { return readJson(await fetch(API.skills, { credentials: 'same-origin' })) }
   async skillDetail(name: string): Promise<SkillDetail> { return readJson(await fetch(`${API.skillDetail}?name=${encodeURIComponent(name)}`)) }

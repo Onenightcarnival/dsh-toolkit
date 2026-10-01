@@ -11,6 +11,16 @@ Configuration center for [DeepSeek Harness](https://github.com/deepseek-ai/deeps
 | Settings → Plugins → Common settings | Common options of built-in plugins: round limit of goal mode; switch and trigger threshold of automatic context compaction |
 | Settings → Environment dependencies | Install, check and repair the plugin-owned uv / uvx runtime |
 
+## Local logs
+
+Location: Settings → Local logs, below Environment dependencies.
+
+- View, refresh and download existing DSH logs; automatic refresh runs every 2 seconds.
+- The desktop shell supplies `dsh-server.log` through `DSHDESKTOP_LOG_FILE`. Hosts without a readable log show an empty state.
+- Logs are read-only UTF-8; downloads include a UTF-8 BOM. Content retains its original language. The viewer creates no log files or operation records.
+- Reads are limited to the last 256 KB. Display and download mask common credential fields without changing the original file. Review private information before sharing.
+
+
 ## Skills
 
 Entry: Sidebar → Skills, below MCP.

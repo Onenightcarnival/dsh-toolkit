@@ -20,6 +20,7 @@ import { SETTING_GROUPS, SETTINGS } from './settings.ts'
 import { ManagedEnvironment } from './environment.ts'
 import { preferences } from './preferences.ts'
 import { SkillStore } from './skills.ts'
+import { LocalLogStore } from './logs.ts'
 
 /** Stable cordis plugin name. */
 export const name = 'config-center'
@@ -69,6 +70,7 @@ export const apply = mountOnce('dsh-config-center', applyImpl)
 function applyImpl(ctx: Context, config?: Config): void {
   if (config?.enabled === false) return
   const profile = ctx.profileContext
+  const logs = new LocalLogStore()
   const environment = new ManagedEnvironment(profile.home)
   const prefs = preferences(profile.dir)
   const optional = ctx as unknown as Optional
@@ -181,6 +183,7 @@ function applyImpl(ctx: Context, config?: Config): void {
         }
       }, () => [])
     }),
+    logs,
     listMcp: mcpList,
     saveMcpTimeout: seconds => prefs.saveTimeout(seconds),
     saveMcp: async (server, id) => {
@@ -212,7 +215,10 @@ function applyImpl(ctx: Context, config?: Config): void {
       const { application } = await mutate(document => writeSettings(document, values), () => enabling)
       return { ...await settings(), application }
     },
-    rejection: req => optional.get('connection')?.requestRejection?.(req),
+    rejection: req => {
+      const connection = optional.get('connection')
+      return connection?.requestRejection ? connection.requestRejection(req) : 503
+    },
   })
 
   ctx.effect(() => {
