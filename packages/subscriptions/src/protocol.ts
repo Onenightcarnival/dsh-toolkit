@@ -1,5 +1,5 @@
 /** Credential-free views of the subscription RPC. */
-export type ProviderId = 'codex' | 'antigravity'
+export type ProviderId = 'codex' | 'chatgpt' | 'antigravity'
 export interface Rpc {
   call(channel: string, method: string, payload: unknown): Promise<
     { ok: true; value: unknown } | { ok: false; error: { message: string } }
@@ -10,6 +10,8 @@ export interface Account {
   account?: string
   plan?: string
   isDefault: boolean
+  connected?: boolean
+  planEnabled?: boolean
   expiresAt?: number
 }
 export interface Status { accounts: Account[]; busy: boolean; detail?: string; manualOnly?: boolean }

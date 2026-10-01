@@ -12,11 +12,12 @@ export class SubscriptionsApi {
     const value = await this.call<{ providers: Record<ProviderId, Status> }>('status')
     return value.providers[this.provider]
   }
-  async login(): Promise<Login> {
-    const value = await this.call<Login>('login', { provider: this.provider })
+  async login(account?: string): Promise<Login> {
+    const value = await this.call<Login>('login', { provider: this.provider, ...(account === undefined ? {} : { account }) })
     const url = new URL(value.authorizeUrl)
     const valid = this.provider === 'codex'
       ? url.origin === 'https://auth.openai.com' && url.pathname === '/oauth/authorize'
+      : this.provider === 'chatgpt' ? url.origin === 'https://auth.openai.com' && url.pathname === '/api/accounts/authorize'
       : url.origin === 'https://accounts.google.com' && url.pathname === '/o/oauth2/v2/auth'
     if (!valid || url.username || url.password) throw new Error(`Invalid ${this.provider === 'codex' ? 'ChatGPT' : 'Antigravity'} authorization URL`)
     return { authorizeUrl: url.href, manualOnly: value.manualOnly === true }

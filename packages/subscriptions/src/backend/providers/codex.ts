@@ -453,8 +453,15 @@ export async function fetchCodexModels(
   if (!response.ok) throw await oauthEndpointError(response, 'codex models')
   const payload = await response.json() as { models?: CodexWireModel[] }
   if (!Array.isArray(payload.models)) throw new Error('codex models endpoint returned no models array')
+  const discovered = parseCodexModels(payload.models)
+  if (discovered.length === 0) throw new Error(`codex models endpoint returned an empty catalog (client_version ${version})`)
+  return discovered
+}
+
+/** Decode model capability fields shared by OpenAI subscription catalogs. */
+export function parseCodexModels(entries: CodexWireModel[]): DiscoveredModel[] {
   const discovered: DiscoveredModel[] = []
-  for (const entry of payload.models) {
+  for (const entry of entries) {
     if (typeof entry.slug !== 'string' || entry.slug.length === 0) continue
     // codex-rs ModelVisibility: only "list" is picker-visible; hide/none are
     // dropped, and an absent or unknown value is included (in doubt, include).
@@ -494,12 +501,6 @@ export async function fetchCodexModels(
     discovered.push(model)
   }
   discovered.sort((a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER))
-  // An empty catalog from a 200 response means the backend gated us out (e.g.
-  // client_version too old): surface it as a discovery failure so the adapter
-  // falls back to the static catalog instead of vanishing from the picker.
-  if (discovered.length === 0) {
-    throw new Error(`codex models endpoint returned an empty catalog (client_version ${version})`)
-  }
   return discovered
 }
 
@@ -764,7 +765,7 @@ export class CodexAdapter extends LlmAdapter {
   }
 
   override providerInfo(provider: string): LlmProviderInfo {
-    return { id: provider, name: 'ChatGPT (Codex)' }
+    return { id: provider, name: 'Codex' }
   }
 
   override providerRetryPolicy(provider: string) {

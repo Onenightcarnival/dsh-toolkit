@@ -10,12 +10,13 @@ type Tab = 'models' | 'tools' | 'usage'
 const TOOL_CARDS = { codex: [
   { setting: 'web_search', name: 'codex_web_search', title: 'searchTitle', hint: 'searchHint' },
   { setting: 'image_generate', name: 'codex_image_generate', title: 'imageTitle', hint: 'imageHint' },
-], antigravity: [
+], chatgpt: [], antigravity: [
   { setting: 'web_search', name: 'antigravity_web_search', title: 'googleSearchTitle', hint: 'googleSearchHint' },
   { setting: 'image_generate', name: 'antigravity_image_generate', title: 'googleImageTitle', hint: 'googleImageHint' },
 ] } as const
 const PROVIDERS = {
-  codex: { name: 'ChatGPT', vendor: 'OpenAI', connect: 'connect', empty: 'emptyTitle', intro: 'intro', callback: 'http://localhost:1455/auth/callback?…' },
+  codex: { name: 'Codex', vendor: 'OpenAI', connect: 'connect', empty: 'emptyTitle', intro: 'intro', callback: 'http://localhost:1455/auth/callback?…' },
+  chatgpt: { name: 'ChatGPT', vendor: 'OpenAI', connect: 'connectChatGpt', empty: 'emptyChatGpt', intro: 'introChatGpt', callback: 'http://127.0.0.1:1455/auth/callback?…' },
   antigravity: { name: 'Antigravity', vendor: 'Google', connect: 'connectGoogle', empty: 'emptyGoogle', intro: 'introGoogle', callback: 'http://localhost:51121/oauth-callback?…' },
 } as const
 const messageOf = (error: unknown): string => {
@@ -134,9 +135,9 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
     if (tab === 'usage' && active) void refreshUsage().catch(e => { if (mounted.current) setError(messageOf(e)) })
   }, [tab, active, refreshUsage])
 
-  const login = (): void => {
+  const login = (accountKey?: string): void => {
     void run(async () => {
-      const { authorizeUrl: url, manualOnly } = await api.login()
+      const { authorizeUrl: url, manualOnly } = await api.login(accountKey)
       if (!mounted.current) return
       setAuthUrl(url)
       setStatus(previous => ({ accounts: previous?.accounts ?? [], busy: true, manualOnly }))
@@ -173,7 +174,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   const availableModels = catalog?.models.filter(model => !ownCatalog || ownCatalog.unavailable || ownCatalog.models.some(m => m.id === model.id)) ?? []
   const models = availableModels.filter(m => `${m.name} ${m.id}`.toLowerCase().includes(query.toLowerCase()))
   const settings = catalog?.settings ?? {}
-  const accountLabel = (a: Account): string => settings.accounts?.[a.key]?.alias || a.account || profile.name
+  const accountLabel = (a: Account): string => settings.accounts?.[a.key]?.alias || (provider === 'chatgpt' && a.account ? `${a.account} · ${a.key.slice(-6)}` : a.account) || profile.name
   const currentUsage = usage && usage.account === active ? usage.value : undefined
 
   return <section className="dsh-sub-panel" data-dsh-plugin="subscriptions" data-dsh-part="panel">
@@ -181,7 +182,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
     {(error || status?.detail) && <div className="dsh-sub-banner" role="alert" data-kind="error"><span>{error || status?.detail}</span><button disabled={busy} onClick={() => { void run(retryAction.current ?? refreshStatus) }}>{tt('retry')}</button></div>}
     <div className="dsh-sub-body">
       <aside className="dsh-sub-accounts">
-        <div className="dsh-sub-asideHead"><span>{tt('accounts')}</span><button className="dsh-sub-link" disabled={busy || status?.busy || !status} onClick={login}>+ {tt('add')}</button></div>
+        <div className="dsh-sub-asideHead"><span>{tt('accounts')}</span><button className="dsh-sub-link" disabled={busy || status?.busy || !status} onClick={() => login()}>+ {tt('add')}</button></div>
         <nav className="dsh-sub-providers" aria-label={tt('subscriptionType')}>
           {(Object.keys(PROVIDERS) as ProviderId[]).map(id => <button key={id} className="dsh-sub-provider" aria-pressed={id === provider}
             disabled={busy || status?.busy} onClick={() => selectProvider(id)}>
@@ -193,7 +194,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
           {!status && <p className="dsh-sub-hint">{tt('loading')}</p>}
           {status?.accounts.length === 0 && <p className="dsh-sub-hint">{tt('disconnected')}</p>}
           {status?.accounts.map(a => <button key={a.key} className="dsh-sub-account" data-active={a.key === active || undefined} onClick={() => setActive(a.key)}>
-            <strong title={a.account}>{accountLabel(a)}</strong><small>{a.plan ?? profile.name}{a.isDefault ? ` · ${tt('default')}` : ''}</small>
+            <strong title={a.account}>{accountLabel(a)}</strong><small>{a.connected === false ? tt('disconnected') : a.plan ?? profile.name}{a.isDefault ? ` · ${tt('default')}` : ''}</small>
           </button>)}
         </div>
         <p className="dsh-sub-hint dsh-sub-asideFooter">{tt(profile.intro)}</p>
@@ -206,12 +207,13 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
             <input aria-label={tt('manual')} value={manual} onChange={e => setManual(e.target.value)} placeholder={profile.callback} autoComplete="off" spellCheck={false}/><button disabled={busy || !manual.trim()}>{tt('submit')}</button>
           </form></details>
         </div>}
-        {!account ? <div className="dsh-sub-empty"><span className="dsh-sub-emptyLogo" aria-hidden="true"><ProviderLogo provider={provider}/></span><h3>{tt(profile.empty)}</h3><p>{tt('emptyHint')}</p><button className="dsh-sub-primary" disabled={busy || status?.busy || !status} onClick={login}>{tt(profile.connect)}</button></div> : <>
-          <div className="dsh-sub-accountHeader"><div><h3>{accountLabel(account)}</h3><span className="dsh-sub-status">● {tt('connected')}</span><span className="dsh-sub-hint"> · {account.plan ?? profile.name}</span></div><div className="dsh-sub-actions">
+        {!account || account.connected === false ? <div className="dsh-sub-empty"><span className="dsh-sub-emptyLogo" aria-hidden="true"><ProviderLogo provider={provider}/></span><h3>{tt(profile.empty)}</h3><p>{tt(provider === 'chatgpt' ? 'chatGptConsentHint' : 'emptyHint')}</p><button className="dsh-sub-primary" disabled={busy || status?.busy || !status} onClick={() => login(account?.key)}>{tt(profile.connect)}</button></div> : <>
+          <div className="dsh-sub-accountHeader"><div><h3>{accountLabel(account)}</h3><span className="dsh-sub-status">● {tt(account.planEnabled === false ? 'planDisabled' : 'connected')}</span><span className="dsh-sub-hint"> · {account.plan ?? profile.name}</span></div><div className="dsh-sub-actions">
+            {provider === 'chatgpt' && <button disabled={busy || status?.busy} onClick={() => login(account.key)}>{tt('reconnect')}</button>}
             {!account.isDefault && <button disabled={busy} onClick={() => { void run(async () => { await api.setDefault(account.key); await refreshStatus() }) }}>{tt('setDefault')}</button>}
             <button disabled={busy} onClick={() => setDisconnect(account)}>{tt('disconnect')}</button>
           </div></div>
-          <div className="dsh-sub-tabs" role="tablist" aria-label={profile.name}>{(['models', 'tools', 'usage'] as const).map(value => <button key={value} role="tab" id={`sub-tab-${value}`} aria-selected={tab === value} aria-controls={`sub-panel-${value}`} onClick={() => setTab(value)}>{tt(value)}{value === 'models' && catalog ? ` ${availableModels.length}` : ''}</button>)}</div>
+          <div className="dsh-sub-tabs" role="tablist" aria-label={profile.name}>{(['models', 'tools', 'usage'] as const).filter(value => value !== 'tools' || provider !== 'chatgpt').map(value => <button key={value} role="tab" id={`sub-tab-${value}`} aria-selected={tab === value} aria-controls={`sub-panel-${value}`} onClick={() => setTab(value)}>{tt(value)}{value === 'models' && catalog ? ` ${availableModels.length}` : ''}</button>)}</div>
           <div className="dsh-sub-tabBody" role="tabpanel" id={`sub-panel-${tab}`} aria-labelledby={`sub-tab-${tab}`}>
             {tab === 'models' && <>
               <div className="dsh-sub-toolbar"><input aria-label={tt('search')} placeholder={tt('search')} value={query} onChange={e => setQuery(e.target.value)}/><button disabled={busy || catalogBusy || savingPreferences} onClick={() => { void run(() => refreshCatalog(true)) }}>{catalogBusy ? tt('loading') : tt('refresh')}</button></div>
@@ -266,11 +268,12 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
               <p className="dsh-sub-hint">{tt('toolPolicy')}</p>
             </>}
             {tab === 'usage' && <>
-              <div className="dsh-sub-toolbar"><p className="dsh-sub-hint">{tt('usageHint')}</p><button disabled={usageBusy || busy} onClick={() => { void run(refreshUsage) }}>{usageBusy ? tt('loading') : tt('refresh')}</button></div>
+              <div className="dsh-sub-toolbar"><p className="dsh-sub-hint">{tt(provider === 'chatgpt' ? 'chatGptUsageHint' : 'usageHint')}</p><button disabled={usageBusy || busy} onClick={() => { void run(refreshUsage) }}>{usageBusy ? tt('loading') : tt('refresh')}</button></div>
+              {provider === 'chatgpt' && <p><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">{tt('manageUsage')}</a></p>}
               {currentUsage?.plan && <p>{tt('plan')} · {currentUsage.plan}</p>}
               {!currentUsage && <p className="dsh-sub-tableEmpty">{usageBusy ? tt('loading') : tt('unknownUsage')}</p>}
-              {currentUsage && (!currentUsage.supported || !currentUsage.windows?.length) && <p className="dsh-sub-tableEmpty">{tt('unsupportedUsage')}</p>}
-              {currentUsage?.windows?.map((window, index) => <div className="dsh-sub-usage" key={index}><div><strong>{tt(window.kind as Key)}{window.scope ? ` · ${window.scope}` : ''}</strong><span>{Number.isFinite(window.usedPercent) ? `${window.usedPercent.toFixed(0)}% ${tt('used')}` : tt('unknown')}</span></div>
+              {currentUsage && (!currentUsage.supported || !currentUsage.windows?.length) && <p className="dsh-sub-tableEmpty">{tt(provider === 'chatgpt' ? 'chatGptUsageUnavailable' : 'unsupportedUsage')}</p>}
+              {currentUsage?.supported && currentUsage.windows?.map((window, index) => <div className="dsh-sub-usage" key={index}><div><strong>{tt(window.kind as Key)}{window.scope ? ` · ${window.scope}` : ''}</strong><span>{Number.isFinite(window.usedPercent) ? `${window.usedPercent.toFixed(0)}% ${tt('used')}` : tt('unknown')}</span></div>
                 {Number.isFinite(window.usedPercent) && <progress max={100} value={Math.max(0, Math.min(100, window.usedPercent))} aria-label={tt(window.kind)}/>}
                 <small>{tt('resets')} · {window.resetsAt ? new Date(window.resetsAt).toLocaleString() : tt('unknown')}</small>
               </div>)}

@@ -5,6 +5,7 @@ import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { PROVIDER_IDS, type ProviderId } from './auth/store.js'
 
 export const PROVIDER_TOOLS = {
+  chatgpt: [],
   codex: ['image_generate', 'web_search'],
   antigravity: ['image_generate', 'web_search'],
 } as const

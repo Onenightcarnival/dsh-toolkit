@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-DeepSeek Harness 的 AI 订阅插件，支持 ChatGPT 与 Google Antigravity。入口：侧边栏「AI 订阅」，包含提供方、账号、模型、工具和用量，支持宿主主题及中英文。
+DeepSeek Harness 的 AI 订阅插件，支持 Codex、ChatGPT 与 Google Antigravity。入口：侧边栏「AI 订阅」，包含提供方、账号、模型、工具和用量，支持宿主主题及中英文。
 
 ## 安装
 
@@ -12,10 +12,10 @@ DeepSeek Harness 的 AI 订阅插件，支持 ChatGPT 与 Google Antigravity。�
 dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-<版本>.tgz
 ```
 
-## ChatGPT
+## Codex
 
-1. 在「AI 订阅」点击「连接 ChatGPT」，完成浏览器 OAuth 授权。
-2. 在会话模型选择器的 ChatGPT (Codex) 分组选择模型。
+1. 在「AI 订阅」点击「连接 Codex」，完成浏览器 OAuth 授权。
+2. 在会话模型选择器的 Codex 分组选择模型。
 
 自动回调依次使用本机 1455、1457 端口。端口不可用时切换为手动模式：授权跳转到 localhost 后，将地址栏的完整 URL 粘贴回面板并提交；页面无法访问不影响提交。
 
@@ -33,6 +33,18 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-<版本>.
 - 设置由同类账号共用，不能超过目录给出的上限。
 
 Codex Web Search 独立于 DSH 的联网搜索提供方设置。生成图片保存到 DSH home 的 `plugins/subscriptions/images/`；附件服务提供对话内预览、下载与继续编辑。
+
+## ChatGPT
+
+选择 **ChatGPT · OpenAI**，点击「使用 ChatGPT 继续」。符合条件的 Plus 和 Pro 账号可通过 [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source) 授权本应用使用套餐。
+
+- OAuth 使用 PKCE、ID token 签名校验和 `127.0.0.1` HTTP 回调。依次尝试端口 1455、1457 和系统分配的空闲端口；手动模式要求粘贴完整回调 URL。
+- 每台主机保留固定的 host ID，每个账号注册保留独立的 client ID。「重新登录」复用已有注册；相同邮箱的不同注册分别保存。
+- 凭据保存在宿主本机。断开连接时尝试撤销远程会话，清除本地 token，保留注册信息供后续登录。撤销未确认时显示提示，也可在 ChatGPT 设置中移除应用权限。
+- 模型目录从 `GET https://api.openai.com/v1/models` 实时读取。对话使用 OAuth 调用 `POST https://api.openai.com/v1/responses`，开启流式传输，关闭响应存储。
+- 对话支持 DSH 本地函数工具。输入类型与推理强度跟随模型目录。该接口不提供托管生图、文件搜索、Code Interpreter、原生计算机操作和托管 MCP。
+- 应用用量与套餐中的 Codex / ChatGPT Work 额度共用，应用限额不会增加额度。「管理用量」打开 [ChatGPT 设置 → 用量](https://chatgpt.com/settings/usage)；本接入不估算剩余额度。
+- Codex 与 ChatGPT 的凭据、模型设置和目录分别保存；原有 Codex 账号和模型 ID 继续有效。
 
 ## 工具
 
@@ -140,6 +152,7 @@ OAuth 客户端配置按以下顺序读取：
 |---|---|
 | 通用 | `enabled`、`codexClientVersion`、`streamIdleTimeoutMs`、`rateLimit` |
 | Codex 模型 | `models` |
+| ChatGPT 模型元数据覆盖 | `chatgpt.models`；模型可用性以账号实时目录为准 |
 | Antigravity 模型 | `antigravity.models` |
 | 模型条目 | `id`；可选 `name`、`contextWindow`、`inputModalities` |
 | Antigravity 连接 | `clientId`、`clientSecret`、`baseURL`、`userAgent`、`projectId`、`onboard`（默认关闭），均位于 `antigravity` 下 |

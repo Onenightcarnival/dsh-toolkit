@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 const output = await build({ entryPoints: [new URL('../src/client/api.ts', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')], bundle: true, write: false, platform: 'node', format: 'esm' })
 const { SubscriptionsApi } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`)
 
-test('subscription host registers both providers and independent subscription tools', { timeout: 20000 }, async () => {
+test('subscription host registers three providers and independent subscription tools', { timeout: 20000 }, async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-subscriptions-test-'))
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
@@ -55,6 +55,10 @@ test('subscription host registers both providers and independent subscription to
     for (let i = 0; i < 100 && !routes.size; i++) await new Promise(resolve => setTimeout(resolve, 10))
     assert.ok(routes.size > 0, 'RPC registration did not start')
     assert.ok(adapters.has('codex'))
+    assert.ok(adapters.has('chatgpt'))
+    assert.equal(adapters.get('codex').providerInfo('codex').name, 'Codex')
+    assert.equal(adapters.get('chatgpt').providerInfo('chatgpt').name, 'ChatGPT')
+    assert.deepEqual(await adapters.get('chatgpt').listModels('chatgpt'), [])
     assert.ok(adapters.has('antigravity'))
     assert.deepEqual(await adapters.get('antigravity').listModels('antigravity'), [])
     for (const provider of ['claude', 'grok', 'copilot']) {
@@ -63,7 +67,7 @@ test('subscription host registers both providers and independent subscription to
         await assert.rejects(api.call(method, { provider }), /payload.provider must be one of codex/)
       }
     }
-    assert.deepEqual(Object.keys((await api.call('status')).providers), ['codex', 'antigravity'])
+    assert.deepEqual(Object.keys((await api.call('status')).providers), ['codex', 'chatgpt', 'antigravity'])
     assert.ok(!routes.has('/api/subscriptions-auth.video'))
     assert.deepEqual([...tools.keys()], ['codex_web_search', 'codex_image_generate', 'antigravity_web_search', 'antigravity_image_generate'])
     assert.doesNotMatch(JSON.stringify(tools.get('codex_image_generate')), /grok|x_search|video_generate/i)

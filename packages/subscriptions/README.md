@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh.md)
 
-ChatGPT and Google Antigravity subscriptions for DeepSeek Harness. Entry: **AI subscriptions** in the sidebar, with providers, accounts, models, tools and usage. The panel supports the host theme and English / Chinese.
+Codex, ChatGPT and Google Antigravity subscriptions for DeepSeek Harness. Entry: **AI subscriptions** in the sidebar, with providers, accounts, models, tools and usage. The panel supports the host theme and English / Chinese.
 
 ## Installation
 
@@ -12,10 +12,10 @@ The standalone package and toolkit are mutually exclusive:
 dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-<version>.tgz
 ```
 
-## ChatGPT
+## Codex
 
-1. Select **Connect ChatGPT** in AI subscriptions and complete browser OAuth.
-2. Select a model from the ChatGPT (Codex) group in the conversation picker.
+1. Select **Connect Codex** in AI subscriptions and complete browser OAuth.
+2. Select a model from the Codex group in the conversation picker.
 
 Callbacks try local ports 1455 and 1457. If both are unavailable, manual mode accepts the complete localhost callback URL from the browser address bar, including when that page cannot load. Credentials remain on the host.
 
@@ -33,6 +33,18 @@ Model selections and tool switches update immediately and save in order. Save st
 - Settings are shared across accounts of the same provider and cannot exceed advertised limits.
 
 Codex Web Search is independent of DSH's web search provider setting. Images live under `plugins/subscriptions/images/` in the DSH home; the attachment service provides inline preview, download and continued editing.
+
+## ChatGPT
+
+Select **ChatGPT · OpenAI**, then **Continue with ChatGPT**. Eligible Plus and Pro accounts can authorize this app to use their plan through [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source).
+
+- OAuth uses PKCE, signed ID-token validation and an HTTP callback on `127.0.0.1`. Ports 1455, 1457 and an available ephemeral port are tried in order; manual mode requires the complete callback URL.
+- Each host keeps a stable host ID. Each account registration keeps its issued client ID; **Sign in again** reuses it. Accounts with the same email remain separate registrations.
+- Credentials stay on the host. Disconnect attempts remote session revocation, clears local tokens and retains the registration for later sign-in. A failed revocation is reported; access can also be removed in ChatGPT settings.
+- The account's live model catalog comes from `GET https://api.openai.com/v1/models`. Requests use OAuth with `POST https://api.openai.com/v1/responses`, streaming enabled and response storage disabled.
+- Conversations support local DSH function tools. Input modalities and reasoning efforts follow the model catalog. Hosted image generation, file search, Code Interpreter, native computer use and hosted MCP are unavailable on this route.
+- ChatGPT app usage shares the plan's Codex / ChatGPT Work allowance. App limits do not provide additional quota. **Manage usage** opens [ChatGPT Settings → Usage](https://chatgpt.com/settings/usage); this integration does not report an estimated remaining balance.
+- Codex and ChatGPT credentials, model settings and catalogs are stored separately. Existing Codex accounts and model IDs remain valid.
 
 ## Tools
 
@@ -135,6 +147,7 @@ The toolkit enables this module by default; `subscriptions: false` disables host
 |---|---|
 | General | `enabled`, `codexClientVersion`, `streamIdleTimeoutMs`, `rateLimit` |
 | Codex models | `models` |
+| ChatGPT model metadata overrides | `chatgpt.models`; live account availability remains authoritative |
 | Antigravity models | `antigravity.models` |
 | Model entry | `id`; optional `name`, `contextWindow`, `inputModalities` |
 | Antigravity connection | `clientId`, `clientSecret`, `baseURL`, `userAgent`, `projectId`, `onboard` (off by default), under `antigravity` |
@@ -143,7 +156,7 @@ Auth and preferences use `plugins/subscriptions/` in the DSH home. The original 
 
 ## Source and license
 
-`src/backend` contains OAuth PKCE, token refresh, streaming model adapters, Codex search and image attachment handling. Providers: `codex`, `antigravity`. The backend builds from local source. Antigravity protocol reference: [LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6). Source provenance and MIT license notices reside in `THIRD_PARTY_LICENSES.txt`.
+`src/backend` contains OAuth PKCE, token refresh, streaming model adapters, Codex search and image attachment handling. Providers: `codex`, `chatgpt`, `antigravity`. The backend builds from local source. Antigravity protocol reference: [LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6). Source provenance and MIT license notices reside in `THIRD_PARTY_LICENSES.txt`.
 
 Third-party notices are included in both standalone and toolkit artifacts. Backend changes require rerunning the OAuth, RPC, model and tool-policy integration tests.
 

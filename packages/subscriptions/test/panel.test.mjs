@@ -114,7 +114,7 @@ test('provider selection isolates accounts, preferences, tools and late catalog 
     assert.equal(googlePrefs.tools.web_search, false)
     await click(button('Usage'))
     assert.match(document.body.textContent, /25% Used/)
-    await click([...document.querySelectorAll('.dsh-sub-provider')].find(element => element.textContent.includes('ChatGPT')))
+    await click([...document.querySelectorAll('.dsh-sub-provider')].find(element => element.textContent.includes('Codex')))
     assert.match(document.body.textContent, /codex@example.test/)
     assert.doesNotMatch(document.body.textContent, /google@example.test|25% Used/)
   } finally { await act(async () => root.unmount()) }
@@ -211,7 +211,7 @@ test('panel keeps browser authorization link available and cancels login', async
   const root = createRoot(document.getElementById('root'))
   try {
     await act(async () => root.render(React.createElement(SubscriptionsPanel, { api, close() {} })))
-    await click(button('Connect ChatGPT'))
+    await click(button('Connect Codex'))
     assert.match(opened, /^https:\/\/auth.openai.com/)
     assert.equal(document.querySelector('a[target="_blank"]').href, opened, 'popup-blocked fallback stays visible')
     assert.match(document.body.textContent, /local callback ports are unavailable/)
@@ -219,5 +219,37 @@ test('panel keeps browser authorization link available and cancels login', async
     await click(button('Cancel'))
     assert.equal(cancelled, 1)
     assert.equal(document.querySelector('a[target="_blank"]'), null)
+  } finally { await act(async () => root.unmount()) }
+})
+
+test('ChatGPT shows shared usage and reconnects saved registrations without showing Codex tools', async () => {
+  const calls = []
+  let connected = true
+  const api = { provider: 'chatgpt',
+    status: async () => ({ busy: false, accounts: [{ key: 'oaiapp_saved', account: 'chat@example.test', isDefault: connected, connected }] }),
+    catalog: async () => ({ provider: 'chatgpt', models: [], settings: {}, accounts: [], tools: [] }),
+    usage: async () => ({ supported: false }),
+    logout: async key => { calls.push(['logout', key]); connected = false },
+    login: async key => { calls.push(['login', key]); throw new Error('Fixture login stopped') },
+  }
+  const root = createRoot(document.getElementById('root'))
+  try {
+    await act(async () => root.render(React.createElement(SubscriptionsPanel, { api, close() {} })))
+    assert.deepEqual([...document.querySelectorAll('.dsh-sub-provider strong')].map(el => el.textContent), ['Codex', 'ChatGPT', 'Antigravity'])
+    assert.equal([...document.querySelectorAll('[role=tab]')].some(el => el.textContent === 'Tools'), false)
+    await click(button('Usage'))
+    assert.match(document.body.textContent, /Shares plan usage/)
+    assert.equal(document.querySelector('a[href="https://chatgpt.com/settings/usage"]').textContent, 'Manage usage')
+    assert.equal(document.querySelector('progress'), null)
+    await click(button('Sign in again'))
+    assert.deepEqual(calls.at(-1), ['login', 'oaiapp_saved'])
+    await click(button('Disconnect'))
+    await click([...document.querySelectorAll('dialog button')].find(el => el.textContent === 'Disconnect account'))
+    assert.equal(connected, false)
+    assert.match(document.body.textContent, /Not connected/)
+    await click(button('Continue with ChatGPT'))
+    assert.deepEqual(calls.at(-1), ['login', 'oaiapp_saved'])
+    await click(button('Add account'))
+    assert.deepEqual(calls.at(-1), ['login', undefined])
   } finally { await act(async () => root.unmount()) }
 })

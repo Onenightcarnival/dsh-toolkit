@@ -1,6 +1,6 @@
 /**
  * Translate between the harness message vocabulary and the OpenAI Responses
- * API wire format used by ChatGPT (Codex): request input
+ * API wire format used by Codex and ChatGPT: request input
  * assembly, tool schema mapping, and a push-model SSE-event → StreamChunk
  * state machine ({@link ResponsesStreamTranslator}) so tests need no streams.
  */

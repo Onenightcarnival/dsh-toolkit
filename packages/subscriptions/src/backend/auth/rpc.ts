@@ -78,6 +78,8 @@ export interface AccountStatus {
   plan?: string
   /** Whether direct (non-pool) routes serve this account. */
   isDefault: boolean
+  connected?: boolean
+  planEnabled?: boolean
 }
 
 /** Login state of one provider, as rendered by the Settings page. */
@@ -156,7 +158,7 @@ export interface AuthController {
    * @returns the authorize URL and whether a manual callback is required.
    * @throws when an attempt is already running for this provider.
    */
-  login(provider: ProviderId): Promise<{ authorizeUrl: string; manualOnly?: boolean }>
+  login(provider: ProviderId, account?: string): Promise<{ authorizeUrl: string; manualOnly?: boolean }>
   /**
    * Feed a pasted callback URL or bare code into the pending attempt.
    * @throws when no attempt is pending or the input is unusable.
@@ -485,7 +487,7 @@ async function dispatch(
     }
     case 'login': {
       const provider = readProvider(payload)
-      return ok(await controller.login(provider))
+      return ok(await controller.login(provider, (payload as Record<string, unknown>).account === undefined ? undefined : readString(payload, 'account')))
     }
     case 'manual': {
       const provider = readProvider(payload)

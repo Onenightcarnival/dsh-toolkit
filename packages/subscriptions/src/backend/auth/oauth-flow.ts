@@ -38,6 +38,9 @@ export interface FlowSpec {
   /** Registered redirect URI to use with pasted callbacks if loopback ports are blocked. */
   manualRedirectUri?: string
   timeoutMs?: number
+  /** Require the full state-validated callback, including registration fields. */
+  requireCompleteCallback?: boolean
+  validateCallback?(params: URLSearchParams): void
   /**
    * Build the provider authorize URL for one attempt.
    * @param input - redirect URI, state, PKCE pair, and nonce minted for this attempt.
@@ -57,6 +60,8 @@ export interface OAuthAttempt {
   readonly pkce: PkcePair
   /** State parameter minted for this attempt (some providers echo it at exchange). */
   readonly state: string
+  readonly nonce: string
+  readonly callbackParams: URLSearchParams
   /**
    * Wait for the authorization code from the browser callback or `manual`.
    * @returns the authorization code; rejects on timeout, provider error, or cancel.
@@ -192,7 +197,7 @@ export class OAuthFlowManager {
       redirectUri: '',
       state: randomToken(32),
       pkce: createPkce(),
-      nonce: randomHex(8),
+      nonce: randomHex(32),
     }
     const timeoutMs = spec.timeoutMs ?? DEFAULT_FLOW_TIMEOUT_MS
 
@@ -206,6 +211,7 @@ export class OAuthFlowManager {
     let settled = false
     let timer: ReturnType<typeof setTimeout> | undefined
     let servers: Server[] = []
+    let callbackParams = new URLSearchParams()
     const handler: RequestListener = (request, response) => {
       const url = new URL(request.url ?? '/', 'http://localhost')
       if (url.pathname !== spec.callbackPath) {
@@ -231,6 +237,12 @@ export class OAuthFlowManager {
         response.end('missing authorization code')
         return
       }
+      try { spec.validateCallback?.(url.searchParams) } catch (error) {
+        response.writeHead(400, { 'content-type': 'text/plain' })
+        response.end(error instanceof Error ? error.message : 'invalid callback')
+        return
+      }
+      callbackParams = new URLSearchParams(url.searchParams)
       response.writeHead(200, { 'content-type': 'text/html' })
       response.end(SUCCESS_PAGE)
       settle(undefined, code)
@@ -274,12 +286,18 @@ export class OAuthFlowManager {
       manualOnly,
       pkce: input.pkce,
       state: input.state,
+      nonce: input.nonce,
+      get callbackParams() { return new URLSearchParams(callbackParams) },
       waitCode: () => codePromise,
       manual(rawInput: string) {
         if (settled) throw new Error(`the ${provider} login attempt already finished`)
         const trimmed = rawInput.trim()
         let code: string | undefined
         let pastedState: string | undefined
+        let params = new URLSearchParams()
+        if (spec.requireCompleteCallback && !/^https?:\/\//i.test(trimmed)) {
+          throw new Error('paste the complete callback URL including its state parameter')
+        }
         if (/^https?:\/\//i.test(trimmed)) {
           const url = new URL(trimmed)
           const expected = new URL(input.redirectUri)
@@ -289,8 +307,13 @@ export class OAuthFlowManager {
           code = url.searchParams.get('code') ?? undefined
           pastedState = url.searchParams.get('state') ?? undefined
           if (pastedState !== input.state) throw new Error('state mismatch: paste the complete callback URL from this login attempt')
+          params = url.searchParams
+          if (params.has('error')) {
+            settle(new Error(`authorization failed: ${params.get('error_description') ?? params.get('error')}`))
+            return
+          }
         } else if (trimmed.includes('code=')) {
-          const params = new URLSearchParams(trimmed)
+          params = new URLSearchParams(trimmed)
           code = params.get('code') ?? undefined
           pastedState = params.get('state') ?? undefined
         } else if (trimmed.length > 0 && !/\s/.test(trimmed)) {
@@ -305,6 +328,8 @@ export class OAuthFlowManager {
         if (pastedState !== undefined && pastedState !== input.state) {
           throw new Error('state mismatch: the pasted URL belongs to a different login attempt')
         }
+        spec.validateCallback?.(params)
+        callbackParams = new URLSearchParams(params)
         settle(undefined, code)
       },
       cancel() {

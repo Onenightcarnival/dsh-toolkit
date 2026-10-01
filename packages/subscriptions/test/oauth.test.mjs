@@ -96,3 +96,35 @@ test('unexpected listener errors are not hidden by manual fallback', async t => 
   })
   await assert.rejects(new OAuthFlowManager().start('codex', spec), /resource limit/)
 })
+
+test('dynamic OAuth preserves registration fields and requires full state-bound manual callbacks', async () => {
+  const manager = new OAuthFlowManager()
+  const attempt = await manager.start('chatgpt', { ...spec, requireCompleteCallback: true,
+    validateCallback(params) { if (params.get('client_id') !== 'oaiapp_fixture') throw new Error('missing client') },
+  })
+  const code = attempt.waitCode()
+  try {
+    assert.throws(() => attempt.manual('fixture-code'), /complete callback URL/)
+    assert.throws(() => attempt.manual(callback(attempt)), /missing client/)
+    assert.equal((await fetch(callback(attempt))).status, 400)
+    assert.equal((await fetch(`${callback(attempt)}&client_id=oaiapp_fixture`)).status, 200)
+    assert.equal(await code, 'fixture-code')
+    assert.equal(attempt.callbackParams.get('client_id'), 'oaiapp_fixture')
+    assert.ok(attempt.nonce.length >= 32)
+    attempt.callbackParams.set('client_id', 'changed')
+    assert.equal(attempt.callbackParams.get('client_id'), 'oaiapp_fixture')
+  } finally { attempt.cancel(); await code.catch(() => {}) }
+})
+
+test('manual dynamic OAuth validates state before a declined consent can settle the flow', async () => {
+  const manager = new OAuthFlowManager()
+  const attempt = await manager.start('chatgpt', { ...spec, requireCompleteCallback: true })
+  const code = attempt.waitCode()
+  try {
+    assert.throws(() => attempt.manual(`${attempt.redirectUri}?error=access_denied&state=wrong`), /state mismatch/)
+    const rejected = assert.rejects(code, /access_denied/)
+    attempt.manual(`${attempt.redirectUri}?error=access_denied&state=${attempt.state}`)
+    await rejected
+    assert.equal(manager.pending('chatgpt'), undefined)
+  } finally { attempt.cancel(); await code.catch(() => {}) }
+})

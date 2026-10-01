@@ -1,4 +1,10 @@
-/** ChatGPT and Antigravity: subscription models, OAuth, search and images. */
+/** Codex, ChatGPT and Antigravity subscription providers. */
+
+import { withChatGptLock } from './auth/chatgpt-lock.js'
+import { ChatGptTokenManager } from './providers/chatgpt-tokens.js'
+import { ChatGptAdapter } from './providers/chatgpt.js'
+import { ChatGptPlanNotEnabledError, chatGptFlow, prepareChatGptRegistration, readChatGptRegistrations, exchangeChatGptCode, refreshChatGpt, isChatGptPermanentRefreshError, revokeChatGpt, chatGptPlanEnabled, type ChatGptRegistration } from './auth/chatgpt.js'
+import { getAccountSession, type ChatGptSession } from './auth/store.js'
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -109,6 +115,7 @@ export interface Config {
   rateLimit?: RateLimitConfig
   /** Advisory model catalogs overriding the built-in defaults, per provider. */
   models?: {
+    chatgpt?: ModelEntry[]
     codex?: ModelEntry[]
     antigravity?: ModelEntry[]
   }
@@ -131,7 +138,7 @@ export interface Config {
   }
 }
 
-const providerIdSchema = z.union(['codex', 'antigravity'])
+const providerIdSchema = z.union(['codex', 'chatgpt', 'antigravity'])
 const modelEntrySchema: z<ModelEntry> = z.object({
   id: z.string().required(),
   name: z.string(),
@@ -147,7 +154,7 @@ const poolMemberSchema: z<PoolMemberRef> = z.object({
 })
 
 export const Config: z<Config> = z.object({
-  providers: z.array(providerIdSchema).default(['codex', 'antigravity']),
+  providers: z.array(providerIdSchema).default(['codex', 'chatgpt', 'antigravity']),
   antigravity: z.object({ clientId: z.string(), clientSecret: z.string(), baseURL: z.string(), userAgent: z.string(), projectId: z.string(), onboard: z.boolean() }),
   codexClientVersion: z.string(),
   streamIdleTimeoutMs: z.number().min(1).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
@@ -156,6 +163,7 @@ export const Config: z<Config> = z.object({
     maxWaitMs: z.number().min(1).default(DEFAULT_RATE_LIMIT_MAX_WAIT_MS),
   }),
   models: z.object({
+    chatgpt: z.array(modelEntrySchema),
     codex: z.array(modelEntrySchema),
     antigravity: z.array(modelEntrySchema),
   }),
@@ -172,6 +180,7 @@ export const Config: z<Config> = z.object({
 
 /** Built-in catalogs used when the config does not override a provider's models. */
 const DEFAULT_MODELS: Record<ProviderId, ModelEntry[]> = {
+  chatgpt: [],
   antigravity: [],
   codex: [
     { id: 'gpt-5.1-codex', name: 'GPT-5.1 Codex' },
@@ -189,6 +198,7 @@ function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry
     return validateModels(entries, `${name}: models.${provider}`)
   }
   return {
+    chatgpt: resolve('chatgpt'),
     codex: resolve('codex'),
     antigravity: resolve('antigravity'),
   }
@@ -198,6 +208,7 @@ function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry
 function accountOf(provider: ProviderId, session: StoredSession | undefined): string | undefined {
   if (session === undefined) return undefined
   switch (provider) {
+    case 'chatgpt': return (session as ChatGptSession).emailAddress ?? (session as ChatGptSession).subject
     case 'antigravity': return (session as AntigravitySession).account ?? (session as AntigravitySession).projectId
     case 'codex': {
       const codex = session as CodexSession
@@ -229,6 +240,7 @@ type UsageFetchers = Partial<Record<ProviderId, (account: string, signal: AbortS
 export class SubscriptionsAuthController implements AuthController {
   /** Last login failure per provider, surfaced as `detail` until the next success. */
   private lastError = new Map<ProviderId, string>()
+  private registrations = new WeakMap<OAuthAttempt, ChatGptRegistration>()
   /**
    * Per-provider count of OAuth attempts completing token exchange and storage.
    * Counts remain busy after flow-manager completion and support overlapping
@@ -297,26 +309,34 @@ export class SubscriptionsAuthController implements AuthController {
     return {
       busy: this.flows.isBusy(provider) || this.finalizing.has(provider),
       manualOnly: this.flows.pending(provider)?.manualOnly ?? false,
-      accounts: entries.map(({ key, session }, index) => {
+      accounts: entries.map<import('./auth/rpc.js').AccountStatus>(({ key, session }, index) => {
         const account = accountOf(provider, session)
         const plan = planOf(provider, session)
         return {
           key,
           isDefault: index === 0,
           expiresAt: session.expiresAt,
+          ...(provider === 'chatgpt' ? { connected: true, planEnabled: chatGptPlanEnabled(session as ChatGptSession) } : {}),
           ...account === undefined ? {} : { account },
           ...plan === undefined ? {} : { plan },
         }
-      }),
+      }).concat(provider === 'chatgpt' ? Object.values((await readChatGptRegistrations()).accounts)
+        .filter(entry => !entries.some(account => account.key === entry.clientId))
+        .map(entry => ({ key: entry.clientId, account: entry.emailAddress ?? entry.clientId, isDefault: false,
+          connected: false, planEnabled: entry.planEnabled, expiresAt: undefined })) : []),
       ...detail === undefined ? {} : { detail },
       ...clientVersion === undefined ? {} : { clientVersion },
     }
   }
 
-  async login(provider: ProviderId): Promise<{ authorizeUrl: string; manualOnly: boolean }> {
+  async login(provider: ProviderId, account?: string): Promise<{ authorizeUrl: string; manualOnly: boolean }> {
     const oauth = provider === 'antigravity' ? resolveAntigravityOAuthConfig(this.antigravityConfig) : undefined
     if (oauth) await preserveAntigravityClient(oauth)
-    const attempt = await this.flows.start(provider, oauth ? antigravityFlow(oauth) : codexFlow)
+    const registration = provider === 'chatgpt' ? await prepareChatGptRegistration(account) : undefined
+    const previous = registration && account ? await getAccountSession('chatgpt', account) : undefined
+    if (registration && previous && !chatGptPlanEnabled(previous)) registration.planEnabled = false
+    const attempt = await this.flows.start(provider, registration ? chatGptFlow(registration, previous?.idToken) : oauth ? antigravityFlow(oauth) : codexFlow)
+    if (registration) this.registrations.set(attempt, registration)
     // Claimed only once the attempt exists: a rejected `start()` (one attempt
     // per provider) must not supersede the attempt already running.
     this.beginFinalizing(provider)
@@ -351,7 +371,12 @@ export class SubscriptionsAuthController implements AuthController {
       // called, so a claim arriving after the check is ordered after this
       // write too.
       if (this.claims.get(provider) !== claim) return
-      await this.persist(provider, session)
+      if (provider === 'chatgpt') {
+        await withChatGptLock('sessions', async () => {
+          if (this.claims.get(provider) === claim) await this.persist(provider, session)
+        })
+      } else await this.persist(provider, session)
+      if (this.claims.get(provider) !== claim) return
       this.lastError.delete(provider)
       this.onAuthChanged(provider, accountKeyOf(provider, session))
     } catch (error) {
@@ -360,6 +385,13 @@ export class SubscriptionsAuthController implements AuthController {
       // superseded attempt must not put an error on a provider that has since
       // been logged in again or logged out.
       if (this.claims.get(provider) !== claim) return
+      if (error instanceof ChatGptPlanNotEnabledError) {
+        await withChatGptLock('sessions', async () => {
+          if (this.claims.get(provider) === claim) await deleteAccountSession('chatgpt', error.clientId)
+        })
+        if (this.claims.get(provider) !== claim) return
+        this.onAuthChanged('chatgpt', error.clientId)
+      }
       // A user-cancelled attempt is not a failure worth surfacing. Every
       // in-tree canceller claims first, so the guard above already covers
       // this; the check stands on its own so the invariant does not depend on
@@ -376,6 +408,7 @@ export class SubscriptionsAuthController implements AuthController {
   protected exchange(provider: ProviderId, code: string, attempt: OAuthAttempt): Promise<StoredSession> {
     switch (provider) {
       case 'antigravity': return exchangeAntigravityCode(code, attempt.pkce.verifier, attempt.redirectUri, resolveAntigravityOAuthConfig(this.antigravityConfig), this.antigravityConfig)
+      case 'chatgpt': return exchangeChatGptCode(code, attempt, this.registrations.get(attempt)!)
       case 'codex':
         return exchangeCodexCode(code, attempt.pkce.verifier, attempt.redirectUri)
     }
@@ -415,8 +448,17 @@ export class SubscriptionsAuthController implements AuthController {
   async logout(provider: ProviderId, account: string): Promise<void> {
     this.claim(provider)
     this.flows.pending(provider)?.cancel()
-    await deleteAccountSession(provider, account)
+    let revocationFailed = false
+    if (provider === 'chatgpt') {
+      await withChatGptLock('sessions', async () => {
+        const session = await getAccountSession('chatgpt', account)
+        if (session) { try { await revokeChatGpt(session) } catch { revocationFailed = true } }
+        await deleteAccountSession(provider, account)
+      })
+    }
+    if (provider !== 'chatgpt') await deleteAccountSession(provider, account)
     this.lastError.delete(provider)
+    if (revocationFailed) this.lastError.set(provider, 'Signed out locally. Remote revocation was not confirmed; disconnect the app in ChatGPT settings.')
     this.onAuthChanged(provider, account)
   }
 
@@ -529,6 +571,7 @@ export function apply(ctx: Context, config: Config): void {
   const speedBySession = new Map<string, SpeedTier>()
   let codexAdapter: CodexAdapter | undefined
   let antigravityAdapter: AntigravityAdapter | undefined
+  let chatgptAdapter: ChatGptAdapter | undefined
   const memberAdapters = new Map<ProviderId, AccountAwareAdapter>()
   const register = (provider: ProviderId, adapter: AccountAwareAdapter): AdapterRegistrationHandle => {
     const route = new AccountPreferencesAdapter({
@@ -540,6 +583,23 @@ export function apply(ctx: Context, config: Config): void {
   }
   for (const provider of providers) {
     switch (provider) {
+      case 'chatgpt': {
+        const tokens = new ChatGptTokenManager({
+          provider, displayName: 'ChatGPT',
+          makeOptions: () => ({ preemptMs: 5 * 60_000, refresh: refreshChatGpt, isPermanent: isChatGptPermanentRefreshError }),
+          onAccountRemoved: account => authChanged(provider, account),
+        })
+        accountTokens.set(provider, tokens as AccountTokenManager<StoredSession>)
+        const adapter = new ChatGptAdapter({ tokens, models: catalog.chatgpt, streamIdleTimeoutMs,
+          resolveAttachments, accountCatalogStore: account => accountCatalogStore(provider, account),
+          defaultEffortOf: model => defaultEffortOf(provider, model),
+          contextWindowOf: model => preferences.contextWindow(model, provider), pool: () => poolAdapter,
+        })
+        chatgptAdapter = adapter
+        adapters.set(provider, adapter)
+        handles.set(provider, register(provider, adapter))
+        break
+      }
       case 'antigravity': {
         const tokens = new AccountTokenManager<AntigravitySession>({
           provider, displayName: 'Google Antigravity',
@@ -570,7 +630,7 @@ export function apply(ctx: Context, config: Config): void {
       case 'codex': {
         const tokens = new AccountTokenManager<CodexSession>({
           provider: 'codex',
-          displayName: 'ChatGPT (Codex)',
+          displayName: 'Codex',
           makeOptions: () => ({
             preemptMs: CODEX_PREEMPT_MS,
             refresh: refreshCodex,
@@ -834,7 +894,7 @@ export function apply(ctx: Context, config: Config): void {
       const tierIds = new Set((await poolAdapter?.modelsForProvider(provider).catch(() => []) ?? []).map(model => model.id))
       const rows = await Promise.all(models.map(async model => {
         const contexts: { default: number; max?: number }[] = []
-        const contextAdapter = provider === 'codex' ? codexAdapter : antigravityAdapter
+        const contextAdapter = provider === 'codex' ? codexAdapter : provider === 'chatgpt' ? chatgptAdapter : antigravityAdapter
         if (contextAdapter) {
           for (const account of accountCatalogs) {
             if (account.models?.some(entry => entry.id === model.id)) {

@@ -6,7 +6,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 
 const root = fileURLToPath(new URL('../../..', import.meta.url))
@@ -17,13 +17,22 @@ try {
   for (const mode of ['standalone', 'toolkit', 'disabled']) {
     const bundle = mode !== 'standalone'
     const patch = join(temporary, `${mode}.yml`)
-    const name = pathToFileURL(join(root, `packages/${bundle ? 'toolkit' : 'subscriptions'}/lib/index.js`)).href
+    const module = bundle ? 'toolkit' : 'subscriptions'
+    const env = { ...process.env, DSH_HOME: join(temporary, mode), DSH_TELEMETRY_DISABLED: '1' }
+    const install = spawn(process.execPath, [cli, 'plugin', '--profile', 'web', 'add', '-w',
+      `@onenightcarnival/dsh-${module}@link:${join(root, 'packages', module)}`], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
+    let installLog = ''
+    install.stdout.on('data', data => { installLog += data })
+    install.stderr.on('data', data => { installLog += data })
+    const timeout = setTimeout(() => install.kill('SIGKILL'), 120_000)
+    try { const [code] = await once(install, 'exit'); assert.equal(code, 0, installLog) }
+    finally { clearTimeout(timeout) }
     const config = bundle
       ? { rdb: false, s3: false, otel: false, browser: false, subscriptions: mode === 'disabled' ? false : { codexClientVersion: '0.153.4' } }
       : { codexClientVersion: '0.153.4' }
-    await writeFile(patch, `- insert:\n    - id: subscriptions-smoke\n      name: ${JSON.stringify(name)}\n      config: ${JSON.stringify(config)}\n`)
+    await writeFile(patch, `- id: ${module}\n  config: ${JSON.stringify(config)}\n`)
     const child = spawn(process.execPath, [cli, 'web', '--patch', patch, '--no-open', '--port', '0'], {
-      cwd: root, env: { ...process.env, DSH_HOME: join(temporary, mode), DSH_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'],
     })
     let log = ''
     child.stdout.on('data', data => { log += data })
@@ -56,13 +65,20 @@ try {
         return result.value
       }
       if (bundle) {
-        const map = await (await fetch(`${base}/api/dsh-toolkit/modules`, { headers: { cookie } })).json()
+        const response = await fetch(`${base}/api/dsh-toolkit/modules`, { headers: { cookie } })
+        assert.equal(response.status, 200, `Toolkit module endpoint unavailable: ${log}`)
+        const map = await response.json()
         assert.equal(map.subscriptions, mode !== 'disabled')
       }
       if (mode === 'disabled') assert.equal((await rpc('status')).status, 404)
       else {
         assert.deepEqual((await rpc('status')).providers.codex.accounts, [])
         assert.deepEqual((await rpc('status')).providers.antigravity.accounts, [])
+        assert.deepEqual((await rpc('status')).providers.chatgpt.accounts, [])
+        assert.deepEqual((await rpc('providerSettings', { provider: 'chatgpt' })).tools, [])
+        const login = await rpc('login', { provider: 'chatgpt' })
+        assert.equal(new URL(login.authorizeUrl).searchParams.get('client_id'), 'dynamic_agent_client')
+        await rpc('cancel', { provider: 'chatgpt' })
         await rpc('setProviderSettings', { provider: 'codex', settings: { tools: { web_search: false, image_generate: false } } })
         assert.deepEqual((await rpc('providerSettings', { provider: 'codex' })).settings.tools, { web_search: false, image_generate: false })
         await rpc('setProviderSettings', { provider: 'antigravity', settings: { contextWindows: { 'gemini-fixture': 1000000 } } })

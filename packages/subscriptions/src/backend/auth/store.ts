@@ -14,10 +14,23 @@ import { dirname } from 'node:path'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 
 /** Provider routes this plugin can serve. */
-export type ProviderId = 'codex' | 'antigravity'
+export type ProviderId = 'codex' | 'chatgpt' | 'antigravity'
 
 /** Every provider route, in display order. */
-export const PROVIDER_IDS: readonly ProviderId[] = ['codex', 'antigravity']
+export const PROVIDER_IDS: readonly ProviderId[] = ['codex', 'chatgpt', 'antigravity']
+
+/** Sign in with ChatGPT credentials bound to one issued OAuth client. */
+export interface ChatGptSession {
+  accessToken: string
+  refreshToken: string
+  expiresAt: number
+  clientId: string
+  subject: string
+  hostId: string
+  idToken: string
+  emailAddress?: string
+  scopes: string[]
+}
 
 export interface AntigravitySession {
   accessToken: string
@@ -57,15 +70,16 @@ export interface ProviderAccounts<S> {
 export interface SessionMap {
   /** Preserve unowned sections of an existing shared file without exposing them. */
   [section: string]: unknown
+  chatgpt?: ProviderAccounts<ChatGptSession>
   codex?: ProviderAccounts<CodexSession>
   antigravity?: ProviderAccounts<AntigravitySession>
 }
 
 /** Any stored session, for provider-agnostic plumbing. */
-export type StoredSession = CodexSession | AntigravitySession
+export type StoredSession = CodexSession | AntigravitySession | ChatGptSession
 
 /** The session type one provider stores. */
-export type SessionOf<K extends ProviderId> = K extends 'codex' ? CodexSession : AntigravitySession
+export type SessionOf<K extends ProviderId> = K extends 'codex' ? CodexSession : K extends 'chatgpt' ? ChatGptSession : AntigravitySession
 
 /** One account entry as returned by {@link listAccounts} (default first). */
 export interface AccountEntry<S> {
@@ -83,6 +97,7 @@ export interface AccountEntry<S> {
  */
 export function accountKeyOf(provider: ProviderId, session: StoredSession): string {
   switch (provider) {
+    case 'chatgpt': return (session as ChatGptSession).clientId
     case 'antigravity': {
       const google = session as AntigravitySession
       return google.account?.trim().toLowerCase() || google.projectId

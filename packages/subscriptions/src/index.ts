@@ -15,17 +15,18 @@ export interface Config {
   streamIdleTimeoutMs?: number
   rateLimit?: backend.Config['rateLimit']
   models?: backend.ModelEntry[]
+  chatgpt?: { models?: backend.ModelEntry[] }
   antigravity?: backend.Config['antigravity'] & { models?: backend.ModelEntry[] }
 }
 
 export function backendConfig(config: Config = {}): backend.Config {
   return {
-    providers: ['codex', 'antigravity'],
+    providers: ['codex', 'chatgpt', 'antigravity'],
     antigravity: config.antigravity,
     codexClientVersion: config.codexClientVersion,
     streamIdleTimeoutMs: config.streamIdleTimeoutMs,
     rateLimit: config.rateLimit,
-    models: { codex: config.models, antigravity: config.antigravity?.models },
+    models: { chatgpt: config.chatgpt?.models, codex: config.models, antigravity: config.antigravity?.models },
   }
 }
 

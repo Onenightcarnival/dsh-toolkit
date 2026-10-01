@@ -38,6 +38,7 @@ interface Options {
 /** Keeps the registered route separate from raw adapters and pool member seams. */
 export class AccountPreferencesAdapter extends LlmAdapter {
   constructor(private readonly options: Options) { super() }
+  override providerInfo(provider: string) { return this.options.adapter.providerInfo(provider) }
   private preference(account: string): AccountPreferences | undefined {
     const accounts = this.options.settings.get(this.options.provider).accounts
     return accounts && Object.hasOwn(accounts, account) ? accounts[account] : undefined

@@ -7,7 +7,7 @@ Host backend for `@onenightcarnival/dsh-subscriptions`, compiled from local Type
 | Path | Responsibility |
 |---|---|
 | `auth/` | OAuth PKCE, callback validation, token storage and refresh |
-| `providers/` | Codex and Google Antigravity accounts, model catalogs, quota and request routing |
+| `providers/` | Codex, ChatGPT and Google Antigravity accounts, model catalogs, quota and request routing |
 | `translate/` | Streaming protocol and model message translation |
 | `tools/` | Web search and image generation tool registration |
 | `provider-settings.ts` | Provider configuration |
@@ -17,7 +17,7 @@ Host backend for `@onenightcarnival/dsh-subscriptions`, compiled from local Type
 
 | Boundary | Behavior |
 |---|---|
-| Providers | `codex`, `antigravity` |
+| Providers | `codex`, `chatgpt`, `antigravity` |
 | Search | `codex_web_search`, `antigravity_web_search` |
 | Images | `codex_image_generate`, `antigravity_image_generate` |
 | OAuth callbacks | Provider redirect URIs, callback-port fallback and state-validated manual callbacks |
