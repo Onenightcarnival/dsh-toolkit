@@ -1,0 +1,7 @@
+{
+  "extends": "../rdb/tsconfig.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
+}

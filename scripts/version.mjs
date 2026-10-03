@@ -18,6 +18,7 @@ const VERSION_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
 const FILES = [
   { path: 'package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/rdb/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
+  { path: 'packages/memory/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/s3/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/subscriptions/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/otel/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },

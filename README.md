@@ -12,7 +12,8 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.md) | Browser bridge: `browser_*` tools driving the user's tabs through the Chrome / Firefox extension | Settings → General → Browser bridge address |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.md) | Codex, ChatGPT and Google Antigravity models, Codex search and image tools | Sidebar "AI subscriptions" |
 | [`@onenightcarnival/dsh-config-center`](packages/config-center/README.md) | MCP and skill management, dedicated uv / Python environment, common settings of built-in plugins | Sidebar → MCP / Skills; Settings → Environment dependencies / Plugins → Common settings |
-| [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.md) | Integrated package with all six plugins | Each module's entry point |
+| [`@onenightcarnival/dsh-memory`](packages/memory/README.md) | Layered career records, experience archives, human corrections, version history and `memory_*` tools | Sidebar "Memory" |
+| [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.md) | Integrated package with all seven plugins | Each module's entry point |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.md) | Chrome / Firefox MV3 extension paired with the bridge | Browser side panel |
 
 ## Runtime compatibility
@@ -31,8 +32,8 @@ Every [release](https://github.com/Onenightcarnival/dsh-toolkit/releases) carrie
 
 | File | Purpose |
 |---|---|
-| `onenightcarnival-dsh-toolkit-<version>.tgz` | All six plugins in one install |
-| `onenightcarnival-dsh-rdb-<version>.tgz` and the other five | One plugin on its own |
+| `onenightcarnival-dsh-toolkit-<version>.tgz` | All seven plugins in one install |
+| `onenightcarnival-dsh-rdb-<version>.tgz` and the other six | One plugin on its own |
 | `dsh-browser-extension-chrome-<version>.zip` | Chrome extension, loaded unpacked |
 | `SHA256SUMS.txt` | Checksums |
 
@@ -61,7 +62,7 @@ Packages use the `@onenightcarnival/` scope from 0.5.0. Migration order: remove 
 
 | Path | Responsibility |
 |---|---|
-| `packages/{rdb,s3,otel,browser-bridge,subscriptions,config-center}` | Six standalone plugins |
+| `packages/{rdb,s3,otel,browser-bridge,subscriptions,config-center,memory}` | Seven standalone plugins |
 | `packages/toolkit` | Module configuration, host and UI mounting, typert registration |
 | `extensions/dsh-browser` | Chrome / Firefox MV3 extension |
 | `benchmark` | Playwright comparison benchmark |
@@ -81,7 +82,7 @@ pnpm install
 pnpm run build        # all packages, in dependency order
 pnpm run typecheck
 pnpm run test
-pnpm run package      # dist/: seven tarballs, the extension zip, SHA256SUMS.txt
+pnpm run package      # dist/: eight tarballs, the extension zip, SHA256SUMS.txt
 
 pnpm --filter @onenightcarnival/dsh-rdb run build      # one package
 pnpm --filter dsh-browser-extension run build:firefox
@@ -93,7 +94,7 @@ pnpm --filter dsh-browser-extension run build:firefox
 |---|---|
 | Host dependencies | dsh provides `@deepseek-ai/*`; package build configurations select other dependencies for inlining |
 | Subscription authentication | `@cortexkit/antigravity-auth-core` remains a runtime dependency of subscriptions and toolkit |
-| Integrated package | Bundles the six packages' sources directly; typechecking covers the same sources |
+| Integrated package | Bundles the seven packages' sources directly; typechecking covers the same sources |
 | Runtime versions | Pinned through `pnpm-workspace.yaml` overrides |
 
 ### Installation validation

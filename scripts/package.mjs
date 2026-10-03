@@ -2,7 +2,7 @@
 /**
  * Input: package and extension builds; `--build` builds them first.
  * Output: dist/
- *   onenightcarnival-dsh-{rdb,s3,otel,bridge-browser,subscriptions,config-center,toolkit}-<v>.tgz
+ *   onenightcarnival-dsh-{rdb,s3,otel,bridge-browser,subscriptions,config-center,memory,toolkit}-<v>.tgz
  *   dsh-browser-extension-chrome-<v>.zip (extension entries at archive root)
  *   SHA256SUMS.txt
  */
@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const PLUGINS = ['packages/rdb', 'packages/s3', 'packages/otel', 'packages/browser-bridge', 'packages/subscriptions', 'packages/config-center', 'packages/toolkit']
+const PLUGINS = ['packages/rdb', 'packages/s3', 'packages/otel', 'packages/browser-bridge', 'packages/subscriptions', 'packages/config-center', 'packages/memory', 'packages/toolkit']
 const EXTENSION_DIR = join(ROOT, 'extensions', 'dsh-browser')
 const OUT_DIR = join(ROOT, 'dist')
 const shell = process.platform === 'win32'

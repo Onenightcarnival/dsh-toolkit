@@ -5,6 +5,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import * as memory from '../../memory/src/index.ts'
 import * as rdb from '../../rdb/src/index.ts'
 import * as s3 from '../../s3/src/index.ts'
 import * as subscriptions from '../../subscriptions/src/index.ts'
@@ -17,6 +18,7 @@ export const name = 'toolkit'
 export const inject = ['webServer']
 
 export interface Config {
+  memory?: memory.Config | false
   rdb?: rdb.Config | false
   s3?: s3.Config | false
   otel?: Record<string, unknown> | false
@@ -25,7 +27,7 @@ export interface Config {
   configCenter?: configCenter.Config | false
 }
 
-const PLUGINS: Record<Module, unknown> = { rdb, s3, otel, browser: bridge, subscriptions, configCenter }
+const PLUGINS: Record<Module, unknown> = { memory, rdb, s3, otel, browser: bridge, subscriptions, configCenter }
 
 export function apply(ctx: Context, config: Config = {}): void {
   const mounted = Object.fromEntries(MODULES.map(m => [m, config[m] !== false])) as ModuleMap

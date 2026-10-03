@@ -87,7 +87,8 @@
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
     "esbuild": "^0.25.0",
-    "typescript": "~5.7.2"
+    "typescript": "~5.7.2",
+    "@onenightcarnival/dsh-memory": "workspace:*"
   },
   "dependencies": {
     "@cortexkit/antigravity-auth-core": "2.2.0"

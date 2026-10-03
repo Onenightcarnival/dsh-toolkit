@@ -12,7 +12,8 @@
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.zh.md) | 浏览器桥：`browser_*` 工具经 Chrome / Firefox 扩展操作用户的标签页 | 设置 → 通用设置 → 浏览器桥地址 |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.zh.md) | Codex、ChatGPT、Google Antigravity 订阅模型及 Codex 搜索与生图工具 | 侧边栏「AI 订阅」 |
 | [`@onenightcarnival/dsh-config-center`](packages/config-center/README.zh.md) | MCP 与技能管理、专属 uv / Python 环境、内置插件常用设置 | 主侧栏 → MCP / 技能；设置 → 环境依赖 / 内置插件 → 常用设置 |
-| [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.zh.md) | 六个插件的集成包 | 各模块对应入口 |
+| [`@onenightcarnival/dsh-memory`](packages/memory/README.zh.md) | 分层履历、经历档案、人工修正与版本历史，`memory_*` 工具 | 左侧栏「记忆」 |
+| [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.zh.md) | 七个插件的集成包 | 各模块对应入口 |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.zh.md) | Chrome / Firefox MV3 扩展，与浏览器桥配对 | 浏览器侧边栏 |
 
 ## 运行时兼容性
@@ -31,8 +32,8 @@
 
 | 文件 | 用途 |
 |---|---|
-| `onenightcarnival-dsh-toolkit-<版本>.tgz` | 集成安装六个插件 |
-| `onenightcarnival-dsh-rdb-<版本>.tgz` 等六个 | 单独安装某一个插件 |
+| `onenightcarnival-dsh-toolkit-<版本>.tgz` | 集成安装七个插件 |
+| `onenightcarnival-dsh-rdb-<版本>.tgz` 等七个 | 单独安装某一个插件 |
 | `dsh-browser-extension-chrome-<版本>.zip` | Chrome 扩展，解压后以未打包扩展加载 |
 | `SHA256SUMS.txt` | 校验和 |
 
@@ -61,7 +62,7 @@ dsh web
 
 | 路径 | 职责 |
 |---|---|
-| `packages/{rdb,s3,otel,browser-bridge,subscriptions,config-center}` | 六个独立插件 |
+| `packages/{rdb,s3,otel,browser-bridge,subscriptions,config-center,memory}` | 七个独立插件 |
 | `packages/toolkit` | 模块配置、宿主挂载、界面挂载与 typert 注册 |
 | `extensions/dsh-browser` | Chrome / Firefox MV3 扩展 |
 | `benchmark` | 浏览器操作的 Playwright 对照评测 |
@@ -81,7 +82,7 @@ pnpm install
 pnpm run build        # 全部包，按依赖顺序
 pnpm run typecheck
 pnpm run test
-pnpm run package      # dist/：七个 tgz、扩展 zip、SHA256SUMS.txt
+pnpm run package      # dist/：八个 tgz、扩展 zip、SHA256SUMS.txt
 
 pnpm --filter @onenightcarnival/dsh-rdb run build      # 单个包
 pnpm --filter dsh-browser-extension run build:firefox
@@ -93,7 +94,7 @@ pnpm --filter dsh-browser-extension run build:firefox
 |---|---|
 | 宿主依赖 | `@deepseek-ai/*` 由 dsh 提供；其余依赖按各包构建配置内联 |
 | 订阅认证依赖 | `@cortexkit/antigravity-auth-core` 保留为 subscriptions 与 toolkit 的运行时依赖 |
-| 集成包 | 直接编译六个子包的源码；类型检查覆盖同一组源码 |
+| 集成包 | 直接编译七个子包的源码；类型检查覆盖同一组源码 |
 | 运行时版本 | `pnpm-workspace.yaml` 的 overrides 统一锁定 |
 
 ### 安装验证

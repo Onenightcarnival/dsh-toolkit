@@ -2,6 +2,7 @@
  * Client: module panels selected by the host's module map.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import * as memory from '../../memory/src/client/index.tsx'
 import * as rdb from '../../rdb/src/client/index.tsx'
 import * as s3 from '../../s3/src/client/index.tsx'
 import * as subscriptions from '../../subscriptions/src/client/index.tsx'
@@ -13,6 +14,7 @@ import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
 export const inject = ['slots', 'locale', 'remote', 'layout']
 
 const PLUGINS: Record<Module, unknown> = {
+  memory: { name: 'memory-client', ...memory },
   rdb: { name: 'rdb-client', ...rdb },
   s3: { name: 's3-client', ...s3 },
   otel: otelClient('@onenightcarnival/dsh-toolkit'),
