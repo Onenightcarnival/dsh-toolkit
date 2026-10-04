@@ -96,12 +96,15 @@
 .mem-dialog header h2, .mem-confirm h2 { font-size: 15px; font-weight: 700; }
 .mem-form-body { display: flex; flex-direction: column; gap: 12px; overflow: auto; min-height: 0; padding: 2px; }
 .mem-field { display: flex; flex-direction: column; gap: 5px; }
+.mem-date-range { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.mem-date-range .mem-field, .mem-date-range input[type=date] { min-width: 0; }
+.mem-date-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; font-size: 12px; font-weight: 600; color: var(--mem-muted); }
+.mem-present { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-weight: 400; cursor: pointer; }
+.mem-present input { margin: 0; accent-color: var(--mem-accent); }
+.mem-date-range input:disabled { opacity: .45; }
 .mem-field>label:first-child { display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; color: var(--mem-muted); }
-.mem-field textarea, .mem-field select, .mem-field input[type=text] { display: block; width: 100%; padding: 7px 10px; border: 1px solid var(--mem-border); border-radius: 8px; background: var(--dsw-specific-input-major, var(--mem-bg)); resize: vertical; font-size: 13px; }
-.mem-field :is(textarea, select, input[type=text]):focus { border-color: var(--mem-accent); outline: none; }
-.mem-badge { font-size: 10px; font-weight: 400; color: var(--mem-muted); }
-.mem-unlock { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--mem-muted); }
-.mem-unlock input { accent-color: var(--mem-accent); }
+.mem-field textarea, .mem-field select, .mem-field input[type=text], .mem-field input[type=date] { display: block; width: 100%; padding: 7px 10px; border: 1px solid var(--mem-border); border-radius: 8px; background: var(--dsw-specific-input-major, var(--mem-bg)); resize: vertical; font-size: 13px; }
+.mem-field :is(textarea, select, input[type=text], input[type=date]):focus { border-color: var(--mem-accent); outline: none; }
 .mem-error { padding: 10px 12px; border-radius: 8px; background: var(--dsw-alias-state-error-bg, #c23b3b14); color: var(--dsw-alias-state-error-primary, #ba4444); overflow-wrap: anywhere; }
 .mem-confirm>p { color: var(--mem-muted); }
 .mem-loading { padding: 24px; color: var(--mem-muted); }

@@ -2,7 +2,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, r
 import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
-import { FIELDS, emptySnapshot, type Commit, type Entry, type Snapshot, type State } from './model.ts'
+import { DATE_FIELDS, FIELDS, validDate, emptySnapshot, type Commit, type Entry, type Snapshot, type State } from './model.ts'
 
 export class MemoryError extends Error {
   constructor(readonly code: string, readonly detail = '') { super(code + (detail ? ': ' + detail : '')) }
@@ -13,7 +13,7 @@ const idOk = (value: unknown): value is string => typeof value === 'string' && /
 const copy = <T>(value: T): T => structuredClone(value)
 
 /** Validate references and content before a snapshot reaches disk. */
-export function validateSnapshot(value: unknown, legacy = false): asserts value is Snapshot {
+export function validateSnapshot(value: unknown, schemaVersion = 4): asserts value is Snapshot {
   if (!plain(value) || !Array.isArray(value.entries) || value.entries.length > 1000) fail('invalid')
   const snapshot = value as unknown as Snapshot
   const ids = new Set<string>()
@@ -21,10 +21,15 @@ export function validateSnapshot(value: unknown, legacy = false): asserts value 
     if (!plain(entry) || !idOk(entry.id) || ids.has(entry.id) || !Object.hasOwn(FIELDS, entry.kind) || !plain(entry.fields) || !Array.isArray(entry.protected)) fail('invalid')
     if (entry.createdAt !== undefined && (typeof entry.createdAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(entry.createdAt) || !Number.isFinite(Date.parse(entry.createdAt)))) fail('invalid', 'createdAt')
     ids.add(entry.id)
-    const allowed: readonly string[] = legacy && entry.kind === 'work' ? ['title', 'period', 'organization', 'role', 'responsibilities', 'achievements'] : FIELDS[entry.kind]
+    if (entry.legacyPeriod !== undefined && (typeof entry.legacyPeriod !== 'string' || entry.legacyPeriod.length > 12000 || !['work', 'project'].includes(entry.kind))) fail('invalid', 'legacyPeriod')
+    const allowed: readonly string[] = schemaVersion === 1 && entry.kind === 'work' ? ['title', 'period', 'organization', 'role', 'responsibilities', 'achievements'] : schemaVersion < 4 && entry.kind === 'work' ? ['organization', 'period', 'jobTitle', 'highlights'] : schemaVersion < 4 && entry.kind === 'project' ? ['title', 'period', 'role', 'objective', 'contribution', 'outcome', 'workId'] : schemaVersion < 4 && entry.kind === 'episode' ? FIELDS.episode.filter(k => k !== 'date') : FIELDS[entry.kind]
     for (const [key, text] of Object.entries(entry.fields)) if (!allowed.includes(key) || typeof text !== 'string' || text.length > (key === 'highlights' ? 50000 : 12000)) fail('invalid', key)
     if (entry.protected.some(key => typeof key !== 'string' || !allowed.includes(key))) fail('invalid')
-    if (entry.kind === 'profile' ? entry.id !== 'profile' : entry.kind === 'work' && !legacy ? !Object.values(entry.fields).some(v => v.trim()) : !entry.fields.title?.trim()) fail('title')
+    if (schemaVersion === 4) {
+      for (const key of DATE_FIELDS) if (entry.fields[key] && !(key === 'endDate' && entry.fields[key] === 'present') && !validDate(entry.fields[key])) fail('date', key)
+      if (entry.fields.startDate && entry.fields.endDate && entry.fields.endDate !== 'present' && entry.fields.startDate > entry.fields.endDate) fail('dateRange')
+    }
+    if (entry.kind === 'profile' ? entry.id !== 'profile' : entry.kind === 'work' && schemaVersion !== 1 ? !entry.legacyPeriod?.trim() && !Object.values(entry.fields).some(v => v.trim()) : !entry.fields.title?.trim()) fail('title')
   }
   if (snapshot.entries.filter(e => e.kind === 'profile').length !== 1) fail('invalid')
   for (const entry of snapshot.entries) {
@@ -34,18 +39,30 @@ export function validateSnapshot(value: unknown, legacy = false): asserts value 
   }
 }
 
-/** Version 1 work fields are retained in highlights; roles never become an inferred position. */
-function migrateSnapshot(value: unknown): Snapshot {
-  validateSnapshot(value, true)
+/** Preserve legacy prose and metadata; only complete, unambiguous dates become structured fields. */
+function migrateSnapshot(value: unknown, schemaVersion: number): Snapshot {
+  validateSnapshot(value, schemaVersion)
   const snapshot = copy({ entries: value.entries })
   for (const entry of snapshot.entries) {
-    if (entry.kind !== 'work') continue
-    const merged = ['title', 'role', 'responsibilities', 'achievements']
-    const fields: Record<string, string> = {}
-    for (const key of ['organization', 'period']) if (key in entry.fields) fields[key] = entry.fields[key]
-    fields.highlights = merged.filter(key => entry.fields[key]).map(key => entry.fields[key]).join('\n\n')
-    entry.protected = [...new Set(entry.protected.map(key => merged.includes(key) ? 'highlights' : key))]
-    entry.fields = fields
+    const merge = (keys: string[]) => {
+      const content = keys.filter(key => entry.fields[key]).map(key => entry.fields[key]).join('\n\n')
+      if (keys.some(key => key in entry.fields)) entry.fields.highlights = content
+      entry.protected = [...new Set(entry.protected.map(key => keys.includes(key) ? 'highlights' : key))]
+      for (const key of keys) delete entry.fields[key]
+    }
+    if (schemaVersion === 1 && entry.kind === 'work') merge(['title', 'role', 'responsibilities', 'achievements'])
+    if (schemaVersion < 4 && entry.kind === 'project') merge(['objective', 'contribution', 'outcome'])
+    if (schemaVersion < 4 && ['work', 'project'].includes(entry.kind)) {
+      const period = entry.fields.period?.trim()
+      if (period) {
+        const range = period.match(/^(\d{4}-\d{2}-\d{2})\s*(?:—|–|~|至|to|\s-\s)\s*(\d{4}-\d{2}-\d{2})$/i)
+        if (validDate(period)) entry.fields.startDate = period
+        else if (range && validDate(range[1]) && validDate(range[2]) && range[1] <= range[2]) { entry.fields.startDate = range[1]; entry.fields.endDate = range[2] }
+        else entry.legacyPeriod = entry.fields.period
+      }
+      entry.protected = [...new Set(entry.protected.flatMap(key => key === 'period' ? ['startDate', 'endDate'] : [key]))]
+      delete entry.fields.period
+    }
   }
   validateSnapshot(snapshot)
   return snapshot
@@ -61,13 +78,13 @@ export function defaultPath(): string {
 export class MemoryStore {
   constructor(readonly path = defaultPath()) {}
   read(): State {
-    if (!existsSync(this.path)) return { schemaVersion: 3, revision: 0, ...emptySnapshot(), agentTools: true, history: [] }
+    if (!existsSync(this.path)) return { schemaVersion: 4, revision: 0, ...emptySnapshot(), agentTools: true, history: [] }
     const raw = JSON.parse(readFileSync(this.path, 'utf8'))
-    if (!plain(raw) || ![1, 2, 3].includes(raw.schemaVersion as number) || !Number.isSafeInteger(raw.revision) || !Array.isArray(raw.history)) fail('invalid')
-    const agentTools = raw.schemaVersion === 3 ? raw.agentTools : raw.agentUpdates
+    if (!plain(raw) || ![1, 2, 3, 4].includes(raw.schemaVersion as number) || !Number.isSafeInteger(raw.revision) || !Array.isArray(raw.history)) fail('invalid')
+    const agentTools = (raw.schemaVersion as number) >= 3 ? raw.agentTools : raw.agentUpdates
     if (typeof agentTools !== 'boolean') fail('invalid')
     const snapshot = (value: unknown): Snapshot => {
-      if (raw.schemaVersion === 1) return migrateSnapshot(value)
+      if (raw.schemaVersion !== 4) return migrateSnapshot(value, raw.schemaVersion as number)
       validateSnapshot(value)
       return { entries: value.entries }
     }
@@ -75,7 +92,7 @@ export class MemoryStore {
       if (!plain(h) || !Number.isSafeInteger(h.revision) || typeof h.time !== 'string' || !Number.isFinite(Date.parse(h.time))) fail('invalid')
       return { ...h, snapshot: snapshot(h.snapshot) } as State['history'][number]
     })
-    const state: State = { schemaVersion: 3, revision: raw.revision as number, ...snapshot(raw), agentTools, history }
+    const state: State = { schemaVersion: 4, revision: raw.revision as number, ...snapshot(raw), agentTools, history }
     const firstSeen = new Map<string, string>()
     for (const h of [...history].sort((a, b) => a.revision - b.revision)) {
       for (const entry of h.snapshot.entries) if (!firstSeen.has(entry.id)) firstSeen.set(entry.id, entry.createdAt ?? new Date(h.time).toISOString())
@@ -119,7 +136,7 @@ export class MemoryStore {
       if (baseRevision !== state.revision) fail('conflict')
       const empty = emptySnapshot()
       if (!state.history.length && JSON.stringify(state.entries) === JSON.stringify(empty.entries)) return state
-      return this.persist({ schemaVersion: 3, revision: state.revision + 1, ...empty, agentTools: state.agentTools, history: [] })
+      return this.persist({ schemaVersion: 4, revision: state.revision + 1, ...empty, agentTools: state.agentTools, history: [] })
     })
   }
   commit(input: Commit, actor: 'human' | 'agent', source = ''): State {
@@ -137,12 +154,11 @@ export class MemoryStore {
         if (!prior) fail('missing')
         next = copy(prior)
       } else if (input.imported !== undefined) {
-        if (input.imported.schemaVersion !== undefined && ![1, 2, 3].includes(input.imported.schemaVersion)) fail('invalid')
-        const imported = input.imported.schemaVersion === 1 ? migrateSnapshot(input.imported) : input.imported
+        if (input.imported.schemaVersion !== undefined && ![1, 2, 3, 4].includes(input.imported.schemaVersion)) fail('invalid')
+        const imported = input.imported.schemaVersion !== undefined && input.imported.schemaVersion < 4 ? migrateSnapshot(input.imported, input.imported.schemaVersion) : input.imported
         validateSnapshot(imported)
         next = copy({ entries: imported.entries })
       }
-      if (input.restore !== undefined || input.imported !== undefined) for (const entry of next.entries) entry.protected = Object.keys(entry.fields)
       if (input.changes !== undefined && (!Array.isArray(input.changes) || input.changes.length > 100)) fail('invalid')
       for (const change of input.changes ?? []) {
         if (!plain(change) || !idOk(change.id) || !Object.hasOwn(FIELDS, change.kind)) fail('invalid')
@@ -150,25 +166,21 @@ export class MemoryStore {
         if (existing && existing.kind !== change.kind) fail('invalid')
         if (change.remove) {
           if (!existing || existing.kind === 'profile') fail('invalid')
-          if (actor === 'agent' && existing.protected.length) fail('protected', existing.id)
           next.entries = next.entries.filter(e => e.id !== change.id)
           continue
         }
         const entry: Entry = existing ?? { id: change.id, kind: change.kind, fields: {}, protected: [] }
         if (!existing) { entry.createdAt = new Date().toISOString(); next.entries.push(entry) }
-        if (change.unprotect !== undefined) {
-          if (actor !== 'human') fail('protected')
-          if (!Array.isArray(change.unprotect) || change.unprotect.some(k => typeof k !== 'string')) fail('invalid')
-        }
+        if ('unprotect' in change) fail('invalid')
         if (!plain(change.fields ?? {})) fail('invalid')
         for (const [key, value] of Object.entries(change.fields ?? {})) {
           if (!(FIELDS[entry.kind] as readonly string[]).includes(key) || typeof value !== 'string') fail('invalid', key)
           if (entry.fields[key] === value) continue
-          if (actor === 'agent' && entry.protected.includes(key)) fail('protected', entry.id + '.' + key)
           entry.fields[key] = value
-          if (actor === 'human' && !entry.protected.includes(key)) entry.protected.push(key)
         }
-        if (change.unprotect) entry.protected = entry.protected.filter(k => !change.unprotect!.includes(k))
+        if (entry.legacyPeriod && ['startDate', 'endDate'].some(key => Object.hasOwn(change.fields ?? {}, key))) {
+          delete entry.legacyPeriod
+        }
         if (actor === 'agent' && entry.kind === 'episode' && !entry.fields.evidence?.trim()) fail('evidence')
       }
       if (input.imported === undefined && input.restore === undefined) {
@@ -181,7 +193,7 @@ export class MemoryStore {
       if (JSON.stringify(next) === JSON.stringify({ entries: state.entries })) return state
       for (const entry of next.entries) entry.createdAt ??= state.entries.find(e => e.id === entry.id)?.createdAt ?? new Date().toISOString()
       const revision = state.revision + 1
-      const result: State = { schemaVersion: 3, revision, ...next, agentTools: state.agentTools, history: [...state.history,
+      const result: State = { schemaVersion: 4, revision, ...next, agentTools: state.agentTools, history: [...state.history,
         { revision, actor, source, summary: input.summary.trim(), time: new Date().toISOString(), snapshot: copy(next) }] }
       return this.persist(result)
     })

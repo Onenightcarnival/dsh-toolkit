@@ -17,7 +17,7 @@ function fixture(t: { after(fn: () => void): void }) {
   const save = (changes: unknown[], stateToken = `r:${store.read().revision}`) => run('memory_save', { stateToken, summary: 'Verified outcome', changes })
   const seed = () => save([
     { kind: 'episode', ref: 'archive', fields: { title: 'Bridge lesson', parentId: '@project', evidence: 'test:success', lesson: 'Verified bridge isolation' } },
-    { kind: 'project', ref: 'project', fields: { title: 'Bridge project', workId: '@work', objective: 'Browser bridge', outcome: 'Tested' } },
+    { kind: 'project', ref: 'project', fields: { title: 'Bridge project', workId: '@work', highlights: 'Browser bridge tested' } },
     { kind: 'work', ref: 'work', fields: { organization: 'Test company', jobTitle: 'Engineer', highlights: 'Bridge development' } },
   ])
   return { store, tools, run, save, seed }
@@ -58,14 +58,25 @@ test('resume and search are bounded; detail reads preserve full text', async t =
   assert.equal((await run('memory_resume', { limit: 21 })).error.code, 'invalid')
 })
 
-test('protected field errors identify the field and reject the entire batch', async t => {
-  const { store, seed, save } = fixture(t), result = await seed()
-  store.commit({ baseRevision: 1, summary: 'Human correction', changes: [{ id: result.refs.project, kind: 'project', fields: { title: 'Confirmed' } }] }, 'human')
-  const blocked = await save([{ kind: 'work', id: result.refs.work, fields: { jobTitle: 'Lead' } }, { kind: 'project', id: result.refs.project, fields: { title: 'Wrong' } }])
-  assert.equal(blocked.ok, false); assert.equal(blocked.error.code, 'protected')
-  assert.equal(blocked.error.detail, result.refs.project + '.title')
-  assert.equal(store.read().entries.find(e => e.id === result.refs.work)!.fields.jobTitle, 'Engineer')
-  assert.equal(store.read().history.length, 2)
+test('global access permits Agent updates and removals of human-edited and legacy-protected records', async t => {
+  const { store, seed, save, run } = fixture(t), result = await seed()
+  const human = store.commit({ baseRevision: 1, summary: 'Human correction', changes: [{ id: result.refs.project, kind: 'project', fields: { title: 'Confirmed' } }] }, 'human')
+  const legacy = structuredClone(human.entries)
+  legacy.find(e => e.id === result.refs.project)!.protected = ['title']
+  store.commit({ baseRevision: 2, summary: 'Legacy import', imported: { schemaVersion: 4, entries: legacy } }, 'human')
+  const saved = await save([{ kind: 'work', id: result.refs.work, fields: { jobTitle: 'Lead' } }, { kind: 'project', id: result.refs.project, fields: { title: 'Updated' } }])
+  assert.equal(saved.ok, true); assert.equal(saved.version, 4)
+  assert.equal(store.read().entries.find(e => e.id === result.refs.work)!.fields.jobTitle, 'Lead')
+  assert.equal(store.read().entries.find(e => e.id === result.refs.project)!.fields.title, 'Updated')
+  assert.equal('protected' in (await run('memory_get', { id: result.refs.project })).entry, false)
+  assert.equal('protected' in (await run('memory_resume')).projects.items[0], false)
+  store.setAgentTools(false)
+  assert.equal((await save([{ kind: 'project', id: result.refs.project, fields: { title: 'Blocked' } }])).error.code, 'disabled')
+  assert.equal((await run('memory_get', { id: result.refs.project })).error.code, 'disabled')
+  store.setAgentTools(true)
+  assert.equal(store.read().history.length, 4)
+  const removed = await save([{ kind: 'remove', id: result.refs.archive }, { kind: 'remove', id: result.refs.project }])
+  assert.equal(removed.ok, true)
 })
 
 test('per-kind schema rejects misplaced fields; missing ids and references never create records', async t => {
@@ -88,7 +99,7 @@ test('clearing resets the visible version while tokens still reject stale writes
   assert.equal((await run('memory_get', { id: prior.refs.project })).error.code, 'missing')
 })
 
-test('no-op saves do not add versions; removal preserves reference and human-protection constraints', async t => {
+test('no-op saves do not add versions; removal preserves reference constraints', async t => {
   const { store, save, seed } = fixture(t), result = await seed()
   const unchanged = await save([{ kind: 'project', id: result.refs.project, fields: { title: 'Bridge project' } }])
   assert.equal(unchanged.changed, false); assert.equal(unchanged.version, 1)
@@ -106,3 +117,22 @@ test('new archives require evidence and project parents; all validation failures
 })
 
 test('English and Chinese dictionaries contain the same keys', () => assert.deepEqual(Object.keys(en).sort(), Object.keys(zh).sort()))
+
+test('Agent tools use project highlights and structured experience dates for all discovery', async t => {
+  const { save, run } = fixture(t)
+  const created = await save([
+    { kind: 'project', ref: 'recent', fields: { title: 'Project recent', startDate: '2026-03-01', highlights: 'Delivered' } },
+    { kind: 'project', ref: 'old', fields: { title: 'Project old', startDate: '2020-01-01' } },
+  ])
+  assert.equal(created.ok, true)
+  assert.equal((await save([{ kind: 'project', id: created.refs.old, fields: { endDate: 'present' } }])).ok, true)
+  assert.equal((await run('memory_get', { id: created.refs.old })).entry.fields.endDate, 'present')
+  assert.deepEqual((await run('memory_resume')).projects.items.map((e: { id: string }) => e.id), [created.refs.recent, created.refs.old])
+  assert.deepEqual((await run('memory_search', { query: 'Project' })).items.map((e: { id: string }) => e.id), [created.refs.recent, created.refs.old])
+  assert.equal((await save([{ kind: 'project', id: created.refs.old, fields: { endDate: '2019-01-01' } }])).error.code, 'dateRange')
+  assert.equal((await save([{ kind: 'episode', fields: { title: 'Archive', parentId: created.refs.old, date: '2026-02-30', evidence: 'test:source' } }])).error.code, 'date')
+  await assert.rejects(() => save([{ kind: 'project', id: created.refs.old, fields: { objective: 'Obsolete field' } }]))
+  const archive = await save([{ kind: 'episode', fields: { title: 'Archive', parentId: created.refs.old, date: '2020-03-01', evidence: 'test:source' } }])
+  assert.equal(archive.ok, true)
+  assert.equal((await run('memory_get', { id: created.refs.old })).children.items[0].fields.date, '2020-03-01')
+})

@@ -15,21 +15,33 @@ function message(error: unknown): string {
   return t(key in zh ? key as Key : 'error.generic')
 }
 function download(state: State): void {
-  const url = URL.createObjectURL(new Blob([JSON.stringify({ schemaVersion: 3, exportedAt: new Date().toISOString(), entries: state.entries }, null, 2)], { type: 'application/json' }))
+  const url = URL.createObjectURL(new Blob([JSON.stringify({ schemaVersion: 4, exportedAt: new Date().toISOString(), entries: state.entries }, null, 2)], { type: 'application/json' }))
   const a = document.createElement('a'); a.href = url; a.download = 'career-memory.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 function differences(before: Snapshot, after: Snapshot): { label: string; before: string; after: string }[] {
   const changes: { label: string; before: string; after: string }[] = []
   for (const id of new Set([...before.entries, ...after.entries].map(e => e.id))) {
     const a = before.entries.find(e => e.id === id), b = after.entries.find(e => e.id === id)
+    if (a?.legacyPeriod !== b?.legacyPeriod) changes.push({ label: `${entryName(b ?? a)} · ${t('legacyPeriod')}`, before: a?.legacyPeriod ?? '', after: b?.legacyPeriod ?? '' })
     for (const key of new Set([...Object.keys(a?.fields ?? {}), ...Object.keys(b?.fields ?? {})])) {
       const av = a?.fields[key] ?? '', bv = b?.fields[key] ?? ''
-      const display = (value: string, snapshot: Snapshot) => ['parentId', 'workId'].includes(key) ? (value ? entryName(snapshot.entries.find(e => e.id === value)) : '') : value
+      const display = (value: string, snapshot: Snapshot) => key === 'endDate' && value === 'present' ? t('present') : ['parentId', 'workId'].includes(key) ? (value ? entryName(snapshot.entries.find(e => e.id === value)) : '') : value
       if (av !== bv) changes.push({ label: `${entryName(b ?? a)} · ${t(key as Key)}`, before: display(av, before), after: display(bv, after) })
     }
-    if (JSON.stringify(a?.protected ?? []) !== JSON.stringify(b?.protected ?? [])) changes.push({ label: `${entryName(b ?? a)} · ${t('protected')}`, before: (a?.protected ?? []).map(k => t(k as Key)).join(', '), after: (b?.protected ?? []).map(k => t(k as Key)).join(', ') })
   }
   return changes
+}
+
+function DateRange({ fields, change }: { fields: Record<string, string>; change: (key: string, value: string) => void }): JSX.Element {
+  const present = fields.endDate === 'present'
+  return <div className="mem-date-range">
+    <div className="mem-field"><div className="mem-date-heading"><label htmlFor="mem-field-startDate">{t('startDate')}</label></div>
+      <input id="mem-field-startDate" type="date" min="0001-01-01" max={!present && fields.endDate || '9999-12-31'} value={fields.startDate ?? ''} onChange={e => change('startDate', e.target.value)}/>
+    </div>
+    <div className="mem-field"><div className="mem-date-heading"><label htmlFor="mem-field-endDate">{t('endDate')}</label><label className="mem-present"><input type="checkbox" checked={present} onChange={e => change('endDate', e.target.checked ? 'present' : '')}/>{t('present')}</label></div>
+      <input id="mem-field-endDate" type="date" min={fields.startDate || '0001-01-01'} max="9999-12-31" disabled={present} value={present ? '' : fields.endDate ?? ''} onChange={e => change('endDate', e.target.value)}/>
+    </div>
+  </div>
 }
 
 export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
@@ -41,7 +53,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
   const [history, setHistory] = useState(false)
   const [order, setOrder] = useState<'newest' | 'oldest'>('newest')
   const [revision, setRevision] = useState<number>()
-  const [editor, setEditor] = useState<{ entry: Entry; base: number; unprotect: string[] }>()
+  const [editor, setEditor] = useState<{ entry: Entry; base: number }>()
   const [confirm, setConfirm] = useState<{ title: Key; hint: Key; input: Commit | { clear: true; baseRevision: number } }>()
   const importer = useRef<HTMLInputElement>(null)
   async function refresh(): Promise<void> { try { setState(await request()); setError('') } catch (e) { setError(message(e)) } }
@@ -63,7 +75,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
     } catch (e) { setError(message(e)) }
     finally { setBusy(false) }
   }
-  function edit(entry: Entry): void { setError(''); setEditor({ entry: structuredClone(entry), base: state!.revision, unprotect: [] }) }
+  function edit(entry: Entry): void { setError(''); setEditor({ entry: structuredClone(entry), base: state!.revision }) }
   function add(kind: Kind, parentId?: string): void { edit({ id: crypto.randomUUID(), kind, fields: parentId ? { [kind === 'project' ? 'workId' : 'parentId']: parentId } : {}, protected: [] }) }
   function remove(entry: Entry): void { setConfirm({ title: 'removeTitle', hint: 'removeHint', input: { baseRevision: state!.revision, summary: t('deleteSummary'), changes: [{ id: entry.id, kind: entry.kind, remove: true }] } }) }
   const entries = sortEntries(state?.entries ?? [], order)
@@ -80,14 +92,14 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
       try {
         if (file.size > 2 * 1024 * 1024) throw new Error('invalid')
         const data = JSON.parse(await file.text())
-        if (![1, 2, 3].includes(data.schemaVersion) || !Array.isArray(data.entries)) throw new Error('invalid')
+        if (![1, 2, 3, 4].includes(data.schemaVersion) || !Array.isArray(data.entries)) throw new Error('invalid')
         setConfirm({ title: 'importTitle', hint: 'importHint', input: { baseRevision: state.revision, summary: t('importSummary'), imported: { schemaVersion: data.schemaVersion, entries: data.entries } } })
       } catch (e) { setError(message(e)) }
     }}/>
     {error && !editor && !confirm && <p className="mem-error" role="alert">{error}</p>}
     {!state ? <p className="mem-loading">{t('loading')}</p> : <>
       <div className="mem-status"><span>{t('revision')} {state.history.length} <span className="mem-dot">·</span> {state.history.at(-1) ? new Date(state.history.at(-1)!.time).toLocaleString() : '—'}</span><label className="mem-toggle"><input type="checkbox" checked={state.agentTools} disabled={busy} onChange={e => void setTools(e.target.checked)}/><span className="mem-switch" aria-hidden="true"/>{t('agentTools')}</label></div>
-      {!history && <div className="mem-viewbar"><div className="mem-segments" role="group" aria-label={t('view')}>{(['resume', 'directory'] as const).map(mode => <button key={mode} aria-pressed={view === mode} onClick={() => setView(mode)}>{t(mode === 'resume' ? 'resumeView' : 'directory')}</button>)}</div><label className="mem-sort">{t('createdAt')}<select aria-label={t('sort')} value={order} onChange={e => setOrder(e.target.value as typeof order)}><option value="newest">{t('newest')}</option><option value="oldest">{t('oldest')}</option></select></label></div>}
+      {!history && <div className="mem-viewbar"><div className="mem-segments" role="group" aria-label={t('view')}>{(['resume', 'directory'] as const).map(mode => <button key={mode} aria-pressed={view === mode} onClick={() => setView(mode)}>{t(mode === 'resume' ? 'resumeView' : 'directory')}</button>)}</div><label className="mem-sort">{t('experienceTime')}<select aria-label={t('sort')} value={order} onChange={e => setOrder(e.target.value as typeof order)}><option value="newest">{t('newest')}</option><option value="oldest">{t('oldest')}</option></select></label></div>}
       <main className={`mem-scroll${!history && view === 'directory' ? ' mem-scroll-directory' : ''}`}>
       {history ? <div className="mem-history"><aside><h2>{t('history')}</h2>{!state.history.length && <p className="mem-muted">{t('emptyHistory')}</p>}{[...state.history].reverse().map((h, index) => <button className={h.revision === selectedRevision?.revision ? 'mem-active' : ''} key={h.revision} onClick={() => setRevision(h.revision)}><span>v{state.history.length - index} <small>{t(h.actor)}</small></span><strong>{h.summary}</strong><time>{new Date(h.time).toLocaleString()}</time></button>)}</aside>
         {selectedRevision && <section className="mem-history-detail"><div className="mem-section-heading"><div><h2>{selectedRevision.summary}</h2><p className="mem-muted">{t(selectedRevision.actor)} · {selectedRevision.source}</p></div><button disabled={busy || selectedRevision.revision === state.revision} onClick={() => setConfirm({ title: 'restoreTitle', hint: 'restoreHint', input: { baseRevision: state.revision, summary: t('restoreSummary'), restore: selectedRevision.revision } })}>{t('restore')}</button></div>
@@ -97,10 +109,10 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
 
       </main>
     </>}
-    {editor && <div className="mem-overlay"><form role="dialog" aria-modal="true" aria-labelledby="mem-edit-title" className="mem-dialog" onSubmit={event => { event.preventDefault(); void commit({ baseRevision: editor.base, summary: `${t('edit')} · ${entryName(editor.entry)}`, changes: [{ id: editor.entry.id, kind: editor.entry.kind, fields: editor.entry.fields, unprotect: editor.unprotect }] }) }}><header><h2 id="mem-edit-title">{t('edit')} · {t(editor.entry.kind === 'profile' ? 'personal' : editor.entry.kind)}</h2><button type="button" aria-label={t('close')} disabled={busy} onClick={() => setEditor(undefined)}>×</button></header><div className="mem-form-body">{error && <p className="mem-error" role="alert">{error}</p>}
-      {FIELDS[editor.entry.kind].map((key, index) => <div className="mem-field" key={key}><label htmlFor={`mem-field-${key}`}>{t(key as Key)}{editor.entry.protected.includes(key) && <small className="mem-badge">{t('protected')}</small>}</label>
-        {key === 'parentId' || key === 'workId' ? <select id={`mem-field-${key}`} value={editor.entry.fields[key] ?? ''} required={key === 'parentId'} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}><option value="">{t(key === 'workId' ? 'noWork' : 'none')}</option>{entries.filter(e => key === 'workId' ? e.kind === 'work' : e.kind === 'project' || e.id === editor.entry.fields.parentId).map(e => <option key={e.id} value={e.id}>{entryName(e)}</option>)}</select> : ['name', 'position', 'title', 'period', 'organization', 'jobTitle', 'role'].includes(key) ? <input id={`mem-field-${key}`} type="text" autoFocus={index === 0} maxLength={12000} required={key === 'title'} value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/> : <textarea id={`mem-field-${key}`} autoFocus={index === 0} rows={4} maxLength={key === 'highlights' ? 50000 : 12000} value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/>}
-        {editor.entry.protected.includes(key) && <label className="mem-unlock"><input type="checkbox" checked={editor.unprotect.includes(key)} onChange={e => setEditor({ ...editor, unprotect: e.target.checked ? [...editor.unprotect, key] : editor.unprotect.filter(k => k !== key) })}/>{t('unlock')}</label>}
+    {editor && <div className="mem-overlay"><form role="dialog" aria-modal="true" aria-labelledby="mem-edit-title" className="mem-dialog" onSubmit={event => { event.preventDefault(); void commit({ baseRevision: editor.base, summary: `${t('edit')} · ${entryName(editor.entry)}`, changes: [{ id: editor.entry.id, kind: editor.entry.kind, fields: editor.entry.fields }] }) }}><header><h2 id="mem-edit-title">{t('edit')} · {t(editor.entry.kind === 'profile' ? 'personal' : editor.entry.kind)}</h2><button type="button" aria-label={t('close')} disabled={busy} onClick={() => setEditor(undefined)}>×</button></header><div className="mem-form-body">{error && <p className="mem-error" role="alert">{error}</p>}
+      {editor.entry.legacyPeriod && <p className="mem-muted">{t('legacyPeriod')}：{editor.entry.legacyPeriod}</p>}
+      {FIELDS[editor.entry.kind].map((key, index) => key === 'endDate' ? null : key === 'startDate' ? <DateRange key={key} fields={editor.entry.fields} change={(field, value) => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [field]: value } } })}/> : <div className="mem-field" key={key}><label htmlFor={`mem-field-${key}`}>{t(key as Key)}</label>
+        {key === 'date' ? <input id={`mem-field-${key}`} type="date" min="0001-01-01" max="9999-12-31" value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/> : key === 'parentId' || key === 'workId' ? <select id={`mem-field-${key}`} value={editor.entry.fields[key] ?? ''} required={key === 'parentId'} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}><option value="">{t(key === 'workId' ? 'noWork' : 'none')}</option>{entries.filter(e => key === 'workId' ? e.kind === 'work' : e.kind === 'project' || e.id === editor.entry.fields.parentId).map(e => <option key={e.id} value={e.id}>{entryName(e)}</option>)}</select> : ['name', 'position', 'title', 'organization', 'jobTitle', 'role'].includes(key) ? <input id={`mem-field-${key}`} type="text" autoFocus={index === 0} maxLength={12000} required={key === 'title'} value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/> : <textarea id={`mem-field-${key}`} autoFocus={index === 0} rows={4} maxLength={key === 'highlights' ? 50000 : 12000} value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/>}
       </div>)}
       </div><footer><button type="button" disabled={busy} onClick={() => setEditor(undefined)}>{t('cancel')}</button><button className="mem-primary" disabled={busy}>{t('save')}</button></footer></form></div>}
     {confirm && <div className="mem-overlay"><div role={'clear' in confirm.input ? 'alertdialog' : 'dialog'} aria-modal="true" aria-labelledby="mem-confirm-title" aria-describedby="mem-confirm-hint" className="mem-dialog mem-confirm"><h2 id="mem-confirm-title">{t(confirm.title)}</h2><p id="mem-confirm-hint">{t(confirm.hint)}</p>{error && <p className="mem-error" role="alert">{error}</p>}<footer><button autoFocus disabled={busy} onClick={() => { setConfirm(undefined); setError('') }}>{t('cancel')}</button><button className={`mem-primary${'clear' in confirm.input ? ' mem-destructive' : ''}`} disabled={busy} onClick={() => void commit(confirm.input)}>{t('clear' in confirm.input ? 'confirmClear' : 'confirm')}</button></footer></div></div>}

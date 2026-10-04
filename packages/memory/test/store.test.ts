@@ -15,23 +15,29 @@ test('two-level records survive restart and retain evidence', t => {
   const store = fixture(t)
   assert.equal(store.read().revision, 0)
   const state = store.commit({ baseRevision: 0, summary: 'Verified project', changes: [
-    { id: 'project-a', kind: 'project', fields: { title: 'Browser', outcome: 'Tested locally' } },
+    { id: 'project-a', kind: 'project', fields: { title: 'Browser', highlights: 'Tested locally' } },
     { id: 'episode-a', kind: 'episode', fields: { title: 'Bridge', parentId: 'project-a', result: 'Passed', evidence: 'test:123', limits: 'Windows only' } },
   ] }, 'agent', 'session:test/call:123')
   assert.equal(state.revision, 1)
   assert.deepEqual(new MemoryStore(store.path).read(), state)
   assert.equal(state.history[0].actor, 'agent')
 })
-test('human confirmation protects only changed fields; explicit unlock permits updates', t => {
+test('global access permits editing human-written fields and disabling it blocks Agent writes', t => {
   const store = fixture(t)
   store.commit({ baseRevision: 0, summary: 'Profile', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
-  assert.throws(() => store.commit({ baseRevision: 1, summary: 'Overwrite', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'B', abilities: 'Testing' } }] }, 'agent'), /protected/)
-  assert.equal(store.read().entries[0].fields.abilities, undefined)
-  store.commit({ baseRevision: 1, summary: 'Add capability', changes: [{ id: 'profile', kind: 'profile', fields: { abilities: 'Testing' } }] }, 'agent')
-  store.commit({ baseRevision: 2, summary: 'Unlock', changes: [{ id: 'profile', kind: 'profile', unprotect: ['name'] }] }, 'human')
-  store.commit({ baseRevision: 3, summary: 'Rename', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'B' } }] }, 'agent')
-  assert.equal(store.read().entries[0].fields.name, 'B')
+  const changed = store.commit({ baseRevision: 1, summary: 'Update', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'B', abilities: 'Testing' } }] }, 'agent')
+  assert.equal(changed.entries[0].fields.name, 'B')
+  assert.deepEqual(changed.entries[0].protected, [])
+  store.setAgentTools(false)
+  assert.equal(store.read().revision, 2)
+  assert.throws(() => store.commit({ baseRevision: 2, summary: 'Disabled', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'C' } }] }, 'agent'), /disabled/)
+  store.commit({ baseRevision: 2, summary: 'Human edit while disabled', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'C' } }] }, 'human')
+  store.setAgentTools(true)
+  assert.equal(store.read().revision, 3)
+  store.commit({ baseRevision: 3, summary: 'Enabled again', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'D' } }] }, 'agent')
+  assert.equal(store.read().entries[0].fields.name, 'D')
 })
+
 test('stale writer and cross-process lock preserve committed bytes', t => {
   const store = fixture(t), other = new MemoryStore(store.path)
   store.commit({ baseRevision: 0, summary: 'Human edit', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
@@ -83,21 +89,20 @@ test('legacy work migration retains content, protection, links and historical re
   const bytes = JSON.stringify(legacy)
   writeFileSync(store.path, bytes)
   const state = store.read(), work = state.entries[1]
-  assert.equal(state.schemaVersion, 3)
+  assert.equal(state.schemaVersion, 4)
   assert.equal(work.fields.jobTitle, undefined)
   assert.equal(work.fields.highlights, 'Desktop development\n\nDeveloper / reviewer\n\nBuild plugins\n\nReleased')
   assert.deepEqual(work.protected, ['highlights', 'organization'])
   assert.equal(state.entries[2].fields.workId, work.id)
   assert.equal(readFileSync(store.path, 'utf8'), bytes)
-  assert.throws(() => store.commit({ baseRevision: 1, summary: 'Overwrite', changes: [{ id: work.id, kind: 'work', fields: { highlights: 'Other' } }] }, 'agent'), /protected/)
   store.commit({ baseRevision: 1, summary: 'Position', changes: [{ id: work.id, kind: 'work', fields: { jobTitle: 'Engineer' } }] }, 'human')
   const restored = store.commit({ baseRevision: 2, summary: 'Restore', restore: 1 }, 'human')
   assert.deepEqual(restored.entries[1].fields, work.fields)
   assert.equal(restored.history[1].snapshot.entries[1].fields.jobTitle, 'Engineer')
-  assert.equal(JSON.parse(readFileSync(store.path, 'utf8')).schemaVersion, 3)
+  assert.equal(JSON.parse(readFileSync(store.path, 'utf8')).schemaVersion, 4)
 })
 
-test('legacy exports import with protection and current work uses only four fields', t => {
+test('legacy exports import with protection and current work uses structured dates', t => {
   const store = fixture(t)
   const imported = { schemaVersion: 1, agentUpdates: true, entries: [
     { id: 'profile', kind: 'profile' as const, fields: {}, protected: [] },
@@ -105,10 +110,76 @@ test('legacy exports import with protection and current work uses only four fiel
   ] }
   const state = store.commit({ baseRevision: 0, summary: 'Import', imported }, 'human')
   assert.equal(state.entries[1].fields.highlights.length, 48006)
-  assert.deepEqual(state.entries[1].protected, ['highlights'])
+  assert.deepEqual(state.entries[1].protected, [])
   assert.throws(() => store.commit({ baseRevision: 1, summary: 'Old field', changes: [{ id: 'work', kind: 'work', fields: { role: 'Reviewer' } }] }, 'human'), /invalid/)
-  const next = store.commit({ baseRevision: 1, summary: 'New work', changes: [{ id: 'work-2', kind: 'work', fields: { organization: 'Acme', period: '2026', jobTitle: 'Engineer', highlights: 'Also reviews code' } }] }, 'agent')
-  assert.deepEqual(Object.keys(next.entries[2].fields), ['organization', 'period', 'jobTitle', 'highlights'])
+  const next = store.commit({ baseRevision: 1, summary: 'New work', changes: [{ id: 'work-2', kind: 'work', fields: { organization: 'Acme', startDate: '2026-01-01', jobTitle: 'Engineer', highlights: 'Also reviews code' } }] }, 'agent')
+  assert.deepEqual(Object.keys(next.entries[2].fields), ['organization', 'startDate', 'jobTitle', 'highlights'])
+})
+
+test('v3 project migration merges prose, preserves protection and converts only exact dates across history', t => {
+  const store = fixture(t)
+  const snapshot = { entries: [
+    { id: 'profile', kind: 'profile', fields: {}, protected: [] },
+    { id: 'w', kind: 'work', fields: { organization: 'Company', period: '2025.05 — 至今' }, protected: ['period'] },
+    { id: 'p', kind: 'project', fields: { title: 'Project', workId: 'w', period: '2025-03-01 — 2025-10-01', objective: 'Goal', contribution: 'Work', outcome: 'Result' }, protected: ['outcome', 'period'] },
+  ] }
+  const original = JSON.stringify({ schemaVersion: 3, revision: 7, agentTools: true, ...snapshot, history: [{ revision: 7, actor: 'human', source: 'ui', summary: 'Old content', time: '2026-01-01T00:00:00.000Z', snapshot }] })
+  writeFileSync(store.path, original)
+  const migrated = store.read(), work = migrated.entries[1], project = migrated.entries[2]
+  assert.equal(migrated.schemaVersion, 4); assert.equal(migrated.revision, 7)
+  assert.equal(project.fields.highlights, 'Goal\n\nWork\n\nResult')
+  assert.equal(project.fields.startDate, '2025-03-01'); assert.equal(project.fields.endDate, '2025-10-01')
+  assert.deepEqual(project.protected, ['highlights', 'startDate', 'endDate'])
+  assert.equal(work.legacyPeriod, '2025.05 — 至今'); assert.equal(work.fields.startDate, undefined)
+  assert.deepEqual(migrated.history[0].snapshot.entries[2].fields, project.fields)
+  assert.equal(readFileSync(store.path, 'utf8'), original)
+  store.commit({ baseRevision: 7, summary: 'Confirm date', changes: [{ id: 'w', kind: 'work', fields: { startDate: '2025-05-20' } }] }, 'agent')
+  assert.equal(store.read().entries[1].legacyPeriod, undefined)
+  const restored = store.commit({ baseRevision: 8, summary: 'Restore', restore: 7 }, 'human')
+  assert.equal(restored.entries[1].legacyPeriod, '2025.05 — 至今')
+  const exported = { schemaVersion: 4, entries: restored.entries }
+  assert.deepEqual(store.commit({ baseRevision: 9, summary: 'Import', imported: exported }, 'human').entries, restored.entries)
+})
+
+test('dates reject impossible calendar values and reversed ranges atomically', t => {
+  const store = fixture(t)
+  for (const value of ['26-01-01', '2026-2-01', '2025-02-29', '2026-13-01', '2026-04-31', 'next week']) {
+    assert.throws(() => store.commit({ baseRevision: 0, summary: 'Invalid date', changes: [{ id: 'p', kind: 'project', fields: { title: 'Project', startDate: value } }] }, 'agent'), /date/)
+    assert.equal(store.read().revision, 0)
+  }
+  assert.throws(() => store.commit({ baseRevision: 0, summary: 'Reversed', changes: [{ id: 'w', kind: 'work', fields: { organization: 'Company', startDate: '2026-02-01', endDate: '2026-01-01' } }] }, 'human'), /dateRange/)
+  const state = store.commit({ baseRevision: 0, summary: 'Leap date', changes: [
+    { id: 'p', kind: 'project', fields: { title: 'Project', startDate: '2024-02-29', endDate: '' } },
+    { id: 'e', kind: 'episode', fields: { title: 'Archive', parentId: 'p', date: '2024-03-01', evidence: 'test:passed' } },
+  ] }, 'agent')
+  assert.equal(state.entries[1].fields.startDate, '2024-02-29')
+  assert.throws(() => store.commit({ baseRevision: 1, summary: 'Invalid import', imported: { schemaVersion: 4, entries: state.entries.map(e => e.id === 'e' ? { ...e, fields: { ...e.fields, date: '2024-02-30' } } : e) } }, 'human'), /date/)
+  assert.equal(store.read().revision, 1)
+})
+
+test('experience sorting ignores creation time, places undated records last, and supports archives', () => {
+  const make = (id: string, fields: Record<string, string>, kind: 'work' | 'episode' = 'work') => ({ id, kind, fields, protected: [], createdAt: id === 'old' ? '2026-01-01T00:00:00.000Z' : '2020-01-01T00:00:00.000Z' })
+  const entries = [make('undated', {}), make('old', { startDate: '2020-01-01' }), make('recent', { startDate: '2025-01-01' }), make('tie', { startDate: '2025-01-01' }), make('endOnly', { endDate: '2022-01-01' })]
+  assert.deepEqual(sortEntries(entries).map(e => e.id), ['recent', 'tie', 'endOnly', 'old', 'undated'])
+  assert.deepEqual(sortEntries(entries, 'oldest').map(e => e.id), ['old', 'endOnly', 'recent', 'tie', 'undated'])
+  assert.deepEqual(sortEntries([make('old', { date: '2021-01-01' }, 'episode'), make('new', { date: '2024-01-01' }, 'episode')]).map(e => e.id), ['new', 'old'])
+})
+
+test('ongoing experience survives persistence, restore and import without inferring unknown dates', t => {
+  const store = fixture(t)
+  const initial = store.commit({ baseRevision: 0, summary: 'Ongoing', changes: [
+    { id: 'w', kind: 'work', fields: { organization: 'Company', startDate: '2020-01-01', endDate: 'present' } },
+    { id: 'p', kind: 'project', fields: { title: 'Unknown start', endDate: 'present' } },
+    { id: 'q', kind: 'project', fields: { title: 'Later experience', startDate: '2025-01-01', endDate: '' } },
+  ] }, 'agent')
+  assert.deepEqual(sortEntries(store.read().entries.filter(e => e.kind !== 'profile')).map(e => e.id), ['q', 'w', 'p'])
+  store.commit({ baseRevision: 1, summary: 'Ended', changes: [{ id: 'w', kind: 'work', fields: { endDate: '2024-01-01' } }] }, 'agent')
+  assert.equal(store.read().entries[1].fields.endDate, '2024-01-01')
+  const restored = store.commit({ baseRevision: 2, summary: 'Restore ongoing', restore: 1 }, 'human')
+  assert.equal(restored.entries[1].fields.endDate, 'present')
+  assert.equal(restored.entries[3].fields.endDate, '')
+  assert.deepEqual(store.commit({ baseRevision: 3, summary: 'Import ongoing', imported: { schemaVersion: 4, entries: initial.entries } }, 'human').entries, initial.entries)
+  assert.throws(() => store.commit({ baseRevision: store.read().revision, summary: 'Invalid start', changes: [{ id: 'w', kind: 'work', fields: { startDate: 'present' } }] }, 'agent'), /date/)
 })
 
 test('tool toggle leaves content, revisions and drafts unchanged; restore and import preserve its value', t => {
@@ -131,7 +202,7 @@ test('tool toggle leaves content, revisions and drafts unchanged; restore and im
   assert.equal(store.setAgentTools(true).revision, imported.revision)
 })
 
-test('creation order survives edits, restore and import; legacy dates derive from first history appearance', t => {
+test('creation metadata survives edits, restore and import without determining experience order', t => {
   const store = fixture(t)
   const profile = { id: 'profile', kind: 'profile', fields: {}, protected: [] }
   const old = { id: 'old', kind: 'work', fields: { organization: 'Old' }, protected: [] }
@@ -145,7 +216,7 @@ test('creation order survives edits, restore and import; legacy dates derive fro
   assert.equal(migrated.agentTools, false)
   assert.equal(migrated.entries[1].createdAt, time1)
   assert.equal(migrated.entries[2].createdAt, time2)
-  assert.deepEqual(sortEntries(migrated.entries.filter(e => e.kind === 'work')).map(e => e.id), ['recent', 'old'])
+  assert.deepEqual(sortEntries(migrated.entries.filter(e => e.kind === 'work')).map(e => e.id), ['old', 'recent'])
   assert.deepEqual(sortEntries(migrated.entries.filter(e => e.kind === 'work'), 'oldest').map(e => e.id), ['old', 'recent'])
   const edited = store.commit({ baseRevision: 2, summary: 'Edit old', changes: [{ id: 'old', kind: 'work', fields: { jobTitle: 'Engineer' } }] }, 'human')
   assert.equal(edited.entries[1].createdAt, time1)

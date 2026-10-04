@@ -15,8 +15,9 @@ interface ViewProps {
   open: (id: string) => void
 }
 function Fields({ entry, keys }: { entry: Entry; keys: readonly string[] }): JSX.Element {
-  return <dl>{keys.map(key => <div className="mem-detail" key={key}><dt>{t(key as Key)}</dt><dd>{entry.fields[key] || '—'}</dd></div>)}</dl>
+  return <dl>{entry.legacyPeriod && keys.includes('startDate') && <div className="mem-detail"><dt>{t('legacyPeriod')}</dt><dd>{entry.legacyPeriod}</dd></div>}{keys.map(key => <div className="mem-detail" key={key}><dt>{t(key as Key)}</dt><dd>{key === 'endDate' && entry.fields[key] === 'present' ? t('present') : entry.fields[key] || '—'}</dd></div>)}</dl>
 }
+const period = (entry: Entry) => entry.legacyPeriod || (entry.kind === 'episode' ? entry.fields.date : [entry.fields.startDate, entry.fields.endDate === 'present' ? t('present') : entry.fields.endDate].filter(Boolean).join(' — ')) || '—'
 function Actions({ entry, edit, remove }: Pick<ViewProps, 'edit' | 'remove'> & { entry: Entry }): JSX.Element {
   return <div className="mem-actions"><button onClick={() => edit(entry)}>{t('edit')}</button>{entry.kind !== 'profile' && <button className="mem-danger" onClick={() => remove(entry)}>{t('remove')}</button>}</div>
 }
@@ -29,8 +30,8 @@ export function ResumeView(props: ViewProps): JSX.Element {
       <div className="mem-section-heading"><h2>{t(kind)}</h2><button onClick={() => add(kind)}>+ {t('add')}</button></div>
       {!entries.some(e => e.kind === kind) && <p className="mem-empty">{t(kind === 'work' ? 'emptyWork' : 'emptyProject')}</p>}
       {entries.filter(e => e.kind === kind).map(entry => <article className="mem-experience" key={entry.id}>
-        <div className="mem-section-heading"><div><time>{entry.fields.period || '—'}</time><h3>{kind === 'work' ? entry.fields.organization || t('none') : entry.fields.title}</h3><p className="mem-muted">{kind === 'work' ? entry.fields.jobTitle : entry.fields.role}</p></div><Actions entry={entry} edit={edit} remove={remove}/></div>
-        <Fields entry={entry} keys={kind === 'work' ? ['highlights'] : ['objective', 'contribution', 'outcome']}/>
+        <div className="mem-section-heading"><div><time>{period(entry)}</time><h3>{kind === 'work' ? entry.fields.organization || t('none') : entry.fields.title}</h3><p className="mem-muted">{kind === 'work' ? entry.fields.jobTitle : entry.fields.role}</p></div><Actions entry={entry} edit={edit} remove={remove}/></div>
+        <Fields entry={entry} keys={['highlights']}/>
         <button className="mem-link" onClick={() => open(entry.id)}>{t(kind === 'work' ? 'viewProjects' : 'archives')} <span>{entries.filter(e => kind === 'work' ? e.kind === 'project' && e.fields.workId === entry.id : e.kind === 'episode' && e.fields.parentId === entry.id).length}</span> →</button>
       </article>)}
     </section>)}
@@ -56,7 +57,7 @@ export function DirectoryView(props: ViewProps & { selected: string }): JSX.Elem
     <header><h2>{t(kind)}</h2><button aria-label={t(kind === 'work' ? 'addWork' : kind === 'project' ? 'addProject' : 'addArchive')} disabled={!onAdd} onClick={onAdd}>+</button></header>
     <nav className="mem-column-list" aria-label={t(kind)}>
       {items.map(entry => <button key={entry.id} className="mem-column-item" data-selected={entry.id === activeId || undefined} aria-current={entry.id === current.id && !independentGroup} onClick={() => open(entry.id)}>
-        <span><strong>{entryName(entry)}</strong><small>{entry.kind === 'episode' ? t('episode') : entry.fields.period || t('none')}</small><time>{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : t('unknownDate')}</time></span><span className="mem-column-arrow" aria-hidden="true">{entry.kind === 'episode' ? '·' : '›'}</span>
+        <span><strong>{entryName(entry)}</strong><time>{period(entry)}</time></span><span className="mem-column-arrow" aria-hidden="true">{entry.kind === 'episode' ? '·' : '›'}</span>
       </button>)}
       {!items.length && <p className="mem-empty">{t(empty)}</p>}
       {kind === 'work' && <button className="mem-column-item mem-independent" data-selected={independent || undefined} aria-current={independentGroup} onClick={() => open(independentId)}><span><strong>{t('noWork')}</strong><small>{entries.filter(e => e.kind === 'project' && !e.fields.workId).length}</small></span><span aria-hidden="true">›</span></button>}
