@@ -20,15 +20,15 @@ test('toggle registers and disposes tools and guidance without a new content ver
     effect: (effect: () => () => void) => { const dispose = effect(); cleanup.push(dispose); return dispose },
   } as unknown as Context
   const sync = registerMemoryTools(ctx, store)
-  assert.deepEqual([...active], ['memory_read', 'memory_commit', 'plugin:memory'])
-  sync(); assert.equal(active.size, 3)
-  const [read, commit] = memoryTools(store)
+  assert.deepEqual([...active], ['memory_resume', 'memory_search', 'memory_get', 'memory_save', 'plugin:memory'])
+  sync(); assert.equal(active.size, 5)
+  const [read, , , commit] = memoryTools(store)
   store.setAgentTools(false); sync()
   assert.equal(active.size, 0); assert.equal(store.read().revision, 0)
   const context = { callId: 'test' } as ToolRunContext
-  assert.equal(JSON.parse(await read.execute({}, context)).error, 'disabled')
-  assert.equal(JSON.parse(await commit.execute({ baseRevision: 0, summary: 'Stale dispatched call', changes: [] }, context)).error, 'disabled')
-  store.setAgentTools(true); sync(); assert.equal(active.size, 3)
+  assert.equal(JSON.parse(await read.execute({}, context)).error.code, 'disabled')
+  assert.equal(JSON.parse(await commit.execute({ stateToken: 'r:0', summary: 'Stale dispatched call', changes: [] }, context)).error.code, 'disabled')
+  store.setAgentTools(true); sync(); assert.equal(active.size, 5)
   assert.equal(store.read().history.length, 0)
   cleanup.forEach(dispose => dispose()); assert.equal(active.size, 0)
 })

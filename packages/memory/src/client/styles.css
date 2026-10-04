@@ -122,8 +122,8 @@
 .mem-segments button[aria-pressed=true] { background: var(--mem-bg); color: var(--mem-text); box-shadow: 0 1px 3px #0001; }
 .mem-sort { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mem-muted); }
 .mem-sort select { padding: 5px 8px; border: 1px solid var(--mem-border); border-radius: 8px; background: var(--dsw-specific-input-major, var(--mem-bg)); }
-.mem-paper-stage { min-height: 100%; padding: 24px; background: var(--dsw-alias-bg-layer-2, var(--mem-soft)); }
-.mem-paper { width: 210mm; min-height: 297mm; max-width: 100%; margin: 0 auto; padding: 18mm 16mm; background: var(--mem-bg); border: 1px solid var(--mem-border); box-shadow: var(--dsw-shadow-lv1, 0 2px 12px #0001); }
+.mem-paper-stage { min-height: 100%; background: var(--mem-bg); }
+.mem-paper { width: 100%; min-width: 0; margin: 0; padding: 24px; background: var(--mem-bg); }
 .mem-paper .mem-section { margin-top: 24px; padding-top: 20px; }
 .mem-paper .mem-section-heading { align-items: flex-start; }
 .mem-actions { display: flex; gap: 6px; flex-shrink: 0; }
@@ -172,8 +172,7 @@
   .mem-directory-detail { padding: 12px 4px; }
 }
 @container (max-width: 700px) {
-  .mem-paper-stage { padding: 12px; }
-  .mem-paper { padding: 24px 20px; min-height: 0; }
+  .mem-paper { padding: 16px; }
   .mem-profile dl { grid-template-columns: 1fr; }
 }
 
