@@ -15,7 +15,7 @@ const STYLE_ID = 'dsh-rdb/styles'
 /** Row order among global panels: after the shell's own rows, before S3. */
 const PANEL_ORDER = 40
 
-/** Required services (fiber inject waiting — the runtime must be up first). */
+/** Services required before the panel mounts. */
 export const inject = ['slots', 'locale', 'layout']
 
 function injectStyles(): void {

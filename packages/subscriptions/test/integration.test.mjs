@@ -76,8 +76,7 @@ test('subscription host registers three providers and independent subscription t
     assert.deepEqual((await api.status()).accounts, [])
     assert.deepEqual(await adapters.get('codex').listModels('codex'), [])
 
-    // Starting/cancelling OAuth is entirely local, including on Windows where
-    // both callback ports may be excluded. No account or token exchange needed.
+    // Starting and cancelling OAuth is local; no account or token exchange is involved.
     const login = await api.login()
     assert.match(login.authorizeUrl, /^https:\/\/auth.openai.com\/oauth\/authorize/)
     const pending = await api.status()

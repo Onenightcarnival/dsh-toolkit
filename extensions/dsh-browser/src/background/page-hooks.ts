@@ -42,10 +42,7 @@ export interface DialogPolicy {
   once: boolean
 }
 
-/**
- * Self-contained installer; serialized by executeScript, so it must not
- * reference anything from this module's scope.
- */
+/** Self-contained installer serialized by executeScript; references nothing from module scope. */
 function installHooks(): boolean {
   const w = window as unknown as Record<string, unknown>
   if (typeof w.__dshPageHooks === 'object' && w.__dshPageHooks !== null) return false

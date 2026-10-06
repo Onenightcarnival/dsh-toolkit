@@ -52,9 +52,8 @@ export class TabAffinityController {
   private active: AffinityTab | null = null
   /**
    * Sessions whose bound tab is known to be gone (closed while tracked, or
-   * pruned at restore). Only these fail closed as `lost` when focused; a
-   * session this worker has never bound is simply unbound and gets the
-   * active tab on its next activation, exactly like a new session.
+   * pruned at restore). Focusing one yields `lost`; a never-bound session is
+   * unbound.
    */
   private readonly lostSessions = new Set<string>()
   private keptActiveTabId: number | null = null
@@ -133,8 +132,7 @@ export class TabAffinityController {
       this.keptActiveTabId = null
       this.pinned = false
       this.hasBound = true
-      // Fail closed only for a tab that actually went away; a session never
-      // bound in this worker is unbound until its activation binds it.
+      // `lost` only for a tab known to be gone.
       this.lost = this.lostSessions.has(sessionId)
     } else {
       this.controlled = { ...tab }
@@ -143,12 +141,8 @@ export class TabAffinityController {
       this.keptActiveTabId = this.active !== null && this.active.tabId !== tab.tabId
         ? this.active.tabId
         : null
-      // A pin belongs to the tab it was made for, so it survives re-focusing the
-      // same binding (session resume replays the focused session) and is dropped
-      // only when focus actually moves the controlled tab. Identity here is the
-      // tab id alone, not sameTab(): that compares title and url for change
-      // detection, and a restored session snapshot routinely disagrees with the
-      // live tab on both after the page has navigated.
+      // The pin belongs to the controlled tab id; it is dropped only when focus
+      // moves to a different tab id.
       if (previousControlled?.tabId !== this.controlled.tabId) this.pinned = false
     }
     const changed = previousFocusedSessionId !== sessionId
@@ -281,12 +275,7 @@ export class TabAffinityController {
     return true
   }
 
-  /**
-   * Rehydrate a `keep-always` choice after an MV3 worker restart.
-   *
-   * Only valid once a controlled tab exists, so a stale pin can never suppress
-   * the handoff prompt for a binding the user has not approved.
-   */
+  /** Rehydrate a `keep-always` choice after an MV3 worker restart; valid only once a controlled tab exists. */
   restorePinned(): boolean {
     if (this.controlled === null || this.pinned) return false
     this.pinned = true
@@ -374,8 +363,7 @@ export class TabAffinityController {
     if (revision !== this.revision) return false
     const currentStatus = this.status()
     if (decision === 'ask-again') {
-      // Undo a pin in place. Dropping keptActiveTabId re-raises the prompt for
-      // the switch the pin was suppressing, so control stays user-confirmed.
+      // Undo the pin; dropping keptActiveTabId re-raises the suppressed handoff prompt.
       if (!this.pinned) return false
       this.pinned = false
       this.keptActiveTabId = null

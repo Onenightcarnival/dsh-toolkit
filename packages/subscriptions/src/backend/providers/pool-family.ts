@@ -54,11 +54,10 @@ export function poolKey(provider: string, model: string): string {
 /**
  * Build per-provider account routes. Each model id becomes a definition of
  * the accounts that list it: two or more fail over; one is pinned to that
- * account (so a Max-only model is never sent to a Plus login). The picker
+ * account. The picker
  * unions these catalogs; a logout that drops a model to one account keeps
  * the same id and pins it to whoever remains.
- * @param sources - per-account catalogs (providers with no accounts list
- *   nothing and simply never join a pool).
+ * @param sources - per-account catalogs (providers with no accounts join no pool).
  * @returns `provider/model` → pool definition (not listed as an extra entry).
  */
 export function buildAccountPools(

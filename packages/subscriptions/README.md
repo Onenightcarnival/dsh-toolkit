@@ -63,6 +63,8 @@ Select **ChatGPT · OpenAI**, then **Continue with ChatGPT**. Eligible Plus and 
 
 Tool lists use the settings at conversation creation. Disabling search also blocks calls in existing conversations immediately. Persisted switches use the capability keys `web_search` and `image_generate`.
 
+Model, search and image availability depends on account entitlements and quota. The integration uses the Codex backend of the ChatGPT subscription; no OpenAI API key is required.
+
 ### Codex web
 
 | Commands | Parameters |
@@ -120,7 +122,7 @@ Select **Antigravity · Google** in the sidebar, then **Connect Google Antigravi
 - Requests preserve the Antigravity client identity; an endpoint-specific 403 permits fallback.
 - Available quota windows remain visible when model catalog or plan lookups fail.
 
-Disable the legacy plugin before enabling this integration: both register the `antigravity` provider.
+The legacy plugin and this integration both register the `antigravity` provider; enable only one of them.
 
 OAuth client configuration, in precedence order:
 
@@ -129,7 +131,7 @@ OAuth client configuration, in precedence order:
 3. `$DSH_HOME/plugins/subscriptions/antigravity-oauth-client.json`, with `clientId` and optional `clientSecret`.
 4. Default client configuration from the pinned runtime dependency `@cortexkit/antigravity-auth-core@2.2.0`.
 
-Resolved OAuth client configuration is stored locally for subsequent token refreshes. The pinned runtime dependency provides client constants.
+Resolved OAuth client configuration is stored locally for subsequent token refreshes.
 
 - Project selection uses `antigravity.projectId`, then account discovery.
 - Missing discovery endpoints (404) or absent project fields use an account-specific compatibility identifier.
@@ -141,7 +143,15 @@ Access depends on account entitlements and quota. Offline tests do not establish
 
 ## Configuration
 
-The toolkit enables this module by default; `subscriptions: false` disables host and UI. Standalone plugin ID: `subscriptions`.
+The toolkit enables this module by default; `subscriptions: false` disables host and UI:
+
+```yaml
+- id: toolkit
+  config:
+    subscriptions: false
+```
+
+Standalone plugin ID: `subscriptions`.
 
 | Scope | Fields |
 |---|---|
@@ -152,7 +162,7 @@ The toolkit enables this module by default; `subscriptions: false` disables host
 | Model entry | `id`; optional `name`, `contextWindow`, `inputModalities` |
 | Antigravity connection | `clientId`, `clientSecret`, `baseURL`, `userAgent`, `projectId`, `onboard` (off by default), under `antigravity` |
 
-Auth and preferences use `plugins/subscriptions/` in the DSH home. The original subscription plugin shares the provider and authenticated RPC names; the two packages cannot be loaded together.
+Auth and preferences use `plugins/subscriptions/` in the DSH home. The UI reads account status without tokens; RPC uses the DSH authenticated connection. The original subscription plugin shares the provider and authenticated RPC names; the two packages cannot be loaded together.
 
 ## Source and license
 

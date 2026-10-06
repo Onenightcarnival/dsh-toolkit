@@ -29,7 +29,9 @@ Artifacts: [dsh-toolkit releases](https://github.com/Onenightcarnival/dsh-toolki
 |---|---|
 | Storage | `~/.dsh/dsh-s3.json`, mode `0600` |
 | Credentials | Host-only; secret values excluded from browser and agent responses |
-| HTTP | Loopback, same-origin marker and GUI session cookie required |
+| HTTP | Loopback, same-origin marker and GUI session cookie required; `401` without the cookie |
+| Downloads | Inline preview for image / PDF / video / audio types; other types served as `application/octet-stream` attachments with `nosniff` |
+| Network | Requests originate from the dsh host process and follow the desktop proxy settings |
 | Scope | Configured prefix applies to browsing and agent tools |
 | Deletes | `s3_delete` requires `confirm=true` |
 

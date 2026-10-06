@@ -92,9 +92,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     return () => { for (const dispose of disposers) dispose() }
   }, 'dsh-s3: routes')
 
-  // The store file may also be edited by hand (or by the CLI); pick up the
-  // switch on every write made through this process and at boot.
-  // (Routes / tools / section effects are torn down by the fiber itself.)
+  // Tool registration follows the stored switch at boot and on every write through this store.
   ctx.effect(() => store.subscribe(syncTools), 'dsh-s3: store watch')
   syncTools()
 }

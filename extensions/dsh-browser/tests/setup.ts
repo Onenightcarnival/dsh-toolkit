@@ -1,7 +1,6 @@
 /**
- * jsdom test setup: jsdom has no layout engine, so getBoundingClientRect
- * returns all zeros (which the visibility filter reads as hidden), and it
- * does not implement CSS.escape. Stub both with browser-equivalent behavior.
+ * jsdom test setup: getBoundingClientRect returns a fixed non-empty rect and
+ * CSS.escape is implemented.
  */
 
 const FAKE_RECT: DOMRect = {

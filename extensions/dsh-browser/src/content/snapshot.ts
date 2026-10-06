@@ -81,7 +81,7 @@ export interface SnapshotView {
   reindexed: boolean
   /** Budget accounting: characters cut from main text and items/forms dropped by count caps. */
   truncated: { mainChars: number; itemsDropped: number; formsDropped: number }
-  /** 总预算（渲染封顶用）。 */
+  /** Total budget; caps the rendered text. */
   budgetChars: number
 }
 
@@ -141,13 +141,9 @@ function openDialogTest(): (dialog: Element) => boolean {
 }
 
 /**
- * The open modal surface an element belongs to, if any.
- *
- * A modal makes everything behind it inert, so its controls are the real
- * interaction surface. It is also appended late in the DOM, which would
- * otherwise push it past the inventory cap on element-heavy pages and hide
- * the very controls the caller needs. A closed pre-rendered dialog is not
- * visible and must not be promoted.
+ * The open modal surface an element belongs to, if any. Controls inside an
+ * open modal are ordered first in the inventory; a closed pre-rendered dialog
+ * is not promoted.
  *
  * @param el - candidate element.
  * @param isOpen - memoized openness test for a dialog element.
@@ -173,15 +169,12 @@ function openDialogOf(el: Element, isOpen: (dialog: Element) => boolean): Elemen
 export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: SnapshotView | null): SnapshotView {
   const elements = collectInteractive(document)
   const { added, removed } = ids.assign(elements)
-  // A renumbering is only meaningful relative to a previous snapshot: the
-  // first snapshot on a fresh document always adds everything.
+  // The first snapshot on a fresh document is never a renumbering.
   const reindexed = last !== null && added + removed > elements.length * 0.5
 
-  // Measure viewport and dialog membership once. Calling getBoundingClientRect
-  // from a sort comparator forces repeated layout reads on large pages.
   const isOpenDialog = openDialogTest()
-  // One layout read per element serves both the viewport ordering and the
-  // rectangle reported for screenshots and coordinate targeting.
+  // One layout read per element serves viewport ordering, dialog membership
+  // and the reported rectangle.
   const elementViews = elements.map((element) => {
     const box = element.getBoundingClientRect()
     return {
@@ -235,8 +228,7 @@ export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: S
     items.push(item)
   }
 
-  // Form controls are already part of the visible interactive inventory, so
-  // reuse that scan instead of querying, styling, and measuring them again.
+  // Form fields are the input/select/textarea subset of the inventory.
   const formElements = elements.filter((el) => el instanceof HTMLInputElement
     || el instanceof HTMLSelectElement
     || el instanceof HTMLTextAreaElement)
@@ -278,7 +270,7 @@ export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: S
   const removedIds: number[] = []
   if (options.delta === true && last !== null) {
     if (last.main !== main.text || last.url !== location.href || last.title !== document.title) {
-      changed.add(-1) // -1 = 正文/标题/URL 变化（渲染时说明）
+      changed.add(-1) // -1 marks a main text, title or URL change.
     }
     for (const item of items) {
       const before = lastItems.get(item.index)
@@ -341,15 +333,7 @@ function sameForm(a: FormFieldView, b: FormFieldView): boolean {
     && a.checked === b.checked && a.required === b.required
 }
 
-/**
- * Render a snapshot as the model-facing text (the whole snapshot is one text
- * block; no images anywhere).
- * @param view - snapshot to render.
- * @param delta - whether this is a delta render (changes only).
- * @param maxChars - optional render cap for compact derivative responses.
- * @returns the text payload.
- */
-/** 渲染结果的整体预算：主文/清单之外的部分（标题、URL、包装行）也计入。 */
+/** Cap the rendered text at the total budget; title, URL and wrapper lines count. */
 function capRendered(text: string, budgetChars: number): string {
   const prefix = safeTextPrefix(text, budgetChars)
   return text.length <= budgetChars ? prefix : `${prefix}…(truncated to the snapshot character budget)`
@@ -386,6 +370,13 @@ function appendTruncationNotes(lines: string[], view: SnapshotView): void {
   if (notes.length > 0) lines.push(`\n(${notes.join('; ')}. Use browser_get_text or specify region for more content.)`)
 }
 
+/**
+ * Render a snapshot as the model-facing text (one text block).
+ * @param view - snapshot to render.
+ * @param delta - whether this is a delta render (changes only).
+ * @param maxChars - optional render cap for compact derivative responses.
+ * @returns the text payload.
+ */
 export function renderSnapshot(view: SnapshotView, delta: boolean, maxChars: number = view.budgetChars): string {
   const lines: string[] = []
   if (delta) {

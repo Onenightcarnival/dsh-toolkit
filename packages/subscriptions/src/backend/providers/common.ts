@@ -3,7 +3,7 @@
  * stream idle watchdog, fetch failure classification, OAuth endpoint errors,
  * and the per-provider {@link TokenManager} that owns session freshness.
  * Concurrent refreshes for one provider coalesce behind a single in-flight
- * promise (`inflight`), so a rotating refresh token is never spent twice.
+ * promise (`inflight`).
  */
 
 import { createHash, randomUUID } from 'node:crypto'
@@ -34,7 +34,7 @@ export interface ModelEntry {
 }
 
 /**
- * Validate a configured model catalog (mirrors llm-deepseek's resolveModels).
+ * Validate a configured model catalog.
  * @param models - raw configured entries.
  * @param label - diagnostic prefix naming the provider.
  * @returns the validated entries.
@@ -74,9 +74,7 @@ export function validateModels(models: readonly ModelEntry[], label: string): Mo
 export interface HttpLlmErrorOptions {
   /**
    * The calling provider's reader for the instant its rate-limit window
-   * reopens. Consulted on a 429 only, and there ahead of the generic
-   * `retry-after` header, because a provider's own field names the window while
-   * `retry-after` often names a short backoff.
+   * reopens. Consulted on a 429 only, ahead of the generic `retry-after` header.
    */
   rateLimitReset?: RateLimitResetReader
   /** Diagnostic sink for a 429 that disclosed no reset instant this code recognizes. */
@@ -88,11 +86,7 @@ export interface HttpLlmErrorOptions {
  * stable code and, for a rate-limited request, the disclosed reset instant to
  * the `providerRetryAfterMs` the retry plugin waits out.
  *
- * A 429 classifies as `RATE_LIMIT` on the strength of the status alone, ahead
- * of the quota-wording check. On these routes there is no terminal quota to
- * distinguish: a subscription has no balance to top up, only a window that
- * reopens, and providers announce an exhausted window with wording
- * (`usage_limit_reached`) the shared classifier reads as permanent.
+ * A 429 classifies as `RATE_LIMIT` by status alone, ahead of the quota-wording check.
  * @param response - the failed response.
  * @param label - diagnostic prefix naming the provider API.
  * @param options - the calling provider's rate-limit reader and warning sink.
@@ -107,9 +101,9 @@ export async function httpLlmError(
   try {
     body = await response.text()
   } catch {
-    // Only swallow error-body reading: the HTTP status still identifies the failure.
+    // The status alone identifies the failure.
   }
-  // Truncated for display only; the readers below need the whole body to parse it.
+  // `shown` is truncated for display; the readers parse the whole `body`.
   const html = response.headers.get('content-type')?.includes('text/html') || /^\s*(?:<!doctype\s+html|<html[\s>])/i.test(body)
   const shown = html ? response.statusText || 'Upstream endpoint unavailable' : body.slice(0, 500)
   const message = shown.length > 0
@@ -124,18 +118,8 @@ export async function httpLlmError(
   else if (response.status >= 500) code = 'SERVER'
   else code = `HTTP_${String(response.status)}`
   const now = Date.now()
-  // The provider's reader runs on a 429 and nowhere else. Providers attach
-  // their rate-limit headers to every response, so reading them on a transient
-  // 500 would report the current window's rollover — hours out — as the delay
-  // before retrying a failure that has nothing to do with the window, and the
-  // retry plugin honours `providerRetryAfterMs` for every retryable code.
-  // `retry-after` stays readable on any status: there it is a real backoff the
-  // provider asked for (a 503 shedding load), not a window snapshot.
-  //
-  // On a 429 the provider's own field wins outright rather than being raced
-  // against `retry-after`: a rejected window often carries both, and the
-  // generic header then names a short backoff that would burn the retry budget
-  // re-hitting the same closed window.
+  // The provider's reader runs on a 429 only and takes precedence over
+  // `retry-after`; `retry-after` is read on any status.
   const rateLimited = response.status === 429
   const reset = rateLimited
     ? options.rateLimitReset?.(response, body, now) ?? retryAfterInstant(response, now)
@@ -234,13 +218,7 @@ export class OAuthEndpointError extends Error {
   readonly status: number
   /** The provider's OAuth `error` code (e.g. `invalid_grant`), when present. */
   readonly oauthCode: string | undefined
-  /**
-   * The endpoint's `retry-after`, in ms, when it sent one. Usage/models
-   * endpoints reuse this error type and can rate-limit progressively (each
-   * hit within the window extends the next one), so a caller retrying on a
-   * fixed schedule instead of honoring this can keep an account locked out
-   * indefinitely.
-   */
+  /** The endpoint's `retry-after`, in ms, when it sent one; callers retrying usage/models requests honor it. */
   readonly retryAfterMs: number | undefined
 
   constructor(message: string, status: number, oauthCode?: string, retryAfterMs?: number) {
@@ -275,7 +253,7 @@ export async function oauthEndpointError(response: Response, label: string): Pro
     if (typeof parsed.error_description === 'string') detail = parsed.error_description
     if (detail.length === 0) detail = oauthCode ?? ''
   } catch {
-    // Only swallow error-body parsing: the HTTP status still identifies the failure.
+    // The status alone identifies the failure.
   }
   const message = detail.length > 0
     ? `${label} token endpoint error (HTTP ${String(response.status)}): ${detail}`
@@ -366,9 +344,7 @@ export class TokenManager<S extends TimedSession> {
       return await this.inflight
     } catch (error) {
       if (this.options.isPermanent(error)) {
-        // A re-login may have landed while this refresh was failing: its
-        // session carries a different refresh token, and deleting it would
-        // log out an account that just signed in. Serve it instead.
+        // A session stored during the refresh with a different refresh token is a new login; serve it.
         const attempted = this.attempted
         const stored = await this.options.load()
         if (stored !== undefined && attempted !== undefined && stored.refreshToken !== attempted.refreshToken) {
@@ -393,8 +369,7 @@ export class TokenManager<S extends TimedSession> {
   }
 
   private async doRefresh(session: S): Promise<S> {
-    // A concurrent caller may have refreshed while this one waited: re-read
-    // the store and skip the round trip when the stored session is fresh.
+    // A fresh stored session from a concurrent refresh is served without a round trip.
     const current = await this.options.load()
     if (current !== undefined
       && current.accessToken !== session.accessToken
@@ -412,7 +387,7 @@ export class TokenManager<S extends TimedSession> {
 /** Fetch signature adapters accept for discovery calls (injectable for tests). */
 export type FetchFn = typeof fetch
 
-/** Bound on one account catalog fetch or usage poll — a hang must not block the picker. */
+/** Bound on one account catalog fetch or usage poll. */
 export const DISCOVERY_TIMEOUT_MS = 10_000
 
 /**
@@ -524,9 +499,7 @@ export function mergeReasoning(
   if (configuredDefault === undefined) return detached
   const effort = ReasoningEffortId(configuredDefault)
   if (base === undefined) {
-    // No capability information at all (catalog unavailable, or a model the
-    // catalog does not cover). Inventing a reasoning block here would claim a
-    // capability nobody advertised; only a fallback-based provider may.
+    // Without a base block, only an extendable (fallback) catalog yields a reasoning block.
     return options?.extendable === true
       ? { efforts: [{ id: effort, name: effortDisplayName(effort) }], defaultEffort: effort }
       : undefined
@@ -543,8 +516,7 @@ export function mergeReasoning(
 
 /**
  * First account catalog that lists `model` (callers pass default-first).
- * One failing lookup sits that account out so a sibling's metadata still
- * resolves — the same isolation as the picker catalog union.
+ * A failing lookup excludes that account.
  */
 export async function discoverAcrossAccounts(
   accounts: readonly string[],
@@ -582,16 +554,13 @@ export interface CatalogPersistence {
 }
 
 /**
- * Cache for one provider's discovered model catalog. The TTL only decides
- * when to REFRESH; it never makes the cache forget: capability metadata
- * (reasoning efforts) must stay stable for a session that selected an effort,
- * or mid-conversation calls fail UNSUPPORTED_REASONING_EFFORT the moment the
- * cache goes stale. `listModels` awaits freshness via {@link get};
- * `resolveModel` uses {@link resolve}, which serves the last-known catalog
- * while a stale entry refreshes in the background, and only awaits the fetch
- * when nothing is known yet. An optional {@link CatalogPersistence} seeds the
- * last-known state across restarts and receives every successful fetch. A 401
- * that still fails after a forced token refresh must call {@link invalidate}.
+ * Cache for one provider's discovered model catalog. The TTL decides when to
+ * refresh; the last-known catalog is retained past it. {@link get} awaits
+ * freshness; {@link resolve} serves the last-known catalog while a stale entry
+ * refreshes in the background and awaits the fetch only when nothing is known.
+ * An optional {@link CatalogPersistence} seeds the last-known state across
+ * restarts and receives every successful fetch. A 401 that still fails after a
+ * forced token refresh must call {@link invalidate}.
  */
 export class ModelCatalogCache {
   private entry: CatalogSnapshot | undefined
@@ -618,8 +587,7 @@ export class ModelCatalogCache {
   }
 
   /**
-   * The last successfully fetched catalog, ignoring TTL. Used to carry
-   * capability metadata forward when a later fetch cannot re-enrich.
+   * The last successfully fetched catalog, ignoring TTL.
    * @returns the last-known models, or `undefined` when nothing has been stored.
    */
   lastKnown(): readonly DiscoveredModel[] | undefined {
@@ -649,7 +617,7 @@ export class ModelCatalogCache {
         if (this.generation !== gen) return models
         const snapshot: CatalogSnapshot = { at: Date.now(), models }
         this.entry = snapshot
-        // Write-through is fire-and-forget: a failed save only costs durability.
+        // Write-through is fire-and-forget.
         void this.persistence?.save(snapshot).catch(() => undefined)
         return models
       })
@@ -674,8 +642,7 @@ export class ModelCatalogCache {
   /**
    * The models for capability resolution. A fresh cache answers directly; a
    * stale one answers immediately from the last-known catalog while a
-   * background refresh runs (a mid-conversation `resolveModel` must neither
-   * block on nor fail with the network); a cold cache awaits one fetch.
+   * background refresh runs; a cold cache awaits one fetch.
    * @param fetcher - performs the provider's model-list request.
    * @returns the models, or `undefined` when nothing is known (the caller
    *   falls back to its static metadata). Never throws.
@@ -716,8 +683,7 @@ export function isMissingOrInvalidCredential(error: unknown): boolean {
 /** Whether discovery stopped because the caller cancelled or the timeout fired. */
 export function isDiscoveryAborted(error: unknown, signal?: AbortSignal): boolean {
   if (signal?.aborted === true) return true
-  // Only treat abort-shaped errors as cancellation when this call had a signal;
-  // a refresh TimeoutError must not fail the whole picker union.
+  // Abort-shaped errors count as cancellation only when this call had a signal.
   return signal !== undefined
     && error instanceof Error
     && (error.name === 'AbortError' || error.name === 'TimeoutError')
@@ -725,9 +691,8 @@ export function isDiscoveryAborted(error: unknown, signal?: AbortSignal): boolea
 
 /**
  * Whether discovery failed because the access token was rejected. After
- * {@link discoverOrRetryAuth} this means the token was rejected AGAIN right
- * after a forced refresh: the login is dead server-side (revoked) even though
- * the refresh grant still answers, so the store keeps the session.
+ * {@link discoverOrRetryAuth} the rejection followed a forced refresh; the
+ * store keeps the session.
  */
 export function isDiscoveryAuthFailure(error: unknown): boolean {
   return (error instanceof OAuthEndpointError && error.status === 401)
@@ -736,9 +701,8 @@ export function isDiscoveryAuthFailure(error: unknown): boolean {
 
 /**
  * Run a catalog fetch, retrying once after a forced token refresh when the
- * first attempt is a 401/AUTH. Only {@link ModelCatalogCache.invalidate}s
- * when the retry is also an auth failure, so a refresh race cannot erase
- * last-known capability metadata.
+ * first attempt is a 401/AUTH. The catalog is invalidated only when the retry
+ * is also an auth failure.
  */
 export async function discoverOrRetryAuth<T>(
   session: (forceRefresh?: boolean) => Promise<unknown>,
@@ -764,9 +728,7 @@ export async function discoverOrRetryAuth<T>(
 /**
  * Keep Codex's session header stable for a supplied, non-empty session ID.
  * Existing UUIDs are preserved; other IDs use a SHA-256-derived UUIDv8 (a
- * custom deterministic layout). UUID formatting is a client convention,
- * not a claim about gateway validation or guaranteed prompt-cache hits.
- * Missing and empty IDs have no session identity and receive a fresh UUIDv4.
+ * custom deterministic layout). Missing and empty IDs have no session identity and receive a fresh UUIDv4.
  */
 export function deterministicSessionId(sessionId?: string): string {
   if (sessionId === undefined || sessionId.length === 0) return randomUUID()

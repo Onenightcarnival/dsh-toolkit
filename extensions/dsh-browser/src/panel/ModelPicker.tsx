@@ -46,8 +46,7 @@ export function ModelPicker({
 }: ModelPickerProps): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const chipRef = useRef<HTMLButtonElement | null>(null)
-  // The composer box clips overflow, so the menu is fixed to the viewport and
-  // anchored above the chip; re-anchored on resize while open.
+  // The menu is fixed to the viewport, anchored above the chip, and re-anchored on resize.
   const [anchor, setAnchor] = useState<{ left: number; bottom: number } | null>(null)
 
   useLayoutEffect(() => {

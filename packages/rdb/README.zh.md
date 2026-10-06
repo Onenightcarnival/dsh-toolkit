@@ -89,18 +89,15 @@ MySQL / MariaDB 通过 `SHOW REPLICA STATUS`（旧版 `SHOW SLAVE STATUS`）判�
 
 ## 安全边界
 
-- 密码以明文存在用户主目录私有文件里，
-  不返回给浏览器或 agent。
-- `/api/dsh-rdb/*` 路由只接受本机回环地址，并要求 dsh web 自己的浏览器
-  会话 cookie；没有 cookie 的本地进程得到 401。
-- 多节点只在建立连接时选节点；同一条连接不做读写分离。需要写走主库、
-  读走备库时，建两条连接（目标分别设主库、备库）。
-- `db_query` / `db_explain` 在服务端做只读判定（拒绝 DML、DDL、
-  `select … into`、`for update` 等），与前端判定无关；`db_execute`
-  再叠加连接级写入开关。
-- 每条语句带超时（默认 30 s：PostgreSQL / GaussDB 用 `statement_timeout`，
-  MySQL 用 `max_execution_time`，MariaDB 用 `max_statement_time`），结果按行数
-  截断（GUI 1000 行、工具 500 行、CSV 导出 10 万行）。
+| 边界 | 契约 |
+|---|---|
+| 凭证 | 密码以明文保存在 `~/.dsh/dsh-rdb.json`（0600），不返回给浏览器或 Agent |
+| HTTP | `/api/dsh-rdb/*` 只接受本机回环地址，并要求 dsh web 的浏览器会话 cookie；无 cookie 的本地进程得到 401 |
+| 节点选择 | 仅在建立连接时选节点；同一条连接不做读写分离。写走主库、读走备库使用两条连接，目标分别设主库、备库 |
+| 只读判定 | `db_query` / `db_explain` 在服务端判定，拒绝 DML、DDL、`select … into`、`for update` 等；与前端判定无关 |
+| 写入 | `db_execute` 需连接级写入开关及 `confirm=true` |
+| 超时 | 每条语句默认 30 s：PostgreSQL / GaussDB 用 `statement_timeout`，MySQL 用 `max_execution_time`，MariaDB 用 `max_statement_time` |
+| 行数上限 | GUI 1000 行、工具 500 行、CSV 导出 10 万行 |
 
 ## 开发
 
@@ -114,14 +111,9 @@ pnpm --filter @onenightcarnival/dsh-rdb run typecheck
 pnpm --filter @onenightcarnival/dsh-rdb pack            # onenightcarnival-dsh-rdb-<版本>.tgz
 ```
 
-容器 / 无头环境验证：用 `DSH_HOME=<临时目录> dsh plugin --profile web add
-file:<tgz>` 装进临时 profile，`dsh web --no-open --port 0` 启动后用就绪行里的
-token URL 换 cookie，再打 `/api/dsh-rdb/*`；GUI 用 Playwright 打开 token URL
-点侧边栏「数据库」即可截图。同一个 token 只能换一次 cookie，换浏览器要重启
-dsh web；pnpm 对同版本号的 file: 包会复用 store 里的旧内容，迭代时先
-`plugin remove` 再 add。
+安装验证步骤见[根 README](../../README.zh.md#安装验证)；本插件检查 `/api/dsh-rdb/*` 接口，GUI 用 Playwright 打开 token URL 后点击侧边栏「数据库」截图。
 
-发版流程见仓库根目录的 README。
+发版流程见[根 README](../../README.zh.md#发版)。
 
 ## 许可
 

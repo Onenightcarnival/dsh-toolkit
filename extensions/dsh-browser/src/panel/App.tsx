@@ -84,7 +84,6 @@ import {
   type SessionPickerEntry,
 } from './sessions.ts'
 
-/** One rendered conversation row. */
 import {
   appendLiveRow,
   completeLastTool,
@@ -122,11 +121,7 @@ interface RelayProfileDraft {
 /** Route keys managed by the relay editor; core-owned routes are never touched. */
 const RELAY_ROUTE_PREFIX = 'relay-'
 
-/**
- * Display names are free-form (CJK included); the route key needs the
- * ASCII shape the wire and credential refs expect, so CJK-heavy names
- * collapse to a stable name hash instead of being rejected.
- */
+/** Route key for a display name: an ASCII slug, or a stable name hash when the slug is empty. */
 function relayRouteKey(name: string): string {
   const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
   if (slug !== '') return `${RELAY_ROUTE_PREFIX}${slug}`
@@ -153,7 +148,7 @@ function parseRelayModels(text: string): Array<{ id: string; contextWindow?: num
   }).filter((model) => model.id !== '')
 }
 
-/** Gateways report failures with the endpoint named; surface everything we got. */
+/** Error text for a relay failure, including gateway details when present. */
 function relayErrorText(cause: unknown): string {
   if (cause instanceof PanelRpcError) {
     const detailKeys = Object.keys(cause.details ?? {})
@@ -165,11 +160,7 @@ function relayErrorText(cause: unknown): string {
 
 type DiscoveredModel = { id: string; contextWindow?: number }
 
-/**
- * Anthropic-protocol routes have no native listing; the gateway still fails
- * them with a "no model listing" message whose wording varies, so match the
- * known phrasings instead of one brittle code.
- */
+/** Whether a discovery failure means the route has no model listing (unsupported code or known message phrasings). */
 function isManualOnlyDiscovery(cause: unknown): boolean {
   if (!(cause instanceof PanelRpcError)) return false
   return cause.code.includes('unsupported')
@@ -197,11 +188,9 @@ async function discoverOnce(
 }
 
 /**
- * Build the ordered discovery attempts for one draft. Anthropic-protocol
- * profiles have no native listing, so fall back to the relay's own
- * OpenAI-compatible listing endpoint (`<base>/v1/models`) — New API / One API
- * style stations serve it with the same token, and the returned ids are the
- * ones the Anthropic route accepts.
+ * Run the ordered discovery attempts for one draft. Anthropic-protocol
+ * profiles use the relay's OpenAI-compatible listing (`<base>/v1`, then
+ * `<base>`); other protocols try the base URL, then `<base>/v1`.
  */
 async function discoverWithFallback(
   api: PanelApi,
@@ -507,10 +496,7 @@ function ApprovalDialog({
   )
 }
 
-/**
- * A page quote: the highlighted text plus where it came from. The quote is
- * page-authored, so it renders as plain text and never as markdown.
- */
+/** A page quote: the highlighted text plus its source. Page-authored text renders as plain text, never markdown. */
 function SelectionQuote({
   selection,
   copy,
@@ -548,11 +534,7 @@ function SelectionQuote({
   )
 }
 
-/**
- * One conversation row body. Memoized: rows are immutable (append/merge copy
- * the array but reuse row objects), so markdown is re-parsed only when a
- * row's text actually changes — typing must not re-render every message.
- */
+/** One conversation row body. Memoized; rows are immutable, so markdown is re-parsed only when a row object changes. */
 const MessageBody = memo(function MessageBody({
   row,
   sessionId,
@@ -788,10 +770,7 @@ export function App(): React.JSX.Element {
     setQuestionSubmissions(updated)
   }
 
-  // Text size: the stylesheet reads --ui-scale, so seed the document from
-  // storage before the first paint the user notices, then keep the two in step.
-  // A choice made while the read is still in flight has already been persisted,
-  // so the late seed must not overwrite it and revert what the user sees.
+  // Seed --ui-scale from storage; a choice made before the read completes wins.
   useEffect(() => {
     void loadUiScale().then((stored) => {
       if (uiScaleChosenRef.current) return
@@ -801,9 +780,7 @@ export function App(): React.JSX.Element {
     })
   }, [])
 
-  // The stepper emits a direction, not a value: resolving the next step against
-  // the ref keeps a fast double-click from computing both steps off the same
-  // stale render and silently collapsing them into one.
+  // Steps resolve against the ref, not the rendered value.
   function changeUiScale(next: number): void {
     uiScaleChosenRef.current = true
     uiScaleRef.current = next
@@ -830,7 +807,7 @@ export function App(): React.JSX.Element {
     })
   }, [])
 
-  // 按消息监听连接状态；stopped/connecting 瞬时状态也参与会话恢复判定。
+  // Connection state per status message; a transition to stopped resets session state.
   const [sessionEpoch, setSessionEpoch] = useState(0)
   const lastStateRef = useRef<BridgeState | null>(null)
   useEffect(() => {
@@ -874,8 +851,7 @@ export function App(): React.JSX.Element {
     })
     const offTabAffinity = api.onTabAffinity(setTabAffinity)
     const offSelection = api.onSelection(setSelection)
-    // A side panel has no sender.tab, so it reports its own window; the
-    // background answers with whatever that window already had selected.
+    // The panel registers its window; the background replies with that window's selection.
     void Promise.resolve(chrome.windows.getCurrent())
       .then((window) => { if (window.id !== undefined) return api.registerWindow(window.id) })
       .catch(() => {})
@@ -952,9 +928,7 @@ export function App(): React.JSX.Element {
       if (sessionId !== sessionRef.current) return
       if (value.type === 'snapshot' && typeof payload.snapshotId === 'string') {
         const pending = pendingHistoriesRef.current.get(payload.snapshotId)
-        // Only a matching pushed baseline may release a history response that
-        // beat it through the RPC channel. Other pending cuts may belong to a
-        // newer follower whose baseline is still queued behind this one.
+        // A pushed baseline releases only the history response with the same snapshot id.
         pendingHistoriesRef.current.delete(payload.snapshotId)
         if (pending !== undefined) applyHistory(sessionId, pending.history)
       }
@@ -1047,7 +1021,7 @@ export function App(): React.JSX.Element {
       return
     }
     if (payload.event.type === 'tool/result') {
-      // 并入最后一行工具行：调用已完成（不新增行）。
+      // Mark the last tool row complete.
       setRows((prev) => completeLastTool(prev, nextSeq()))
       return
     }
@@ -1175,8 +1149,7 @@ export function App(): React.JSX.Element {
   function applyHistory(id: string, history: HistoryPage): void {
     if (sessionRef.current !== id) return
     const followed = followSnapshotsRef.current.get(id)
-    // A newer history request may have replaced this follower while the RPC
-    // response was travelling. Its older cut cannot replace the current view.
+    // A history cut from a replaced follower is held until its baseline arrives.
     if (history.snapshotId !== undefined && followed !== undefined && followed.id !== history.snapshotId) {
       pendingHistoriesRef.current.set(history.snapshotId, { sessionId: id, history })
       // Bound retired RPC responses that will never receive another baseline.
@@ -1201,9 +1174,8 @@ export function App(): React.JSX.Element {
     const historyTitle = latestSessionTitle(events)
     if (historyTitle !== undefined) setSessionTitle(historyTitle)
     setRows(mergeHistoryRows(events, nextSeq, locale))
-    // Only the baseline correlated with this history may have a newer live
-    // suffix. A view left by a previous follower is stale, even when revisiting
-    // the same session; absent stream state authoritatively clears that view.
+    // Stream state is kept only for the baseline correlated with this history;
+    // otherwise it is rebuilt from the history's assistantStream.
     let stream = assistantStreamsRef.current.get(id)
     const hasMatchingBaseline = history.snapshotId !== undefined && followed?.id === history.snapshotId
     if (!hasMatchingBaseline || stream === undefined) {
@@ -1266,8 +1238,7 @@ export function App(): React.JSX.Element {
       if (hinted !== null && hinted.trim() !== '') {
         try {
           const { items, archived } = await loadSessionCatalog()
-          // A contextual hint may identify a live provisional/blank session,
-          // which is intentionally hidden only from the manual history picker.
+          // Blank sessions are hidden from the manual picker only; a hint may resume one.
           const entry = archived.has(hinted)
             ? undefined
             : items.find((candidate) => candidate.sessionId === hinted && candidate.origin !== 'subagent')
@@ -1275,8 +1246,7 @@ export function App(): React.JSX.Element {
             const history = await readHistory(hinted)
             if (sessionTransitionRef.current !== transition) return
             const runtime = sessionRuntimeRef.current.snapshot(hinted, entry.running)
-            // A highlight captured while startup history is loading belongs to
-            // the still-open page, so automatic restoration must not erase it.
+            // Automatic restoration preserves the current selection.
             prepareSessionSwitch(runtime.running, runtime.questions, true)
             sessionRef.current = hinted
             await api.setActiveSession(hinted)
@@ -1299,7 +1269,7 @@ export function App(): React.JSX.Element {
     }
   }
 
-  /** 打开历史会话选择器：拉取持久化会话列表（已过滤空白会话），供恢复。 */
+  /** Toggle the session picker and load the resumable session list. */
   async function openSessionPicker(): Promise<void> {
     if (showSessionPicker) {
       setShowSessionPicker(false)
@@ -1322,7 +1292,7 @@ export function App(): React.JSX.Element {
     }
   }
 
-  /** 恢复历史会话：切换当前 session 并加载其历史。 */
+  /** Switch to a listed session and load its history. */
   async function resumeSession(entry: SessionPickerEntry): Promise<void> {
     if (sessionSwitchBlocked || sessionChangingRef.current) return
     const transition = beginSessionTransition()
@@ -1343,7 +1313,7 @@ export function App(): React.JSX.Element {
     }
   }
 
-  /** 删除历史会话：由桥接在存储锁内归档并清理，拒绝时保留重试入口。 */
+  /** Delete a session through the bridge purge method; a refusal reports an error. */
   async function deleteSession(entry: SessionPickerEntry): Promise<void> {
     if (entry.running || sessionSwitchBlocked || sessionChangingRef.current) return
     const title = projectedSessionTitle(entry) ?? sessionDisplayTitle(entry)
@@ -1351,8 +1321,7 @@ export function App(): React.JSX.Element {
     try {
       const result = await api.rpc<{ purged?: boolean; deferred?: boolean }>(BRIDGE_SESSION_PURGE_METHOD, { sessionId: entry.sessionId })
       setSessionList((prev) => prev.filter((item) => item.sessionId !== entry.sessionId))
-      // A session this dsh process still holds open cannot lose its files
-      // yet; the bridge archived it and will purge on its next start.
+      // `deferred`: archived now, files purged on the next bridge start.
       setSessionNotice(result.deferred === true ? copy.app.deleteSessionDeferred : null)
       if (sessionRef.current === entry.sessionId) {
         setShowSessionPicker(false)
@@ -1390,7 +1359,7 @@ export function App(): React.JSX.Element {
     }
   }
 
-  /** 新建会话：创建后由 session.active(isNew) 将其绑定到当前标签页。 */
+  /** Create a session; session.active(isNew) binds it to the current tab. */
   async function startNewSession(): Promise<void> {
     if (sessionSwitchBlocked || sessionChangingRef.current) return
     const transition = beginSessionTransition()
@@ -1438,8 +1407,7 @@ export function App(): React.JSX.Element {
     setDraft(emptyComposerDraft())
     if (!preserveSelection) {
       setSelection(null)
-      // An explicit conversation switch abandons whatever attachment is
-      // current when the background processes it, rather than a stale render.
+      // A conversation switch clears the background's current selection.
       void api.clearSelection().catch(() => {})
     }
     setImageLimits(null)
@@ -1482,7 +1450,7 @@ export function App(): React.JSX.Element {
     // A quick-start prompt asks about the whole page, not about a quote.
     const submittedSelection = textOverride === undefined ? selection : null
     const id = sessionRef.current
-    // busy state 是异步的：连续回车可能都通过 state 检查——用 ref 同步锁。
+    // sendingRef is the synchronous send lock.
     if ((text === '' && submittedImages.length === 0 && submittedSelection === null)
       || busy || addingImagesRef.current || sendingRef.current || sessionChangingRef.current || id === null) return
     sendingRef.current = true
@@ -1493,7 +1461,7 @@ export function App(): React.JSX.Element {
     setBusy(true)
     setWorking(true)
     setError(null)
-    // 用户消息由 live user/message 事件回显。
+    // The user message is echoed by the live user/message event.
     try {
       const clientTimeZone = browserTimeZone()
       await api.rpc('session.prompt', {
@@ -1506,9 +1474,7 @@ export function App(): React.JSX.Element {
         ...(clientTimeZone === undefined ? {} : { clientTimeZone }),
       })
       if (submittedSelection !== null) {
-        // Keep the background authoritative while the prompt is in flight.
-        // Conditional clearing cannot consume a newer highlight captured in
-        // the meantime, and its broadcast updates every panel together.
+        // Conditional clearing leaves a newer highlight in place; the broadcast updates every panel.
         void api.clearSelection(submittedSelection).then(() => {
           setSelection((current) => current?.capturedAt === submittedSelection.capturedAt ? null : current)
         }).catch(() => {})
@@ -1561,7 +1527,7 @@ export function App(): React.JSX.Element {
     }
   }
 
-  /** Trusted input rides on the manifest's `debugger` permission (Chrome refuses it as optional), so the toggle is only a setting. */
+  /** Trusted input uses the manifest's `debugger` permission; the toggle changes the setting only. */
   function toggleTrustedInput(enabled: boolean): void {
     setSettings((current) => current === null ? current : { ...current, trustedInput: enabled })
   }
@@ -1603,7 +1569,7 @@ export function App(): React.JSX.Element {
                 .map(([ref]) => ref),
             )
           } catch {
-            // Credential visibility is cosmetic here; treat every token as unconfigured.
+            // Every token is shown as unconfigured.
           }
         }
         const drafts = Object.entries(providers)
@@ -1665,7 +1631,7 @@ export function App(): React.JSX.Element {
       try {
         await api.rpc('credentials.unset', { ref: relayTokenRef(profile.key) })
       } catch {
-        // The route is gone either way; a stale credential reference harms nothing.
+        // A stale credential reference is tolerated.
       }
     } catch (cause) {
       setRelayNotice(copy.settings.relaySaveFailed(cause instanceof Error ? cause.message : String(cause)))
@@ -1776,8 +1742,7 @@ export function App(): React.JSX.Element {
             ],
           })
           defaultApplied = true
-          // Model selection is remembered per session; the active one would
-          // otherwise stay on its old provider until a new chat is started.
+          // The active session switches to the new default as well.
           const activeSessionId = sessionRef.current
           if (activeSessionId !== null && firstModel?.id !== undefined) {
             try {
@@ -1787,7 +1752,7 @@ export function App(): React.JSX.Element {
                 model: firstModel.id,
               })
             } catch {
-              // Best effort: the default still applies to every new session.
+              // The default still applies to new sessions.
             }
           }
         }
@@ -1838,7 +1803,7 @@ export function App(): React.JSX.Element {
       : { ...current, trustedActionOrigins: current.trustedActionOrigins.filter((candidate) => candidate !== origin) })
   }
 
-  // 状态栏只显示连接状态；快照上限是技术细节，在设置页说明（见 hint）。
+  // The status bar shows connection state only.
   const statusText = copy.status[state]
   const sessionMenuTitle = sessionTitle ?? copy.app.newSession
   const approvalDialog = !approvalReadyForSession(queuedApproval, sessionRef.current, sessionChanging)
@@ -2299,7 +2264,7 @@ export function App(): React.JSX.Element {
               if (!sendingRef.current) setDraft((current) => ({ ...current, text: e.target.value }))
             }}
             onKeyDown={(e) => {
-              // isComposing：输入法组词中的回车是确认选字，不是发送。
+              // Enter during IME composition does not send.
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault()
                 void send()

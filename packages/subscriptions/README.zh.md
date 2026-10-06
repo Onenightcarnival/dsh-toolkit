@@ -24,7 +24,7 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-subscriptions-<版本>.
 | 账号 | 添加、设为默认、断开连接 |
 | 模型 | 刷新账号目录、显示筛选、默认推理强度、上下文编辑 |
 | 工具 | Codex Web Search 与图像生成开关 |
-| 用量 | 当前账号的额度窗口、重置时间与刷新 |
+| 用量 | 当前账号的额度窗口、重置时间与刷新；缺失数据显示为未知 |
 
 模型勾选与工具开关即时显示并依次保存；保存状态位于页头，失败时恢复已保存值并提供重试。
 
@@ -120,7 +120,7 @@ PDF 截图命令透传至订阅端点；该端点不保证返回图片字节及�
 - 请求保留 Antigravity 客户端标识；单个地址的 403 支持切换到备用地址。
 - 用量窗口独立于模型目录和方案查询，部分接口不可用时保留已获取的数据。
 
-旧插件与本接入使用相同的 `antigravity` 提供方，启用本接入前需停用旧插件。
+旧插件与本接入注册相同的 `antigravity` 提供方，二者只能启用其一。
 
 OAuth 客户端配置按以下顺序读取：
 
@@ -129,12 +129,14 @@ OAuth 客户端配置按以下顺序读取：
 3. `$DSH_HOME/plugins/subscriptions/antigravity-oauth-client.json`，字段为 `clientId` 与可选的 `clientSecret`。
 4. 固定运行时依赖 `@cortexkit/antigravity-auth-core@2.2.0` 提供的默认客户端配置。
 
-登录解析后的客户端配置保存在本机，用于后续令牌刷新。客户端常量由固定的运行时依赖提供。
+登录解析后的客户端配置保存在本机，用于后续令牌刷新。
 
 - 项目标识优先使用 `antigravity.projectId`，其次读取账号项目发现结果。
 - 项目发现接口缺失（404）或未返回项目时，使用账号兼容标识。
 - 此标识不创建 Google Cloud 项目，也不改变账号权限；服务端要求真实项目时，可配置 `antigravity.projectId`。
 - 认证、权限与额度错误保留为失败。
+
+可用性取决于账号权限与额度；离线测试不代表账号可实际访问。
 
 ## 配置
 
@@ -161,7 +163,7 @@ OAuth 客户端配置按以下顺序读取：
 
 ## 源码维护
 
-`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理，提供方为 `codex` 与 `antigravity`。后端从本地源码构建。Antigravity 协议参考：[LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6)。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
+`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理，提供方为 `codex`、`chatgpt` 与 `antigravity`。后端从本地源码构建。Antigravity 协议参考：[LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6)。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
 
 `THIRD_PARTY_LICENSES.txt` 随独立包和集成包发布。修改协议后端时需重新验证 OAuth、RPC、工具策略和模型目录测试。
 

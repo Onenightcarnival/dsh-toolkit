@@ -13,7 +13,7 @@ export const KIND_GUIDE: Record<Kind, string> = {
   project: 'One deliverable or body of work carried out within a position. An independent project has no work.',
   episode: 'One concrete experience within a project: what happened, what was observed and what it teaches, backed by evidence.',
 }
-/** protected is retained only for legacy storage compatibility and grants no field-level restriction. */
+/** `protected` is legacy storage metadata and grants no field-level restriction. */
 export interface Entry { id: string; kind: Kind; fields: Record<string, string>; protected: string[]; createdAt?: string; legacyPeriod?: string }
 export interface Snapshot { entries: Entry[] }
 /** Revision metadata; the entries of a revision are read separately. */

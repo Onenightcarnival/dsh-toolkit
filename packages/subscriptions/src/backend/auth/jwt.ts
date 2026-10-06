@@ -15,7 +15,6 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | undef
   try {
     parsed = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
   } catch {
-    // Malformed base64url or non-JSON payload: the token is unusable for claims.
     return undefined
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined

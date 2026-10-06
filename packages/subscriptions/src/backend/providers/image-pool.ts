@@ -19,7 +19,7 @@ export interface ImageAccountRequest<S extends ImageSession> {
 }
 
 export class ImageAccountPool {
-  // Deliberately separate from chat health: image quotas/entitlements need not match chat.
+  // Health registry separate from chat routing.
   private readonly health = new PoolHealthRegistry()
   private sticky = new WeakMap<object, Map<ImageProvider, string>>()
 
@@ -36,7 +36,7 @@ export class ImageAccountPool {
     signal.throwIfAborted()
     const accounts = await tokens.list()
     if (accounts.length === 0) {
-      await tokens.session() // standard provider-specific login hint
+      await tokens.session() // throws the provider-specific login error
       throw new LlmError('codex_image_generate: no image account is logged in', 'MISSING_CREDENTIAL')
     }
     const pooling = this.options.enabled !== false
@@ -70,8 +70,7 @@ export class ImageAccountPool {
           }
           return response
         }
-        // Images can be produced despite timeouts/server failures. Switch only on
-        // explicit auth/quota/entitlement rejection, never ambiguous transport/5xx.
+        // Switch accounts only on auth, quota or entitlement rejection; transport and 5xx failures propagate.
         failure = await httpLlmError(response, 'codex_image_generate', { rateLimitReset })
         if (![401, 402, 403, 404, 429].includes(response.status)) throw failure
       } catch (error) {

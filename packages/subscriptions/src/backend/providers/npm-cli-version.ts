@@ -15,7 +15,7 @@ export function compareVersions(a: string, b: string): number {
   return different === -1 ? 0 : left[different]! - right[different]!
 }
 
-/** Where a presented CLI version came from; shown in Settings so a stale one is visible. */
+/** Where a presented CLI version came from. */
 export type CliVersionSource = 'npm' | 'local' | 'fallback' | 'config'
 
 /** The CLI version a route presents, and where it came from. */
@@ -31,8 +31,7 @@ export interface NpmCliVersionOptions {
   label: string
   /**
    * The version served until a lookup succeeds, and the floor a looked-up
-   * version may never go below. Read once, on first use, so a costly probe
-   * (a local CLI's `--version`) never runs for an unused provider.
+   * version may never go below. Read once, on first use.
    */
   floor: () => CliVersion
   fetchFn?: FetchFn
@@ -40,12 +39,7 @@ export interface NpmCliVersionOptions {
   timeoutMs?: number
 }
 
-/**
- * Lazy, shared-per-plugin lookup of an official CLI's newest stable version
- * on npm. Subscription endpoints gate new models on the client version they
- * see, so presenting the released CLI's version keeps new models usable
- * without a plugin release for every CLI bump.
- */
+/** Lazy, shared-per-plugin lookup of an official CLI's newest stable version on npm. */
 export class NpmCliVersionCache {
   private presented: CliVersion | undefined
   /** Whether a lookup has finished yet, successfully or not. */
@@ -62,7 +56,7 @@ export class NpmCliVersionCache {
     this.timeoutMs = options.timeoutMs ?? 5000
   }
 
-  /** A manual catalog refresh also checks for a newly released CLI. */
+  /** Expire the cached version; the next resolve queries the registry. */
   invalidate(): void { this.expiresAt = 0 }
 
   resolve(): Promise<string> {
@@ -74,8 +68,7 @@ export class NpmCliVersionCache {
 
   /**
    * The version presented right now, without waiting on the registry;
-   * undefined until the first lookup finishes, so a lookup still in flight
-   * is never reported as a failed one.
+   * undefined until the first lookup finishes.
    */
   current(): CliVersion | undefined {
     return this.settled ? this.presented : undefined
@@ -109,7 +102,6 @@ export class NpmCliVersionCache {
           reject(new Error(`${label} version lookup timed out`))
         }, this.timeoutMs)
       })
-      // Also bounded when an injected transport ignores cancellation.
       this.presented = { version: await Promise.race([lookup(), timeout]), source: 'npm' }
       this.expiresAt = this.now() + 6 * 60 * 60_000
     } catch {

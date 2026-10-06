@@ -1,17 +1,10 @@
 /**
- * Build-time shim for @opentelemetry/exporter-trace-otlp-proto, substituted
- * by scripts/build.mjs for every import outside this directory. Two jobs:
+ * Build-time shim for @opentelemetry/exporter-trace-otlp-proto, substituted by
+ * the keepalive-shim esbuild plugin for every import outside this directory.
  *
- * 1. Disable HTTP keep-alive so every OTLP export opens a fresh connection —
- *    the exact transport behaviour of the panel's test button. Corporate
- *    gateways silently kill idle keep-alive sockets (often without a FIN);
- *    with the default agent the first batch after an idle gap dies on the
- *    dead socket. At batch cadence a new connection per export costs nothing.
- *
- * 2. Record live export statistics (batches, spans, last result) into a
- *    module-global the settings panel reads. After a conversation, a counter
- *    that did not move proves no export happened at all — separating "the
- *    collector produced nothing" from "the server dropped it after a 200".
+ * - HTTP keep-alive is off: every OTLP export opens a new connection, matching the panel's test export.
+ * - Export statistics (batches, spans, last result, recent traces) are recorded in `traceExportStats` for the settings panel.
+ * - Langfuse session and user aliases are added to every exported span.
  */
 export * from "@opentelemetry/exporter-trace-otlp-proto";
 import { OTLPTraceExporter as RealOTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
@@ -29,13 +22,8 @@ export const traceExportStats = {
 };
 
 /**
- * Session/user attribute aliases for older Langfuse versions. The bundled
- * collector emits the modern GenAI semantic keys (gen_ai.session.id /
- * gen_ai.conversation.id); new Langfuse maps those to its session grouping,
- * but older versions only recognize langfuse.session.id / session.id — so
- * traces arrive ungrouped there. Copying the value onto the legacy keys is
- * harmless on backends that don't use them and restores session grouping on
- * the ones that do.
+ * Source keys for the `langfuse.session.id` / `session.id` aliases, in priority order.
+ * Older Langfuse versions group sessions by the alias keys only.
  */
 const SESSION_SOURCE_KEYS = ["gen_ai.session.id", "gen_ai.conversation.id", "dsh.session.id"];
 

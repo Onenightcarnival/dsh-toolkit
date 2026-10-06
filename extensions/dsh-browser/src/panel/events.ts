@@ -1,8 +1,7 @@
 /**
  * Pure conversation-rendering logic: maps session events (live and history)
- * to display rows. Kept framework-free so the wire shapes are unit-tested
- * against the REAL SessionEvent contract: `{ type, seq, time, data }` — the
- * payload always lives in `data`, never on the event root.
+ * to display rows. Framework-free. SessionEvent shape: `{ type, seq, time,
+ * data }`; the payload lives in `data`.
  *
  * @module
  */
@@ -142,9 +141,8 @@ export function textFromBlocks(blocks: unknown): string {
 export function rowFromEvent(event: SessionEventView): Row | null {
   switch (event.type) {
     case 'user/message': {
-      // dsh 每轮把运行时常量上下文作为 source.kind='plugin' 的 user/message
-      // 记入日志（如 <system-reminder> 注入内容）——它们不是用户消息，
-      // 渲染会污染对话流，必须跳过。
+      // Only source.kind='user' messages render; plugin-sourced user/message
+      // events (runtime context) are skipped.
       const message = event.data?.message ?? event.data
       const source = message?.source
       if (source?.kind !== 'user') return null
@@ -156,8 +154,7 @@ export function rowFromEvent(event: SessionEventView): Row | null {
         : { seq: 0, kind: 'user', text, ...(images.length === 0 ? {} : { images }) }
     }
     case 'assistant/message': {
-      // 工具调用也会产生 assistant/message，但其 content 可能只有 tool_use
-      // 等非文本块。不要为这种中间事件渲染一个空的 AI 气泡。
+      // An assistant/message with no text or image blocks renders nothing.
       const blocks = event.data?.message?.content
       const text = textFromBlocks(blocks)
       const images = imageRefsFromBlocks(blocks)
@@ -170,7 +167,7 @@ export function rowFromEvent(event: SessionEventView): Row | null {
   }
 }
 
-/** 工具调用的友好展示名：带 index 参数时附上（如「点击元素 #7」）。 */
+/** Display label for a tool call; an `index` argument is appended as `#n`. */
 export function toolSummary(name: string, argsJson: unknown, locale: UiLocale = getUiLocale()): string {
   let summary = PANEL_COPY[locale].tool.labels[name] ?? name
   try {
@@ -179,12 +176,12 @@ export function toolSummary(name: string, argsJson: unknown, locale: UiLocale = 
       summary += ` #${String((args as { index?: unknown }).index)}`
     }
   } catch {
-    // 模型参数不可解析：只显示工具名。
+    // Unparseable arguments: tool name only.
   }
   return summary
 }
 
-/** live 合并：若最后一行是工具行则并入（连续工具调用不刷屏），否则新增一行。 */
+/** Append a live row; consecutive tool rows merge into the last tool row. */
 export function appendLiveRow(
   rows: Row[],
   kind: Row['kind'],
@@ -202,7 +199,7 @@ export function appendLiveRow(
   return [...rows, { seq, kind, text, ...(images === undefined || images.length === 0 ? {} : { images }) }]
 }
 
-/** 标记最后一行工具调用已完成（并入，不新增行）。 */
+/** Mark the last tool row complete without adding a row. */
 export function completeLastTool(rows: Row[], seq: number): Row[] {
   const last = rows[rows.length - 1]
   if (last?.kind === 'tool') {
@@ -211,7 +208,7 @@ export function completeLastTool(rows: Row[], seq: number): Row[] {
   return rows
 }
 
-/** 历史渲染：连续工具调用归并成一行（tool/call..result 不逐条刷屏；超 3 个折叠计数）。 */
+/** Render history rows; consecutive tool calls merge into one row showing at most 3 with an overflow count. */
 export function mergeHistoryRows(
   events: SessionEventView[],
   nextSeq: () => number,

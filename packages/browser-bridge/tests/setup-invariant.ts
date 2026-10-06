@@ -1,8 +1,6 @@
 /**
- * Load and execute the package's invariant companion so the coverage gate
- * measures it (the host SDK does this for every package via
- * scripts/test-invariants.ts). The stub registry runs the installer, matching
- * the real invariant service's behavior.
+ * Execute the package's invariant companion under coverage. The stub registry
+ * runs the installer like the real invariant service.
  */
 import { apply } from '../src/invariant.ts'
 

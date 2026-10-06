@@ -5,8 +5,8 @@
  * follow it. A live Agent receives that snapshot at once; a deferred session
  * keeps only its newest snapshot until `agent/created` publishes the
  * Agent. Live inboxes also keep only the newest unclaimed browser snapshot.
- * Injection deliberately does not wake an idle Agent — the snapshot is
- * claimed together with the user's next message.
+ * Injection does not wake an idle Agent; the snapshot is claimed together
+ * with the user's next message.
  *
  * @module
  */
@@ -23,7 +23,7 @@ declare module '@deepseek-ai/dsh-llm' {
   }
 }
 
-/** Bound orphaned provisional sessions while retaining normal recent tabs. */
+/** Upper bound on retained snapshots for not-yet-materialized sessions. */
 const DEFAULT_MAX_PENDING = 32
 
 /** Build one immutable context message from a captured browser snapshot. */

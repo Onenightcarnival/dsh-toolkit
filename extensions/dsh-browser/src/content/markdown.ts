@@ -1,8 +1,7 @@
 /**
- * DOM → Markdown for `browser_get_text`. Keeps the structure a model needs
- * to reason about a page — headings, lists, tables, links, code, images —
- * and drops chrome (scripts, styles, hidden nodes, nav/aside landmarks when
- * a main region exists). Open shadow roots are walked like light DOM.
+ * DOM → Markdown for `browser_get_text`. Keeps headings, lists, tables,
+ * links, code and images; drops scripts, styles and hidden nodes. Open shadow
+ * roots are walked like light DOM.
  *
  * @module
  */

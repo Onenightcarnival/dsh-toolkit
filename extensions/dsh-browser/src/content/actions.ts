@@ -42,11 +42,8 @@ const EXPLICIT_WAIT_SETTLE: PageSettlePolicy = { minimumMs: 100, quietMs: 100, m
 const ACTION_DELTA_MAX_CHARS = 4_000
 
 /**
- * Wait for document readiness and a mutation-free window. The old fixed delay
- * charged every action equally and still returned too early when a late DOM
- * update landed near its boundary. This observer returns early on already
- * stable pages, extends only for real mutations, and stays bounded on pages
- * with continuous animation.
+ * Wait for document readiness and a mutation-free window. Returns early on
+ * stable pages, extends on mutations, and stays bounded by `maxAfterReadyMs`.
  */
 export function waitForPageSettled(policy: PageSettlePolicy = ACTION_SETTLE): Promise<boolean> {
   const startedAt = performance.now()
@@ -217,7 +214,7 @@ export async function runAction(action: string, args: Record<string, unknown>, c
 function snapshotAction(args: Record<string, unknown>, ctx: ActionContext): ActionResult {
   const delta = args.delta === true
   const region = typeof args.region === 'string' && args.region !== '' ? args.region : undefined
-  // 基线在每次快照后都更新：delta 调用才能相对上一次（无论是否 delta）比较。
+  // Every snapshot, delta or full, becomes the next delta baseline.
   const view = buildSnapshot(ctx.ids, { delta, region, budget: ctx.budget }, lastSnapshot)
   lastSnapshot = view
   return { text: renderSnapshot(view, delta) }
@@ -242,10 +239,7 @@ function withPageDelta(text: string, ctx: ActionContext): ActionResult {
   }
 }
 
-/**
- * The deepest element at viewport coordinates, descending into open shadow
- * roots so a click lands on the component's real control, not its host.
- */
+/** The deepest element at viewport coordinates, descending into open shadow roots. */
 function elementAtPoint(x: number, y: number): Element | null {
   if (typeof document.elementFromPoint !== 'function') return null
   let el = document.elementFromPoint(x, y)
@@ -306,11 +300,8 @@ async function clickAction(args: Record<string, unknown>, ctx: ActionContext): P
       && !el.hasAttribute('download')
       && (href?.protocol === 'http:' || href?.protocol === 'https:')
     if (controlledNavigation && href !== undefined) {
-      // Manual location assignment cannot preserve browser-managed link
-      // semantics such as referrer suppression, hyperlink auditing, or
-      // attribution registration. Keep native activation for those links,
-      // but do not claim a replacement document is guaranteed: an SPA may
-      // still cancel the click and remain in this document.
+      // Links with referrer, ping or attribution semantics use native
+      // activation; a replacement document is not guaranteed.
       const hasReferrerPolicy = typeof el.referrerPolicy === 'string' && el.referrerPolicy !== ''
       const requiresNativeActivation = el.relList.contains('noreferrer')
         || hasReferrerPolicy
@@ -322,8 +313,8 @@ async function clickAction(args: Record<string, unknown>, ctx: ActionContext): P
           text: `Clicked link [${index}] using native browser activation. Call browser_snapshot to read the resulting state.`,
         }
       }
-      // Dispatch the click handlers without its default navigation so a
-      // client-side router can cancel synchronously and keep this document.
+      // The click is dispatched without default navigation; a cancelled event
+      // keeps this document.
       const shouldNavigate = el.dispatchEvent(new MouseEvent('click', {
         bubbles: true,
         cancelable: true,
@@ -341,8 +332,7 @@ async function clickAction(args: Record<string, unknown>, ctx: ActionContext): P
         await waitForPageSettled(ACTION_SETTLE)
         return withPageDelta(`Clicked link [${index}].`, ctx)
       }
-      // A cross-document navigation can unload this content script before an
-      // awaited response. Answer first and navigate in the next task.
+      // The response is sent before the cross-document navigation starts.
       setTimeout(() => { location.href = href.href }, 0)
       return {
         text: `Clicked link [${index}]. Call browser_snapshot again after navigation settles.`,
@@ -374,10 +364,8 @@ function editingHost(el: HTMLElement): HTMLElement | null {
 }
 
 /**
- * Whether the element can receive rich-text input.
- *
- * `isContentEditable` is the browser's own answer; the boundary walk covers the
- * attribute case, which is unimplemented in jsdom, where these tests run.
+ * Whether the element can receive rich-text input: `isContentEditable`, or an
+ * editable contenteditable boundary.
  *
  * @param el - element addressed by the action.
  * @returns true when the element can receive rich-text input.
@@ -388,21 +376,16 @@ function isEditable(el: Element): el is HTMLElement {
 
 /**
  * Insert text into a rich-text host through the browser's editing pipeline.
- *
- * Editors such as Lexical, Draft.js and ProseMirror keep their own document
- * model and reconcile away foreign DOM writes, so assigning `textContent`
- * silently reverts and the caller's success report becomes a lie.
- * `execCommand('insertText')` is deprecated but remains the only path that
- * produces the `beforeinput`/`input` sequence those editors listen for. Hosts
- * without it keep the direct-write fallback.
+ * `execCommand('insertText')` produces the `beforeinput`/`input` sequence
+ * editor frameworks observe; hosts without it fall back to a direct
+ * `textContent` write.
  *
  * @param el - element addressed by the action.
  * @param text - text to insert.
  * @param replace - whether to replace the host's current contents.
  */
 function typeIntoContentEditable(el: HTMLElement, text: string, replace: boolean): void {
-  // `isEditable` already refused a disabled island, so a null host here means
-  // the element is editable without the attribute; address it directly.
+  // A null host means the element is editable without the attribute.
   const host = editingHost(el) ?? el
   host.focus()
   const selection = host.ownerDocument.getSelection()
@@ -460,8 +443,8 @@ async function pressAction(args: Record<string, unknown>, ctx: ActionContext): P
     target.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
   }
   if (proceed && key === 'Tab' && !modifiers.ctrlKey && !modifiers.altKey && !modifiers.metaKey) {
-    // Synthetic Tab never moves focus; emulate the browser's next-field walk
-    // over the visible interactive inventory in DOM order.
+    // Synthetic Tab does not move focus; focus walks the visible focusable
+    // elements in DOM order.
     const focusables = deepQuerySelectorAll(document, 'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"]), [contenteditable="true"]')
       .filter((el) => el instanceof HTMLElement && !(el as HTMLButtonElement).disabled && el.getBoundingClientRect().width > 0)
     const at = focusables.indexOf(target)
@@ -514,9 +497,8 @@ async function navigateAction(args: Record<string, unknown>): Promise<ActionResu
     throw new ActionError('bad-args', `Only http and https URLs are supported; received ${parsed.protocol}.`)
   }
   resetDeltaState()
-  // Cross-document navigation unloads this content script and destroys the
-  // tabs.sendMessage response port before any await settles — so answer
-  // FIRST, then navigate in a fresh task. The model re-snapshots after load.
+  // The response is sent before the navigation starts; the document unload
+  // destroys the response port.
   setTimeout(() => { location.href = parsed.href }, 0)
   return {
     text: `Navigating to ${parsed.href}. Call browser_snapshot again after the page loads.`,
@@ -526,7 +508,7 @@ async function navigateAction(args: Record<string, unknown>): Promise<ActionResu
 
 async function historyAction(delta: 1 | -1): Promise<ActionResult> {
   resetDeltaState()
-  // 同 navigate：先响应再导航（文档卸载会销毁响应端口）。
+  // Same as navigate: respond first, then navigate.
   setTimeout(() => { if (delta === -1) history.back(); else history.forward() }, 0)
   return {
     text: 'Navigating through browser history. Call browser_snapshot again after the page loads.',
@@ -551,7 +533,7 @@ async function getTextAction(args: Record<string, unknown>, ctx: ActionContext):
     source = deepQuerySelector(document, selector)
     if (source === null) return { text: `No element matched selector: ${selector}` }
   } else if (format === 'markdown') {
-    // Prefer the content region so navigation chrome does not dominate.
+    // Default to the content region.
     source = deepQuerySelector(document, 'main, [role="main"], article') ?? document.body
   }
   const text = format === 'plain'
@@ -604,8 +586,8 @@ function findAction(args: Record<string, unknown>, ctx: ActionContext): ActionRe
     }
     matches.push(el)
   }
-  // Prefer the innermost match: a text hit on a wrapper is also a hit on every
-  // ancestor, and the model wants the control, not the page body.
+  // Only innermost matches are listed; a text hit on a wrapper is also a hit
+  // on every ancestor.
   const leafMatches = matches.filter((el) => !matches.some((other) => other !== el && el.contains(other)))
   const listed = leafMatches.slice(0, MAX_FIND_RESULTS)
   ctx.ids.ensure(listed)

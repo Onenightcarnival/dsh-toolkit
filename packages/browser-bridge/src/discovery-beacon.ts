@@ -91,7 +91,7 @@ export async function startDiscoveryBeacon(options: DiscoveryBeaconOptions): Pro
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
       res.end(JSON.stringify({ wsUrl: options.resolveWsUrl() }))
     })
-    // Short keep-alive so close() settles promptly on HMR/unload.
+    // close() settles within the keep-alive window.
     server.keepAliveTimeout = 1_000
     try {
       await listen(server, port)

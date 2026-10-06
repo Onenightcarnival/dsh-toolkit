@@ -4,9 +4,7 @@ import * as backend from './backend/index.js'
 export const name = 'subscriptions'
 export const inject = ['llm']
 
-// Pass the normalized internal config directly. The backend's user-facing schema
-// defaults optional arrays to [], which would invalidate models without an
-// explicit inputModalities field. Its apply function validates transport values.
+/** Backend transport registered without the backend's user-facing schema; `backend.apply` validates the normalized config. */
 const transport = { name: 'subscriptions-transport', inject: backend.inject, apply: backend.apply }
 
 export interface Config {

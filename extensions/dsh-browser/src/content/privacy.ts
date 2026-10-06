@@ -1,9 +1,6 @@
 /**
  * Privacy boundary for page snapshots: sensitive form fields are never echoed.
- *
- * The browser page channel uses text snapshots, so the
- * snapshot is the ONLY representation of a form field's value that reaches the
- * model. Password/credit-card fields are masked to a constant placeholder; the
+ * Password and payment-card fields are masked to a constant placeholder; the
  * real value never leaves the page.
  *
  * @module
@@ -42,7 +39,7 @@ export function isSensitiveField(el: Element): boolean {
 
 /**
  * Mask a sensitive value for snapshots. Non-empty values become a fixed
- * placeholder so the model knows a value is present without learning it.
+ * placeholder; empty values stay empty.
  * @param value - the field's current value.
  * @returns the masked representation.
  */

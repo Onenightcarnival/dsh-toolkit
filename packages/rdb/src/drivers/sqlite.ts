@@ -1,8 +1,4 @@
-/**
- * SQLite through Node's built-in `node:sqlite` (Node 22.5+). No native
- * add-on: dsh under the desktop shell runs on Electron's Node, whose ABI
- * rejects prebuilt binaries built for plain Node.
- */
+/** SQLite through Node's built-in `node:sqlite` (Node 22.5+); no native add-on. */
 import { createRequire } from 'node:module'
 import type { ColumnInfo, IndexInfo, QueryResult, TableRef } from '../protocol.ts'
 import type { DbConnection, QueryOptions } from './types.ts'

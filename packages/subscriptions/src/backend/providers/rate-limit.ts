@@ -1,17 +1,10 @@
 /**
- * Rate-limit window handling shared by the subscription adapters.
- *
- * A subscription plan is rate-limit shaped by design — a five-hour session
- * window, a weekly window, and on some plans a per-model weekly one — so a 429
- * is not a dead end: the window reopens at a time the provider discloses. This
- * module turns that disclosure into the `providerRetryAfterMs` the optional
- * `@deepseek-ai/dsh-llm-retry` plugin waits out, and resolves the retry policy
- * whose `maxDelayMs` decides how long a route is allowed to hold the turn.
- *
- * The wait itself is provider-independent: adapters own the policy, the retry
- * plugin executes it. Only the extraction of the reset instant differs, so each
- * adapter contributes one {@link RateLimitResetReader} built from the parsing
- * primitives here.
+ * Rate-limit window handling shared by the subscription adapters: converts a
+ * provider's disclosed reset instant into the `providerRetryAfterMs` the
+ * optional `@deepseek-ai/dsh-llm-retry` plugin waits out, and resolves the
+ * retry policy whose `maxDelayMs` bounds how long a route holds the turn.
+ * Each adapter contributes one {@link RateLimitResetReader} built from the
+ * parsing primitives here.
  *
  * @module dsh-plugin-subscriptions/providers/rate-limit
  */
@@ -28,11 +21,7 @@ import type { ResolvedRetryPolicy } from '@deepseek-ai/dsh-llm'
  */
 export type RateLimitResetReader = (response: Response, body: string, now: number) => number | undefined
 
-/**
- * Extra time added to every provider-disclosed wait. Absorbs clock skew
- * between the harness and the provider, so a retry does not land a moment
- * before the window actually reopens and burn an attempt on a second 429.
- */
+/** Extra time added to every provider-disclosed wait, absorbing clock skew. */
 const RESET_GRACE_MS = 2_000
 
 /** Shortest wait ever scheduled, including for a reset instant already in the past. */
@@ -51,10 +40,8 @@ const MAX_TIMER_DELAY_MS = 2_147_483_647
 export const DEFAULT_RATE_LIMIT_MAX_WAIT_MS = 6 * 60 * 60 * 1_000
 
 /**
- * Interpret a bare numeric rate-limit value, which providers write in three
- * shapes: epoch milliseconds, epoch seconds, or a delay in seconds. The
- * magnitude separates them unambiguously for any plausible value — an epoch in
- * seconds is ~1.8e9 today, while a delay of even a full week is ~6e5.
+ * Interpret a bare numeric rate-limit value: epoch milliseconds, epoch
+ * seconds, or a delay in seconds, separated by magnitude.
  * @param value - the raw numeric value.
  * @param now - the current epoch milliseconds.
  * @returns epoch milliseconds of the reset, or undefined when the value is unusable.
@@ -63,10 +50,7 @@ export function resetInstantFromNumber(value: number, now: number): number | und
   if (!Number.isFinite(value) || value <= 0) return undefined
   if (value >= EPOCH_MILLIS_FLOOR) return value
   if (value >= EPOCH_SECONDS_FLOOR) return value * 1_000
-  // Provider body fields in this helper's allowlists are contracted as
-  // seconds. A provider that sends milliseconds here (for example,
-  // `retry_after: 30000`) would be interpreted as 30,000 seconds (~8.3 h),
-  // so such a field must be normalized by its provider reader first.
+  // Values below the epoch floor are seconds; a provider reader normalizes millisecond fields first.
   return now + value * 1_000
 }
 
@@ -79,18 +63,14 @@ export function resetInstantFromNumber(value: number, now: number): number | und
 export function durationMs(text: string): number | undefined {
   const trimmed = text.trim()
   if (trimmed.length === 0) return undefined
-  // Sticky: every component must abut the previous one, so trailing or
-  // interleaved junk ("6m0s later") fails the length check below.
+  // Sticky: components must be contiguous; the final length check rejects trailing text.
   const pattern = /(\d+(?:\.\d+)?)(ms|h|m|s)/y
   const units: Record<string, number> = { h: 3_600_000, m: 60_000, s: 1_000, ms: 1 }
   let total = 0
   let matched = false
-  // A failed sticky exec resets `lastIndex` to zero, so the reached offset is
-  // tracked separately rather than read back off the regex after the loop.
+  // A failed sticky exec resets `lastIndex`; the offset is tracked separately.
   let index = 0
-  // Components run strictly coarse to fine, the only order Go writes them in;
-  // a repeated or out-of-order unit ("1s2h", "1s1s") is not a duration and
-  // must not be silently summed into one.
+  // Components run strictly coarse to fine; repeated or out-of-order units are rejected.
   let previousUnit = Number.POSITIVE_INFINITY
   for (;;) {
     pattern.lastIndex = index
@@ -104,18 +84,13 @@ export function durationMs(text: string): number | undefined {
     matched = true
   }
   if (!matched || index !== trimmed.length) return undefined
-  // A zero duration ("0s") is not a disclosed reset — it is a bucket that has
-  // already rolled over — and reporting it as one would short-circuit the real
-  // signal behind it with a wait of `now`. The numeric path agrees:
-  // {@link resetInstantFromNumber} rejects zero too.
+  // A zero duration is not a disclosed reset.
   return total > 0 ? total : undefined
 }
 
 /**
  * Interpret any single rate-limit value — a number, a numeric string, a
- * duration (`6m0s`), or a date — as the instant a window reopens. One reader
- * for every shape, so a provider that changes the encoding of a field it
- * already sends does not need a code change here.
+ * duration (`6m0s`), or a date — as the instant a window reopens.
  * @param value - the raw header value or JSON field.
  * @param now - the current epoch milliseconds.
  * @returns epoch milliseconds of the reset, or undefined when the value is unusable.
@@ -163,8 +138,7 @@ export function retryAfterInstant(response: Response, now: number): number | und
 }
 
 /**
- * Parse a response body as JSON without throwing on the non-JSON bodies
- * providers occasionally return under load (an HTML gateway page, say).
+ * Parse a response body as JSON; a non-JSON body reads as undefined.
  * @param body - the complete response body.
  * @returns the parsed value, or undefined when the body is not JSON.
  */
@@ -173,12 +147,11 @@ export function jsonBody(body: string): unknown {
   try {
     return JSON.parse(body) as unknown
   } catch {
-    // Only swallow body parsing: header-derived signals still apply.
     return undefined
   }
 }
 
-/** How deep {@link resetFromFields} walks; every observed payload nests one or two levels. */
+/** How deep {@link resetFromFields} walks. */
 const MAX_BODY_DEPTH = 4
 
 /**
@@ -213,9 +186,7 @@ export function resetFromFields(
 }
 
 /**
- * The earliest of several candidate reset instants, ignoring absent ones. The
- * earliest is the one that matters: it is the first moment any of the reported
- * limits allows a request again.
+ * The earliest of several candidate reset instants, ignoring absent ones.
  * @param candidates - reset instants in no particular order.
  * @returns the earliest instant, or undefined when every candidate is absent.
  */

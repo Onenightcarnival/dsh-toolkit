@@ -1,9 +1,7 @@
 /**
- * Resolved-image plumbing for the wire translators. ImageBlocks carry only an
- * attachment reference; the bytes live in the attachment service, which is
- * async I/O. Adapters resolve images BEFORE calling the (pure, synchronous)
- * translators, so the translators see {@link ResolvedImagePart}s with inline
- * base64 data.
+ * Resolved-image plumbing for the wire translators. Adapters resolve image
+ * attachment references to inline base64 before translation; translators
+ * receive {@link ResolvedImagePart}s.
  */
 
 import { LlmError } from '@deepseek-ai/dsh-llm'
@@ -40,10 +38,9 @@ export interface ResolvedToolResultBlock extends Omit<ToolResultBlock, 'content'
 }
 
 /**
- * Wires with text-only tool outputs receive images in a following user turn.
- * Defer that turn until all consecutive user messages have been processed:
- * parallel tool results can arrive in separate harness messages, and a user
- * image message must not interrupt their tool-call/output pairing.
+ * Wires with text-only tool outputs receive tool-result images in a following
+ * user turn, emitted after the run of consecutive tool and user messages and
+ * before the next assistant message.
  */
 export function withToolResultImages(messages: readonly TranslatableMessage[]): TranslatableMessage[] {
   const out: TranslatableMessage[] = []
@@ -96,9 +93,8 @@ export interface ImageRequestLimit {
 
 /**
  * The request projection for one oversized image, or undefined when it fits.
- * Hosts before DSH 0.1.7 read a pixel budget (`maxPixels`), later ones the
- * target edges (`width`/`height`); each validates only its own fields, so
- * one projection carries both.
+ * The projection carries both the pixel budget (`maxPixels`) and the target
+ * edges (`width`/`height`).
  */
 export function imageRequestTarget(
   ref: { width: number; height: number },
@@ -148,7 +144,7 @@ export async function resolveImages(
         const version = await attachments.readImageRequest(ref, target, signal)
         return { data: version.data, mediaType: version.mediaType, ref: version.attachment }
       } catch (error) {
-        // A host that cannot derive request images keeps sending the stored bytes, as before.
+        // Without a derived request image, the stored bytes are sent.
         if (signal?.aborted) throw error
       }
     }

@@ -1,15 +1,9 @@
 /**
  * The page selection each browser window's side panels may attach to a prompt.
  *
- * Selections are scoped per window, like approvals: a panel must never offer a
- * quote from a page its own window is not looking at, and an incognito window's
- * highlight must not surface in a normal window's panel.
- *
- * Within one window only the newest highlight is kept — a selection points at
- * what the user is asking about, so an older one is stale the moment they
- * highlight something else. The tracker is pure so the lifecycle rules
- * (replace, dismiss, navigate away, close the tab) are testable without a
- * browser runtime.
+ * Selections are scoped per window; each window keeps only its newest
+ * highlight. The tracker is pure: replace, dismiss, navigation and tab close
+ * are handled without a browser runtime.
  *
  * @module
  */
@@ -65,11 +59,8 @@ export class SelectionTracker {
   }
 
   /**
-   * Drop a selection only if it is still the one a panel acted on.
-   *
-   * A newer highlight can arrive while a prompt is in flight. Comparing the
-   * complete stamped value prevents the eventual success response from
-   * consuming that newer attachment.
+   * Drop a selection only if it is still the one a panel acted on. The
+   * complete stamped value must match; a newer highlight is left in place.
    */
   clearIfCurrent(windowId: number, expected: PageSelection): boolean {
     const current = this.entries.get(windowId)?.selection
@@ -85,8 +76,7 @@ export class SelectionTracker {
 
   /**
    * Drop selections whose page went away.
-   * @param frameId - when given, drop only a capture from that exact frame, so
-   *   an iframe navigating cannot invalidate a quote from its parent document.
+   * @param frameId - when given, drop only a capture from that exact frame.
    * @returns the windows whose panels must be told.
    */
   clearTab(tabId: number, frameId?: number): number[] {

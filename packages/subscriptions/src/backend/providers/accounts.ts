@@ -1,8 +1,7 @@
 /**
  * Multi-account token plumbing: one {@link AccountTokenManager} per provider
- * owns a lazily-built {@link TokenManager} per account, so refresh coalescing
- * (`inflight`) and permanent-failure removal stay scoped to ONE account —
- * a revoked account deletes itself without touching its siblings.
+ * owns a lazily built {@link TokenManager} per account; refresh coalescing
+ * and permanent-failure removal are scoped to one account.
  *
  * {@link AccountAwareAdapter} is the internal interface the pool uses to
  * stream through a specific account. A catalog model listed by several
@@ -24,7 +23,7 @@ import type { AccountEntry, ProviderId } from '../auth/store.js'
 
 export { DISCOVERY_TIMEOUT_MS } from './common.js'
 
-/** Minimal session shape the token managers need (mirrors common.ts). */
+/** Minimal session shape the token managers need. */
 type TimedSession = import('../auth/store.js').StoredSession
 
 /** An adapter that can stream through a named account (the pool's seam). */
@@ -44,10 +43,8 @@ export interface AccountAwareAdapter extends LlmAdapter {
   lastKnownOwnModels?(provider: string, account: string): Promise<readonly LlmModelInfo[] | undefined>
   /**
    * Capability resolution of the provider's OWN models, bypassing the pool
-   * delegation. The pool resolves its members through this — an account pool
-   * reuses the catalog wire id (e.g. `gpt-5.4`), so resolveModel would
-   * otherwise bounce straight back into the pool forever. The optional account
-   * lets adapters with account-specific limits resolve that member conservatively.
+   * delegation; the pool resolves its members through this. The optional
+   * account resolves that member's account-specific limits.
    */
   resolveOwnModel(provider: string, model: string, account?: string): Promise<LlmResolvedModelInfo>
   /** Drop cached catalogs: one account, or every account when omitted (login/logout). */
@@ -56,7 +53,7 @@ export interface AccountAwareAdapter extends LlmAdapter {
 
 /** Options for {@link unionAccountCatalogs}. */
 export interface UnionAccountCatalogsOptions {
-  /** Per-account bound; a hang sits that account out instead of blocking the picker. */
+  /** Per-account bound; a timed-out account contributes no models. */
   timeoutMs?: number
   /** Caller cancellation; aborting drops the whole union. */
   signal?: AbortSignal
@@ -91,7 +88,7 @@ export async function unionAccountCatalogs(
       )
       return models ?? []
     } catch (error: unknown) {
-      // One expired or failing account must not hide models the others list.
+      // A failing account contributes no models; caller cancellation propagates.
       if (caller?.aborted === true) throw error
       return []
     }
@@ -200,9 +197,7 @@ export class AccountTokenManager<S extends TimedSession> {
           await io.save(boundAccount, session)
           const canonical = await this.resolveAccount(boundAccount)
           if (canonical !== boundAccount) {
-            // Move the binding as well as the cache entry: logout can delete
-            // aliases, so callbacks must not keep relying on the old key.
-            // Retain the manager itself to preserve its in-flight refresh.
+            // Rebind to the canonical key, keeping the manager and its in-flight refresh.
             this.managers.set(canonical, manager!)
             if (this.managers.get(boundAccount) === manager) this.managers.delete(boundAccount)
             boundAccount = canonical

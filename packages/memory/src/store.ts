@@ -108,7 +108,7 @@ export class MemoryStore {
     })
   }
 
-  /** Erase content and history; advance the revision so drafts created before clearing are rejected. */
+  /** Erase content and history and advance the revision; drafts created before clearing are rejected. */
   clear(baseRevision: number): State {
     if (!Number.isSafeInteger(baseRevision)) fail('invalid')
     const db = this.open()

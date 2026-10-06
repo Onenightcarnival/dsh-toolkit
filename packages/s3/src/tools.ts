@@ -1,8 +1,7 @@
 /**
- * Agent tools (s3_*): the same engine the panel uses, so a bucket configured
- * in the GUI is immediately operable by the agent — but only while the user
- * has switched "agent tools" on in the panel. Keys are relative to the
- * profile prefix. Nothing here ever returns credentials.
+ * Agent tools (s3_*) over the panel's engine, registered while the panel's
+ * agent-tools switch is on. Keys are relative to the profile prefix.
+ * Credentials are never returned.
  */
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
@@ -34,7 +33,7 @@ function human(bytes: number): string {
 
 const PROFILE_PARAM = { type: 'string', required: true, description: 'Bucket profile name (or id) from s3_buckets.' } as const
 
-/** Agent-visible listing cap per call (keeps one page inside the context budget). */
+/** Agent-visible listing cap per call. */
 const TOOL_LIST_MAX = 500
 
 export function s3BucketsTool(store: ProfileStore) {

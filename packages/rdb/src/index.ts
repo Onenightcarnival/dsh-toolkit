@@ -92,9 +92,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     return () => { for (const dispose of disposers) dispose() }
   }, 'dsh-rdb: routes')
 
-  // The store file may also be edited by hand (or by the CLI); pick up the
-  // switch on every write made through this process and at boot.
-  // (Routes / tools / section effects are torn down by the fiber itself.)
+  // Tool registration follows the stored switch: synced at boot and on every store write made through this process.
   ctx.effect(() => store.subscribe(syncTools), 'dsh-rdb: store watch')
   syncTools()
 }

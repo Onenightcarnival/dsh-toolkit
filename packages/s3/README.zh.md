@@ -21,7 +21,7 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-s3-<版本>.tgz
 
 发布产物见 [Releases](https://github.com/Onenightcarnival/dsh-toolkit/releases)。独立包与集成包互斥。
 
-桌面版入口：插件 → 配置中心 → 插件 → 从 .tgz 安装，重启生效。AWS SDK已内联至 `lib/index.js`。
+桌面版入口：插件 → 配置中心 → 插件 → 从 .tgz 安装，重启生效。AWS SDK 已内联至 `lib/index.js`。
 
 ## 连接配置
 
@@ -63,13 +63,12 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-s3-<版本>.tgz
 
 ## 安全边界
 
-- AK/SK 以明文存在用户主目录私有文件里，
-  不会返回给浏览器或 agent；界面只显示密钥的前四位。
-- `/api/dsh-s3/*` 路由只接受本机回环地址、同源浏览器标记，并且要求
-  dsh web 自己的浏览器会话 cookie——缺少 GUI cookie 时返回 401。
-- 对象下载路由对非图片 / PDF / 音视频类型一律强制 `attachment` 且
-  `nosniff`，桶里存的 HTML/SVG 不会在 GUI 源内执行。
-- 所有请求由 dsh host 进程发出，跟随桌面版的代理设置。
+| 边界 | 契约 |
+|---|---|
+| 凭证 | AK/SK 明文保存于连接配置文件，仅 host 进程读取；浏览器与 Agent 响应不含密钥，界面显示 Access Key 的前四位与末两位 |
+| HTTP | `/api/dsh-s3/*` 仅接受本机回环地址与同源浏览器标记，并要求 dsh web 的浏览器会话 cookie；缺少 cookie 时返回 401 |
+| 下载 | 图片 / PDF / 音视频类型可内联预览；其他类型按 `application/octet-stream` 附件返回并带 `nosniff` |
+| 网络 | 请求由 dsh host 进程发出，跟随桌面版代理设置 |
 
 ## 开发
 
@@ -83,13 +82,13 @@ pnpm --filter @onenightcarnival/dsh-s3 run typecheck
 pnpm --filter @onenightcarnival/dsh-s3 pack             # onenightcarnival-dsh-s3-<版本>.tgz
 ```
 
-容器 / 无头环境验证：起一个 S3 兼容服务（如 `s3rver` 或 MinIO），用
-`DSH_HOME=<临时目录> dsh plugin --profile web add file:<tgz>` 装进临时
-profile，`dsh web --no-open --port 0` 启动后用就绪行里的 token URL 换
-cookie，再打 `/api/dsh-s3/*`；GUI 用 Playwright 打开 token URL 点侧边栏
-「S3」即可截图。同一个 token 只能换一次 cookie，换浏览器要重启 dsh web；
-pnpm 对同版本号的 file: 包会复用 store 里的旧内容，迭代时直接把 lib 拷进
-profile 的 node_modules 或先 `plugin remove` 再 add。
+容器 / 无头环境验证：
+
+- 启动 S3 兼容服务（如 `s3rver` 或 MinIO）。
+- `DSH_HOME=<临时目录> dsh plugin --profile web add file:<tgz>` 安装到临时 profile。
+- `dsh web --no-open --port 0` 启动后，用就绪行中的 token URL 兑换 cookie，再请求 `/api/dsh-s3/*`；同一 token 仅可兑换一次，更换浏览器需重启 dsh web。
+- GUI 检查：Playwright 打开 token URL，点击侧边栏「S3」截图。
+- pnpm 复用 store 中同版本号的 file: 包；迭代时将 lib 复制到 profile 的 node_modules，或先 `plugin remove` 再 add。
 
 发版流程见仓库根目录的 README。
 

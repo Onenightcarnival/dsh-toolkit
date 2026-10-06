@@ -35,7 +35,7 @@ const legacyProject = temp.replace(/[\\/:]+/g, '-').replace(/[^A-Za-z0-9._-]/g,
 const legacyDirectory = join(home, 'sessions', `--${legacyProject.slice(0, 251)}--`, legacySessionId)
 const legacyFile = join(legacyDirectory, 'session.v2.jsonl.zstd')
 // A released V2 envelope, read through the production migration catalog and
-// the bridge. Keep the original bytes so the smoke also checks preservation.
+// the bridge; the original bytes are asserted unchanged after migration.
 const legacyLog = [
   { type: 'session', version: 2, id: legacySessionId, cwd: temp, createdAt: 1, isSeeded: false, delegationDepth: 0 },
   { type: 'turn/start', data: { turn: 1 } },
@@ -47,8 +47,7 @@ const legacyLog = [
 // The JSONL container requires its header in a separate Zstandard frame.
 const legacyBytes = Buffer.concat(legacyLog.trimEnd().split('\n').map(line => zstdCompressSync(Buffer.from(line + '\n'))))
 const token = randomUUID()
-// Beacon on a free port instead of the default 43189: no collision with a
-// running desktop app or CLI host.
+// The beacon listens on a free port in place of the default 43189.
 const discoveryPort = await new Promise((resolve, reject) => {
   const probe = createServer()
   probe.once('error', reject)
@@ -58,7 +57,7 @@ const discoveryPort = await new Promise((resolve, reject) => {
   })
 })
 const env = { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' }
-// Do not inherit bridge settings or credentials from the developer's shell.
+// Bridge settings and credentials from the parent shell are not inherited.
 delete env.DSH_EXT_TOKEN
 delete env.DSH_BROWSER_SESSION_WORKSPACE
 let host
@@ -242,9 +241,8 @@ try {
   assert.ok(migrated.events.some(({ event }) => event.type === 'system/message'), 'V2 migration must insert the V3 system head')
   assert.equal(migrated.events.find(({ event }) => event.type === 'user/message')?.event.data.content[0].text, 'Saved browser conversation')
   assert.deepEqual(await readFile(legacyFile), legacyBytes, 'migration must preserve the original V2 log')
-  // Deletion: a session created through the gateway stays owned by this
-  // process's idle Agent, so the bridge can only archive it now and must
-  // purge its files on the next start.
+  // Deletion: a session created through the gateway is owned by this process's
+  // idle Agent; the bridge archives it now and purges its files on the next start.
   assert.equal((await rpc('session.create', { sessionId: deferredPurgeId, cwd: temp })).sessionId, deferredPurgeId)
   assert.equal((await rpc('session.create', { sessionId: coldPurgeId, cwd: temp })).sessionId, coldPurgeId)
   assert.ok((await sessionFiles(deferredPurgeId)).length > 0, 'deferred-purge session must have durable files')

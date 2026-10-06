@@ -19,8 +19,7 @@ function emptyForm() {
     endpoint: "",
     publicKey: "",
     secretKey: "",
-    // Becomes true once the user types into the secret field; until then an
-    // already-saved secret is kept server-side and never echoed back.
+    // True once the secret field is edited; otherwise save omits secretKey and the stored secret is kept.
     secretDirty: false,
     enabled: true,
     captureContent: true,

@@ -9,7 +9,7 @@ import type { BrowserHostApi, HostEventFrame } from '../src/host-api.ts'
 
 const TOKEN = 'deadbeefdeadbeefdeadbeefdeadbeef'
 
-/** 扩展上下文的 Origin（回环免 token 的必要条件）。 */
+/** Extension-context Origin; required for the loopback token exemption. */
 const EXT_ORIGIN = 'chrome-extension://test-extension-id'
 const FIREFOX_EXT_ORIGIN = 'moz-extension://per-install-uuid'
 
@@ -481,7 +481,7 @@ describe('BridgeServer', () => {
     abort.abort()
     expect(() => h.bridge.requestTool('browser_click', {}, abort.signal))
       .toThrowError(expect.objectContaining({ code: 'bridge-closed' }))
-    // 没有 tool.call 被发出
+    // No tool.call is emitted.
     await new Promise((resolve) => { setTimeout(resolve, 50) })
     expect(frames.some((f) => f.t === 'tool.call')).toBe(false)
     ws.close()
@@ -737,8 +737,7 @@ describe('BridgeServer', () => {
   })
 
   it('rejects privileged methods from non-loopback remotes over a real socket', async () => {
-    // The sandbox cannot bind arbitrary loopback literals, so the remote
-    // address is forced through the test seam; the socket itself is real.
+    // The remote address is forced through the test seam; the socket itself is real.
     const h = await startBridge({ remoteAddressOverride: '192.168.1.5' })
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)

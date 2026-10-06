@@ -212,9 +212,7 @@ describe('registerBrowserTools', () => {
   it('keeps model-facing tool descriptions bounded', () => {
     const { ctx, bridge, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 5_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    // Descriptions carry usage guidance (when to prefer find over snapshot,
-    // how coordinates relate to screenshots); the budget is per tool, not a
-    // catalog-wide squeeze, since the target models have large contexts.
+    // Descriptions carry usage guidance; the length budget applies per tool.
     for (const { name, definition } of registered) {
       expect(String(definition.description).length, name).toBeLessThan(600)
     }

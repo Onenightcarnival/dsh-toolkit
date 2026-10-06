@@ -1,9 +1,8 @@
 /**
  * Wire contract between the dsh bridge plugin and the browser extension.
  *
- * Zero-dependency module (pure types, constants, and a parser): both the
- * plugin (node) and the Chrome extension (browser bundle) import this file, so
- * the frame shapes can never drift between the two halves.
+ * Zero-dependency module (types, constants and a parser) imported by both the
+ * plugin (node) and the extension (browser bundle).
  *
  * Frames are one JSON object per WebSocket message, discriminated by `t`.
  * Correlation ids (`id`) are minted by the requestor and echoed by the
@@ -24,7 +23,7 @@ export const BRIDGE_INJECT_BROWSER_SNAPSHOT_METHOD = 'bridge.injectBrowserSnapsh
 /** Internal RPC used by the panel to permanently delete one session's durable storage. */
 export const BRIDGE_SESSION_PURGE_METHOD = 'bridge.session.purge'
 
-/** Seconds a fresh socket may take to present `hello` before it is closed. */
+/** Milliseconds a fresh socket may take to present `hello` before it is closed. */
 export const HELLO_TIMEOUT_MS = 5_000
 
 /** Server-side ping cadence; the client answers `pong` to prove liveness. */
@@ -112,9 +111,7 @@ export type ServerFrame =
 export type BridgeFrame = ClientFrame | ServerFrame
 
 /**
- * Type guard: is this frame one the SERVER may send? Client-only shapes
- * (hello/tool.result/pong) narrow out, so server-side consumers never
- * dispatch on their own request vocabulary.
+ * Type guard for frames the server may send.
  * @param frame - parsed frame.
  * @returns true for server-sendable frames.
  */
@@ -130,8 +127,7 @@ export function isServerFrame(frame: BridgeFrame): frame is ServerFrame {
 }
 
 /**
- * Type guard: is this frame one the CLIENT may send? Server-only shapes
- * narrow out, so client-side consumers never dispatch on server vocabulary.
+ * Type guard for frames the client may send.
  * @param frame - parsed frame.
  * @returns true for client-sendable frames.
  */

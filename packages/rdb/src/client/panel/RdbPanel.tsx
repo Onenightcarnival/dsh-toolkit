@@ -41,8 +41,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
   const [loaded, setLoaded] = useState(false)
 
   const [schemas, setSchemas] = useState<string[]>([])
-  // Selection is tagged with the connection it belongs to, so a stale schema or
-  // table never fires a request against a newly picked connection.
+  // Selection carries its connection id; a selection for another connection is ignored.
   const [sel, setSel] = useState<{ id: string; schema: string; table?: TableRef } | undefined>()
   const [tables, setTables] = useState<TableRef[] | undefined>()
   const [treeFilter, setTreeFilter] = useState('')
@@ -51,7 +50,6 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
   const current = sel !== undefined && sel.id === activeId ? sel : undefined
   const schema = current?.schema ?? ''
   const table = current?.table
-  // Functional updates: two calls in one handler must not overwrite each other with a stale snapshot.
   const setSchema = (next: string): void => { setSel(prev => prev !== undefined && prev.id === activeId ? { id: prev.id, schema: next } : prev) }
   const setTable = (next: TableRef | undefined): void => { setSel(prev => prev !== undefined && prev.id === activeId ? { ...prev, table: next } : prev) }
 
@@ -89,7 +87,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     return () => { cancelled = true }
   }, [api, activeId, schema])
 
-  // Table changed: load its structure (needed for both the grid and the structure tab).
+  // Table changed: load its structure.
   useEffect(() => {
     setInfo(undefined)
     if (activeId === undefined || table === undefined) return

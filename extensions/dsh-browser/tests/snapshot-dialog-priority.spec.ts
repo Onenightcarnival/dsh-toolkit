@@ -89,8 +89,7 @@ describe('open dialog prioritization', () => {
     `
     const view = buildSnapshot(new ElementIds(), { budget: TIGHT }, null)
 
-    // Without the ancestor walk the faded control would be promoted and take
-    // one of the three slots, displacing a real one.
+    // The faded dialog's control is not promoted into the three slots.
     expect(view.items.map((item) => item.name)).toEqual(['page-0', 'page-1', 'page-2'])
   })
 

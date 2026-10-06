@@ -154,11 +154,7 @@ export function imagesDirectory(): string {
 /** Media types the attachment store accepts and this tool can produce. */
 export type GeneratedImageMediaType = 'image/png' | 'image/jpeg' | 'image/webp'
 
-/**
- * Sniff a generated image's media type from its magic bytes (codex serves
- * PNG; verify the returned bytes). Unrecognized data
- * defaults to PNG, matching the historical behavior.
- */
+/** Sniff a generated image's media type from its magic bytes; unrecognized data is PNG. */
 export function sniffImageMediaType(data: Buffer): GeneratedImageMediaType {
   if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return 'image/jpeg'
   if (data.length >= 12 && data.toString('latin1', 0, 4) === 'RIFF' && data.toString('latin1', 8, 12) === 'WEBP') {
@@ -186,11 +182,8 @@ function truncate(text: string, max = 60): string {
 }
 
 /**
- * Non-throwing image-capability check for the calling route (read_image's
- * gate, softened: a generated image that cannot enter history degrades to the
- * text-only result instead of failing the call). Resolves the session's
- * latest routed provider/model and answers whether the exact route declares
- * image input; any resolution failure means "no".
+ * Whether the calling route declares image input. Resolves the session's
+ * latest routed provider/model; any resolution failure answers false.
  */
 async function routeDeclaresImageInput(
   resolveLlm: (() => LlmRuntime | undefined) | undefined,
@@ -205,7 +198,6 @@ async function routeDeclaresImageInput(
     const active = await llm.resolveModelInfo(provider, model, exec.signal)
     return active.inputModalities?.includes('image') === true
   } catch {
-    // An unresolvable route cannot be proven image-capable: degrade to text.
     return false
   }
 }
@@ -407,9 +399,8 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
         mediaTypes.push(mediaType)
       }
 
-      // Inline display requires durable attachment references, and those may
-      // only enter session history on a route that declares image input.
-      // Either condition failing degrades to the text-only result.
+      // Attachments are saved only when the store is mounted and the route
+      // declares image input; otherwise the result is text-only.
       const attachments = options.resolveAttachments?.()
       const imageCapable = attachments !== undefined
         && await routeDeclaresImageInput(options.resolveLlm, exec)
@@ -438,9 +429,6 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
         ...refs.length > 0 ? { images: refs } : {},
         ...revisedPrompt === undefined ? {} : { revisedPrompt },
       }
-      // Nested (Code Mode) dispatches need no defer here: the harness's code
-      // mode already defers any image-bearing sub-result as a user message, so
-      // deferring again would inject the same attachment twice.
       return value
     },
   })

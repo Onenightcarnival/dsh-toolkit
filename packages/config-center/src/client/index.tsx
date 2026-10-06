@@ -17,7 +17,7 @@ import { LogsPage } from './LogsPage.tsx'
 const NS = 'dsh-config-center'
 const SLOT = 'settings.plugins.tab'
 
-/** Required services (fiber inject waiting — the runtime must be up first). */
+/** Services required before the client mounts. */
 export const inject = ['slots', 'locale', 'layout']
 
 interface Slots {

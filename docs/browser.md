@@ -57,14 +57,14 @@ While the desktop app runs, `http://127.0.0.1:43189/ext/bridge-config` returns `
 
 ## Performance
 
-In a paired 60-run end-to-end benchmark on August 18, 2026, both backends completed all 30 assigned runs successfully, while dsh Browser Control required fewer model/tool round trips and finished faster:
+Paired 60-run end-to-end benchmark, August 18, 2026: six browser tasks, five deterministic seeds, the same DSH profile and model (`deepseek-v4-flash`), independently validated page state.
 
 | Backend | Success | Mean end-to-end latency | Mean browser tool calls |
 |---|---:|---:|---:|
 | **dsh Browser Control** | **30/30** | **5.32 s** | **3.4** |
 | Matched Playwright baseline | 30/30 | 6.67 s | 4.7 |
 
-The paired Playwright / extension duration ratio was **1.24** (95% CI **1.16–1.34**): Playwright took about 24% longer, or equivalently, dsh Browser Control reduced latency by about 20% and saved 1.35 seconds per task on average. The suite used six browser tasks, five deterministic seeds, the same DSH profile and model (`deepseek-v4-flash`), and independently validated page state. See the [benchmark methodology and reproduction guide](../benchmark/README.md).
+Paired Playwright / extension duration ratio: **1.24** (95% CI **1.16–1.34**). Methodology and reproduction: [benchmark README](../benchmark/README.md).
 
 ## Core capabilities
 
@@ -154,10 +154,6 @@ Local Chrome use requires no configuration; Firefox requires the local bridge to
 
 ## Troubleshooting
 
-**HTTP 400 after reading a page with emoji, including on follow-up messages**
-
-Update the extension and bridge plugin, then start a new session. Text extraction preserves Unicode code points and replaces lone surrogates with `�`; updates do not rewrite existing history.
-
 **Side panel stays "Not connected"**
 
 - Make sure dsh web is running locally (default `http://127.0.0.1:3080`).
@@ -180,7 +176,7 @@ Authentication, privileged methods and token rotation: [bridge authentication](.
 |---|---|
 | Page text | Sent to the selected model inside nonce-bound untrusted-content markers; page instructions grant no authority |
 | Sensitive fields | The text pipeline excludes passwords and payment-card values; accessible names exclude their current values |
-| Screenshots | Follow page-read approval and are blocked when sharing is off; images cannot mask password fields, so disable or decline screenshots on sensitive pages |
+| Screenshots | Follow page-read approval and are blocked when sharing is off; images do not mask password fields; disable or decline screenshots on sensitive pages |
 | Screenshot storage | Saved by the host attachment service and sent as image blocks; Allow screenshots controls this tool |
 | Selection quotes | Captured only with an open panel and page sharing enabled; retained in the extension until submission, discarded on removal, navigation or tab closure |
 | Quote attribution | Source title, URL and selected text share the untrusted-content boundary |

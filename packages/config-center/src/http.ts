@@ -1,8 +1,6 @@
 /**
  * HTTP helpers: bounded JSON body reader, JSON writer, and the loopback trust
- * fence (socket address + Host header + browser same-origin markers). These
- * routes edit the profile patch and spawn local commands, so a LAN-exposed
- * dsh web must not serve them to other machines.
+ * fence (socket address + Host header + browser same-origin markers).
  */
 
 import type { IncomingMessage, OutgoingHttpHeaders, ServerResponse } from 'node:http'

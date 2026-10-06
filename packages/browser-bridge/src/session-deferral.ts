@@ -1,13 +1,12 @@
 /**
  * Defer real session creation until the first prompt.
  *
- * The panel calls `session.create` as soon as it connects, but a session that
- * is opened and never used should leave zero trace in the store/GUI. This
- * wrapper answers `session.create` with a provisional id (minted locally,
+ * This wrapper answers `session.create` with a provisional id (minted locally,
  * nothing persisted), serves `session.history` for provisional ids as empty,
- * and materializes the real session — same id, original create payload — on
- * the first `session.prompt` for that id. Abandoned provisional ids are
- * pruned after {@link PROVISIONAL_TTL_MS}.
+ * and materializes the real session (same id, original create payload) on
+ * the first `session.prompt` for that id. A session opened and never prompted
+ * leaves no trace in the store or GUI. Abandoned provisional ids are pruned
+ * after {@link PROVISIONAL_TTL_MS}.
  *
  * @module @onenightcarnival/dsh-bridge-browser/src/session-deferral
  */
@@ -94,8 +93,7 @@ export function withSessionDeferral(
               asOfSeq: -1,
               values: {
                 ...(imageLimits === undefined ? {} : { imageLimits }),
-                // Mirrors the Host's modelSelection projection so the panel
-                // shows a pre-prompt choice the way it shows a real one.
+                // Same shape as the Host's modelSelection projection.
                 modelSelection: { lastUsed: null, next: entry?.model === undefined ? null : { ...entry.model } },
               },
             },
@@ -103,8 +101,7 @@ export function withSessionDeferral(
         }
       }
       if (call.method === 'session.selectModel') {
-        // The gateway cannot validate a route without a live session; keep
-        // the choice and install it the moment the session materializes.
+        // A pre-prompt choice is stored here and installed at materialization.
         const sessionId = sessionIdOf(call.payload)
         const entry = sessionId === undefined ? undefined : provisional.get(sessionId)
         if (entry === undefined) return api.call(call)
@@ -129,9 +126,7 @@ export function withSessionDeferral(
           signal: call.signal,
         })
         if (!created.ok || entry.model === undefined) return created
-        // A pre-prompt model choice is part of creating this session: the
-        // first request must already use it, so a rejected route fails the
-        // prompt instead of silently running on the default model.
+        // A rejected pre-prompt model route fails the prompt.
         const selected = await api.call({
           rpcId: crypto.randomUUID(),
           method: 'session.selectModel',

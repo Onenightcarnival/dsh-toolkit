@@ -32,7 +32,7 @@ const configRecordSchema = z.object({
   secretKey: z.string(),
   enabled: z.boolean(),
   captureContent: z.boolean(),
-  // Legacy configuration records may omit these fields.
+  // Stored records may omit these fields.
   gzip: z.boolean().optional(),
   contentMaxChars: z.number().optional(),
   maxExportBatchSize: z.number().optional(),
@@ -43,7 +43,7 @@ const configRecordSchema = z.object({
 export const DEFAULT_CONTENT_MAX_CHARS = 128_000;
 export const DEFAULT_MAX_EXPORT_BATCH_SIZE = 512;
 
-/** Sized to trip typical gateway body caps (nginx client_max_body_size 1m). */
+/** Attribute payload size of the large test export. */
 const PAYLOAD_TEST_BYTES = 900 * 1024;
 
 /**
@@ -70,26 +70,18 @@ function fail(code, message) {
 
 // ── pure helpers (exported for tests) ───────────────────────────────────────
 
-/**
- * Langfuse API keys carry stable prefixes (pk-lf-… / sk-lf-…), which makes
- * them a hostname-independent signal — self-hosted instances on any domain
- * (localhost included) are recognized through the keys alone.
- */
+/** Langfuse key pair detection by the `pk-lf-` / `sk-lf-` prefixes, independent of the endpoint host. */
 export function isLangfuseKeyPair(publicKey, secretKey) {
   return /^pk-lf-/i.test(String(publicKey ?? "").trim())
     || /^sk-lf-/i.test(String(secretKey ?? "").trim());
 }
 
 /**
- * Normalize a user-pasted endpoint. Adds https:// when the scheme is missing,
- * strips trailing slashes, and — when the host looks like Langfuse or the
- * caller passes a Langfuse hint (pk-lf-/sk-lf- keys) — appends the
- * `/api/public/otel` OTLP base path the way the Langfuse SDKs do: onto
- * whatever base URL was given, gateway path prefixes included
- * (e.g. https://gateway.corp/langfuse → …/langfuse/api/public/otel).
- * A URL already ending in /api/public/otel, or pinned to an explicit signal
- * path (/v1/traces, /v1/metrics), is kept as-is — the signal form is also
- * the escape hatch when the auto-append is not wanted.
+ * Normalize a user-entered endpoint.
+ * - Adds `https://` when the scheme is missing and strips trailing slashes.
+ * - Appends `/api/public/otel` to the given path when the host name contains `langfuse`
+ *   or `langfuseHint` is true (e.g. https://gateway.corp/langfuse → …/langfuse/api/public/otel).
+ * - Keeps a URL ending in `/api/public/otel`, `/v1/traces` or `/v1/metrics` unchanged.
  */
 export function normalizeEndpoint(raw, langfuseHint = false) {
   let value = String(raw ?? "").trim().replace(/\/+$/, "");
@@ -111,7 +103,7 @@ export function normalizeEndpoint(raw, langfuseHint = false) {
   }
 }
 
-/** Langfuse ingests OTLP traces but not OTLP metrics; detect to mute metrics. */
+/** True for a Langfuse endpoint (host name or `/api/public/otel` path); Langfuse ingests OTLP traces only. */
 export function isLangfuseEndpoint(endpoint) {
   return /langfuse/i.test(endpoint) || /\/api\/public\/otel\b/i.test(endpoint);
 }
@@ -145,14 +137,13 @@ export function collectorConfigFrom(record) {
     endpoint,
     headers: buildAuthHeaders(record.publicKey, record.secretKey),
     captureContent: record.captureContent,
-    // Metrics are enabled only for generic OTLP backends; Langfuse accepts traces.
     exportMetrics: !isLangfuseEndpoint(endpoint),
     ...record.contentMaxChars === undefined ? {} : { contentMaxChars: record.contentMaxChars },
     ...record.maxExportBatchSize === undefined ? {} : { maxExportBatchSize: record.maxExportBatchSize }
   };
 }
 
-/** Trace IDs produced by the test actions, so read-backs can label them. */
+/** Trace IDs produced by the test actions; read-backs label them as tests. */
 export const testTraceIds = new Set();
 
 function sleep(ms) {
@@ -173,9 +164,9 @@ function withTimeout(promise, ms, label) {
 }
 
 /**
- * Send one real span through a throwaway OTLP pipeline and report the export
- * result. On success the backend shows a trace named "dsh-otel connection
- * test", which doubles as visible confirmation in Langfuse.
+ * Send one span (or a GenAI ENTRY → LLM pair) through a throwaway OTLP pipeline
+ * and return the export result. Trace names: `dsh-otel connection test`,
+ * `dsh-otel payload test`, `dsh-otel genai test`.
  */
 export async function runTestExport({ endpoint, headers, gzip = false, payloadBytes = 0, genai = false }, exporterFactory) {
   const url = traceSignalUrl(endpoint);
@@ -295,9 +286,9 @@ export async function checkLangfuseTrace(endpoint, headers, traceId, fetchImpl =
 }
 
 /**
- * Poll the Langfuse API for a set of labelled test traces until all are found
- * or the attempts run out (ingestion is asynchronous and can lag by many
- * seconds). `ids` maps label → traceId; the result maps label → state.
+ * Poll the Langfuse API for labelled test traces until all are found, all are
+ * unreachable, or the attempts run out. `ids` maps label → traceId; the result
+ * maps label → state.
  */
 export async function verifyLangfuseTraces(endpoint, headers, ids, options = {}) {
   const attempts = options.attempts ?? 6;
@@ -535,10 +526,8 @@ export default class DshOtelService extends TypertRemoteService {
           .map((a) => (a instanceof Error ? a.message : typeof a === "string" ? a : JSON.stringify(a)))
           .join(" ")
           .slice(0, 400);
-        // Benign: the export itself succeeded but the server answered with a
-        // non-compliant body instead of an OTLP protobuf response — old
-        // Langfuse versions return their async ingestion-job JSON here. Not a
-        // delivery failure; keep it as an informational note only.
+        // Non-OTLP response body after a successful export (older Langfuse returns
+        // ingestion-job JSON): recorded as a note, not as an export error.
         if (/Export succeeded but could not deserialize response/i.test(text)) {
           this.lastExportNote = ("" + String(new Date().toISOString()) + " Server returned a non-OTLP response body. ")
             + "Older Langfuse versions may return asynchronous task JSON. Export succeeded. "
@@ -609,12 +598,10 @@ export default class DshOtelService extends TypertRemoteService {
     this.lastExportError = null;
     if (!record.enabled || record.endpoint.trim() === "") return;
     try {
-      // The exporters read the compression env at construction, inside the
-      // collector's apply; keep it applied for the collector's lifetime.
+      // Applied before the collector constructs its exporters.
       this.applyCompressionEnv(record.gzip === true);
       const raw = collectorConfigFrom(record);
-      // Resolve schema defaults explicitly so the collector's apply() always
-      // sees a complete config even if the runtime skips schema resolution.
+      // Schema defaults are resolved here; the collector's apply() receives a complete config.
       const resolved = collectorPlugin.Config(raw);
       this.collectorScope = this.ctx.plugin(collectorPlugin, resolved);
       this.activeTraceEndpoint = traceSignalUrl(raw.endpoint);
@@ -686,8 +673,7 @@ export default class DshOtelService extends TypertRemoteService {
         secretKey,
         enabled: request.enabled,
         captureContent: request.captureContent,
-        // Absent advanced fields mean "use the collector default" and clear
-        // any stored override — the panel always sends its full form state.
+        // Absent advanced fields clear the stored override; the collector default applies.
         ...request.gzip === undefined ? {} : { gzip: request.gzip },
         ...request.contentMaxChars === undefined ? {} : { contentMaxChars: request.contentMaxChars },
         ...request.maxExportBatchSize === undefined ? {} : { maxExportBatchSize: request.maxExportBatchSize },
@@ -819,7 +805,7 @@ export default class DshOtelService extends TypertRemoteService {
         states.set(entry.traceId, await checkLangfuseTrace(endpoint, headers, entry.traceId));
       }
       if ([...states.values()].some((s) => s === "not-found")) {
-        // Fresh traces may still be in the async ingestion queue; one retry.
+        // One retry after 5 s for traces not yet found.
         await sleep(5000);
         for (const entry of recent) {
           if (states.get(entry.traceId) === "not-found") {

@@ -12,10 +12,7 @@ export const UI_SCALE_STORAGE_KEY = 'dshPanelUiScale'
 /** CSS custom property consumed by every `font-size` in the panel stylesheet. */
 export const UI_SCALE_PROPERTY = '--ui-scale'
 
-/**
- * Selectable scales, ascending. Discrete steps keep the stepper predictable and
- * guarantee the stored value always round-trips through `normalizeUiScale`.
- */
+/** Selectable scales, ascending. */
 export const UI_SCALE_STEPS = [0.9, 1, 1.15, 1.3, 1.5, 1.75] as const
 
 /** The scale the panel was designed at. */
@@ -50,7 +47,7 @@ export function formatUiScale(scale: number): string {
   return `${Math.round(normalizeUiScale(scale) * 100)}%`
 }
 
-/** Write the scale onto the document so the stylesheet picks it up. */
+/** Write the scale onto the document root. */
 export function applyUiScale(scale: number, root: HTMLElement = document.documentElement): void {
   root.style.setProperty(UI_SCALE_PROPERTY, String(normalizeUiScale(scale)))
 }
@@ -65,7 +62,7 @@ export async function loadUiScale(): Promise<number> {
   }
 }
 
-/** Persist the scale so every side panel window opens at the chosen size. */
+/** Persist the scale for every side panel window. */
 export function saveUiScale(scale: number): void {
   void chrome.storage.local.set({ [UI_SCALE_STORAGE_KEY]: normalizeUiScale(scale) }).catch(() => {})
 }

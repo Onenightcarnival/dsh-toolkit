@@ -33,14 +33,10 @@ export interface ResponsesRequestInput {
 }
 
 /**
- * One COMPLETED reasoning output item captured off a response, replayed as
- * the complete item on a later request of the same conversation. The
- * Responses input schema does not treat a reasoning item's `id` or
- * `summary` as optional — a bare `{ type, encrypted_content }` is not a
- * valid input item — so the capture keeps the item's gateway id (as it
- * arrived on the done event), its summary parts, its status, and the
- * encrypted payload. `encrypted_content` is the only required field here:
- * items without one are simply never captured.
+ * One completed reasoning output item captured off a response and replayed as
+ * a complete input item on a later request of the same conversation: gateway
+ * id, summary parts, status and encrypted payload. Items without
+ * `encrypted_content` are not captured.
  */
 export interface ReasoningReplayItem {
   type: 'reasoning'
@@ -50,7 +46,7 @@ export interface ReasoningReplayItem {
   summary?: unknown[]
   /** Item lifecycle status, passed through when present (typically `completed`). */
   status?: string
-  /** Encrypted reasoning payload; the reason the item is worth replaying. */
+  /** Encrypted reasoning payload. */
   encrypted_content: string
 }
 
@@ -62,14 +58,11 @@ function toolResultText(block: ResolvedToolResultBlock): string {
 /**
  * Convert harness messages into Responses `instructions` + `input` items.
  * System-role messages become `instructions`; an explicit `system` argument
- * wins over them when both exist. Reasoning blocks are never replayed in
- * their text form: a Responses model continuing past a tool call needs its
- * reasoning back as the provider's completed reasoning items (id, summary,
- * and the ENCRYPTED payload), so `reasoningFor` may resolve per-call
- * captured items, replayed ahead of the matching function_call item. Images
- * must arrive pre-resolved
- * ({@link TranslatableMessage}); an unresolved ImageBlock is skipped because
- * its bytes are unreachable here.
+ * wins over them when both exist. Reasoning blocks are not replayed in text
+ * form; `reasoningFor` resolves the completed reasoning items captured per
+ * tool call, replayed ahead of the matching function_call item. Images must
+ * arrive pre-resolved ({@link TranslatableMessage}); an unresolved ImageBlock
+ * is skipped.
  * @param messages - ordered conversation messages with resolved images.
  * @param system - explicit system prompt, which takes precedence.
  * @param reasoningFor - resolves one tool call id to the COMPLETED reasoning
@@ -84,10 +77,8 @@ export function toResponsesInput(
 ): ResponsesRequestInput {
   const input: Record<string, unknown>[] = []
   const systemTexts: string[] = []
-  // [2026-08-23]-[reasoning models lose their chain of thought across a tool
-  // round trip unless the completed reasoning items ride back in; dedupe by
-  // ARRAY REFERENCE so parallel calls of one response (which share one array
-  // instance) replay the items once, before the first of them]
+  // Replay items are deduplicated by array reference: parallel calls of one
+  // response share one array and replay it once, before the first call.
   let lastReplay: readonly ReasoningReplayItem[] | undefined
   for (const message of withToolResultImages(messages)) {
     if (message.role === 'system') {
@@ -96,8 +87,7 @@ export function toResponsesInput(
       }
       continue
     }
-    // Current harness tool results are first-class role=tool messages.
-    // Responses represents their text as function_call_output items.
+    // role=tool messages become function_call_output items.
     if (message.role === 'tool') {
       const callId = message.toolCallId ?? message.tool_call_id
         ?? (message.source?.kind === 'tool' ? String(message.source.callId) : undefined)
@@ -159,12 +149,9 @@ export function toResponsesInput(
               image_url: `data:${block.mediaType};base64,${block.dataBase64}`,
             })
           }
-          // An unresolved ImageBlock carries only an attachment reference; the
-          // adapter resolves images before translation, so this is skipped.
           break
         default:
-          // reasoning's text form is not replayed (encrypted replay rides
-          // reasoningFor), unknown blocks.
+          // Reasoning text and unknown blocks are not emitted.
           break
       }
     }
@@ -175,12 +162,9 @@ export function toResponsesInput(
 }
 
 /**
- * Map harness tool schemas to Responses function tools.
- *
- * OpenAI Responses may normalize schemas into strict mode when `strict` is
- * omitted. Codex opts out to preserve harness optional parameters;
- * this does not prevent a model from voluntarily supplying optional fields.
- * The caller controls whether strict normalization is disabled.
+ * Map harness tool schemas to Responses function tools. `strict: false`
+ * disables the Responses strict-schema normalization; the field is omitted
+ * otherwise.
  * @param tools - tool schemas from the request.
  * @param options - provider-specific opt-out from strict schema normalization.
  * @returns Responses `tools` array entries.

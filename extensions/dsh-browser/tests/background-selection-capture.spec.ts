@@ -327,7 +327,7 @@ describe('page selection capture', () => {
     panelMessages.emit({ type: 'selection.clear' })
 
     expect(selectionMessages(postMessage).at(-1)).toBeNull()
-    // Without this the content script would deduplicate the same text away.
+    // The content script's deduplication is reset.
     expect(sendMessage).toHaveBeenCalledWith(
       1,
       { type: 'DSH_SELECTION_RESET' },

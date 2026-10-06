@@ -13,10 +13,10 @@ import { isRecord } from './host-api.ts'
 type Warn = (message: string) => void
 
 /**
- * Add a dedicated Workspace to implicit session creation without making
- * grouping a session-creation dependency. The first implicit create mkdirs
- * and registers the configured path; that result, including failure, is
- * cached for the wrapper lifetime.
+ * Add a dedicated Workspace to implicit session creation. The first implicit
+ * create mkdirs and registers the configured path; that result, including
+ * failure, is cached for the wrapper lifetime. A failed registration leaves
+ * session creation ungrouped.
  *
  * @param api - Injected gateway API implementation.
  * @param workspacePath - Dedicated directory, or an empty string to opt out.

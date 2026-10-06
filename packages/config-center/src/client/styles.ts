@@ -1,4 +1,4 @@
-/** Inline styles; colors inherit from Settings so both appearances read correctly. */
+/** Inline styles; colors inherit from Settings in both appearances. */
 import type { CSSProperties } from 'react'
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace'

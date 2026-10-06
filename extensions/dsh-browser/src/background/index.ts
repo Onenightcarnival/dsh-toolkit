@@ -104,7 +104,7 @@ export interface Settings {
 }
 
 const SETTINGS_DEFAULTS: Settings = {
-  // 空地址 = 自动探测本机 dsh（零配置）；手动填地址时优先手动。
+  // Empty address: auto-discover the local dsh; a manual address takes precedence.
   bridgeUrl: '',
   token: '',
   sharePageContent: 'auto',
@@ -117,16 +117,16 @@ const SETTINGS_DEFAULTS: Settings = {
 }
 
 /**
- * 自动探测顺序（未监听的端口立即拒绝，逐个探测代价很小）：
- * - 3080 / 3081 / 3090：dsh web（CLI）默认端口及其回退；
- * - 43189–43192：桥插件的发现信标窗口。宿主以 `--port 0` 随机端口启动 dsh 时
- *   （DeepSeek Harness Desktop），信标在此窗口只回 /ext/bridge-config，给出真实桥地址；
- * - 14389：历史桌面应用端口。
+ * Probe order:
+ * - 3080 / 3081 / 3090: dsh web (CLI) default port and fallbacks;
+ * - 43189–43192: the bridge plugin's discovery beacon window for hosts that
+ *   start dsh with `--port 0` (DeepSeek Harness Desktop);
+ * - 14389: legacy desktop port.
  */
 const DISCOVERY_PORTS = [3080, 3081, 3090, 43189, 43190, 43191, 43192, 14389]
 const LEGACY_LOCAL_URL = 'ws://127.0.0.1:3080'
 
-/** 探测本机 dsh 的桥地址：fetch /ext/bridge-config 直到成功。 */
+/** Discover the local bridge address: fetch /ext/bridge-config on each probe port until one answers. */
 async function discoverBridge(shouldContinue: () => boolean = () => true): Promise<string | undefined> {
   for (const port of DISCOVERY_PORTS) {
     if (!shouldContinue()) return undefined
@@ -139,13 +139,13 @@ async function discoverBridge(shouldContinue: () => boolean = () => true): Promi
       const body = await response.json() as { wsUrl?: unknown }
       if (typeof body.wsUrl === 'string' && body.wsUrl.startsWith('ws://')) return body.wsUrl
     } catch {
-      // 该端口没有 dsh 或未挂桥：试下一个。
+      // No bridge on this port; try the next.
     }
   }
   return undefined
 }
 
-/** Avoid opening a noisy loopback WebSocket until the local bridge responds. */
+/** Whether a loopback bridge URL answers /ext/bridge-config; non-loopback URLs count as reachable. */
 async function probeBridge(url: string): Promise<boolean> {
   try {
     const target = new URL(url)
@@ -359,18 +359,12 @@ function broadcastTabAffinity(): void {
   }
 }
 
-/** Which window each panel port belongs to, so a quote stays in its window. */
+/** Window of each panel port; selections are scoped by window. */
 const panelWindows = new WeakMap<chrome.runtime.Port, number>()
 /** The conversation each live panel is displaying, used for close checkpoints. */
 const panelActiveSessions = new WeakMap<chrome.runtime.Port, string>()
 
-/**
- * Send one window's selection to that window's panels only.
- *
- * A panel must never be offered a quote from a page its own window is not
- * looking at, which also keeps an incognito window's highlight out of a
- * normal window's composer.
- */
+/** Send one window's selection to that window's panels only. */
 function broadcastSelection(windowId: number): void {
   const payload = { type: 'selection', selection: selections.current(windowId) }
   for (const port of panelPorts) {
@@ -391,10 +385,7 @@ function hasPanelInWindow(windowId: number): boolean {
   return false
 }
 
-/**
- * Tell a frame its quote is gone so re-selecting the same passage reports it
- * again; the content script deduplicates against the last text it sent.
- */
+/** Reset a frame's selection deduplication; re-selecting the same passage reports it again. */
 function resetSelectionDedupe(sources: readonly SelectionSource[]): void {
   for (const { tabId, frameId } of sources) {
     void Promise.resolve(chrome.tabs.sendMessage(
@@ -408,8 +399,7 @@ function resetSelectionDedupe(sources: readonly SelectionSource[]): void {
 
 /** Whether saved privacy settings currently allow page-selection capture. */
 function selectionSharingEnabled(): boolean {
-  // Until storage answers, `settings` still holds the defaults. Reporting the
-  // default here would arm watchers for a user whose saved choice is `off`.
+  // Before storage answers, `settings` holds defaults and sharing reports disabled.
   return settingsLoaded && (unrestrictedAccessEnabled() || settings.sharePageContent !== 'off')
 }
 
@@ -430,12 +420,9 @@ const selectionWatchEpoch = crypto.randomUUID()
 let selectionWatchRevision = 0
 
 /**
- * Arm or disarm every content script. `selectionchange` fires on each drag in
- * each tab, so the watcher stays off until a panel can actually show a quote.
- *
- * Delivery is asynchronous, so each command carries a revision: a panel that
- * closes and reopens quickly must not leave watchers in the state of whichever
- * `tabs.query` happened to resolve last.
+ * Arm or disarm every content script. Watchers are armed only while a panel
+ * can show a quote. Each command carries a revision; a stale `tabs.query`
+ * result is ignored.
  */
 function syncSelectionWatch(): void {
   const anyEnabled = selectionSharingEnabled()
@@ -464,11 +451,8 @@ function syncSelectionWatch(): void {
 }
 
 /**
- * Accept a capture from the page the user is actually looking at.
- *
- * `sender.tab` already carries the tab's window, active state, and incognito
- * flag, so admission needs no `chrome.tabs` call: a background page cannot
- * make the worker query Chrome by moving its own selection in a loop.
+ * Accept a capture from the active tab of its window. Admission reads
+ * `sender.tab` only; no `chrome.tabs` call is made.
  */
 function recordSelection(tab: chrome.tabs.Tab, frameId: number, value: unknown): void {
   if (!selectionWatchEnabled(tab.windowId)) return
@@ -649,10 +633,8 @@ async function syncActiveTab(windowId?: number, signal?: AbortSignal): Promise<c
 
 /**
  * The active tab of the window a panel lives in, for binding a session.
- * Unlike syncActiveTab this does not go through the focused-window revision
- * gate: a concurrent focus change or query must not turn a binding into a
- * silent no-op. The observed tab still feeds the tracker so the panel's view
- * stays consistent.
+ * Bypasses the focused-window revision gate; the observed tab still feeds
+ * the tracker.
  */
 async function activeTabForPanel(port: chrome.runtime.Port): Promise<AffinityTab | null> {
   const windowId = panelWindows.get(port)
@@ -706,7 +688,7 @@ async function restoreTabAffinity(): Promise<void> {
       ? JSON.stringify(record)
       : undefined
   } catch {
-    // Session storage is a survival aid, not a reason to disable the bridge.
+    // A storage failure leaves affinity unrestored.
   }
 
   if (record?.sessionTabs !== undefined) {
@@ -718,7 +700,7 @@ async function restoreTabAffinity(): Promise<void> {
         if (live !== null) restoredSessions[sid] = live
         else tabAffinity.markSessionLost(sid)
       } catch {
-        // Closed tabs are deliberately pruned so the session fails closed.
+        // A closed tab marks its session lost.
         tabAffinity.markSessionLost(sid)
       }
     }
@@ -738,8 +720,7 @@ async function restoreTabAffinity(): Promise<void> {
     tabAffinity.restoreLost()
   }
 
-  // Restore the pin before syncing the active tab: otherwise the sync would
-  // surface a handoff prompt for a switch the user already said not to ask about.
+  // The pin is restored before the active-tab sync.
   if (record !== null && 'pinned' in record && record.pinned === true) tabAffinity.restorePinned()
   await syncActiveTab()
   if (record !== null && 'keptActiveTabId' in record) {
@@ -801,7 +782,7 @@ function refreshPanelResumeHints(): void {
   }
 }
 
-/** Bind at prompt submission so a switch while the model is thinking is visible. */
+/** Bind the active tab at prompt submission when no binding exists. */
 async function ensureInitialTabBinding(sessionId?: string): Promise<boolean> {
   await affinityReady
   if (tabAffinity.resolveTarget(sessionId).kind !== 'initial') return true
@@ -873,7 +854,7 @@ async function resolveToolTab(sessionId?: string): Promise<Pick<chrome.tabs.Tab,
 
 /**
  * Pick a window for browser_open_tab without requiring an already-controlled page.
- * Handoff still blocks: the user must finish the keep/follow choice first.
+ * Handoff blocks until the keep/follow choice is made.
  */
 async function resolveOpenTabWindow(sessionId?: string): Promise<{ windowId: number } | ToolAnswer> {
   await affinityReady
@@ -946,9 +927,7 @@ async function authorizeToolCall(
     sessionTrustedActionOrigins.add(prompt.origins[0]!)
     return 'approved'
   }
-  // Retain wire compatibility with panels from the previous build. The new UI
-  // manages permanent trust explicitly in Settings instead of offering it in
-  // the action dialog.
+  // `trust-origin` is accepted on the wire; the panel manages permanent trust in Settings.
   if (decision === 'trust-origin' && prompt.kind === 'action' && prompt.canTrust && prompt.origins.length === 1) {
     await persistSettings({ trustedActionOrigins: [...settings.trustedActionOrigins, prompt.origins[0]!] })
     return 'approved'
@@ -1076,7 +1055,7 @@ async function followModelSelectedTab(tab: chrome.tabs.Tab, sessionId?: string):
   commitTabAffinityRebind(summary, sessionId, 'background')
 }
 
-/** 把协商的快照预算下发到受控页（尚未绑定时使用活动页）。 */
+/** Push the negotiated snapshot budget to the controlled tab (the active tab when unbound). */
 async function pushBudgetToControlledTab(negotiated: BridgeCaps): Promise<void> {
   await affinityReady
   const resolution = tabAffinity.resolveTarget()
@@ -1092,7 +1071,7 @@ async function pushBudgetToControlledTab(negotiated: BridgeCaps): Promise<void> 
       budget: { maxItems: negotiated.maxInteractiveItems, maxChars: negotiated.snapshotMaxChars },
     })
   } catch {
-    // 页面尚未注入 content script：下一次快照仍用默认预算，可接受。
+    // No content script yet; actions forward the budget per call.
   }
 }
 
@@ -1190,8 +1169,7 @@ function routeToolCall(call: ToolCall): void {
   void (call.name === 'browser_batch' ? runBatch(call, runOne, controller.signal) : runOne(call)).then(
     async (answer) => {
       if (activeToolCalls.get(call.id) !== activeCall) return
-      // A committed browser_open_tab already rebound affinity; prefer that
-      // factual success over a generic cancel that would leave the model wrong.
+      // A committed browser_open_tab reports its success even after cancellation.
       if (controller.signal.aborted && !(call.name === 'browser_open_tab' && answer.ok)) {
         if (activeToolCalls.get(call.id) === activeCall) {
           bridge?.send({
@@ -1269,7 +1247,7 @@ function cancelAllToolCalls(): void {
   activeToolCalls.clear()
 }
 
-/** (Re)start the bridge with the current settings. 零配置：地址留空时自动探测；回环连接无需 token。 */
+/** (Re)start the bridge with the current settings. An empty address is auto-discovered; loopback needs no token. */
 async function startBridge(): Promise<void> {
   const revision = ++bridgeStartRevision
   if (panelPorts.size === 0) return
@@ -1277,8 +1255,7 @@ async function startBridge(): Promise<void> {
   if (url === '') {
     url = await discoverBridge(() => revision === bridgeStartRevision && panelPorts.size > 0) ?? ''
   }
-  // Discovery is asynchronous. A panel may have closed or a newer settings
-  // update may have started while its fetches were in flight.
+  // A panel close or a newer settings update during discovery abandons this start.
   if (revision !== bridgeStartRevision || panelPorts.size === 0) return
   if (url === '') {
     bridge?.stop()
@@ -1287,14 +1264,13 @@ async function startBridge(): Promise<void> {
     broadcastStatus()
     return
   }
-  // 手动填的地址常只有主机部分（如 ws://127.0.0.1:3080）；桥路径是协议
-  // 常量，缺省时自动补全，避免连到根路径失败。
+  // A host-only address (ws://127.0.0.1:3080) gets the bridge path appended.
   try {
     const parsed = new URL(url)
     if (parsed.pathname === '' || parsed.pathname === '/') parsed.pathname = BRIDGE_PATH
     url = parsed.toString()
   } catch {
-    // 非法 URL 原样交给 WebSocket 构造函数报错。
+    // An invalid URL is passed to the WebSocket constructor unchanged.
   }
   if (bridge === null) {
     const client = new BridgeClient({
@@ -1348,9 +1324,8 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   if (sender.tab?.id === undefined) return
   const type = (message as { type?: unknown }).type
   if (type === 'DSH_CONTENT_READY') {
-    // navigation.ts also listens for this frame-ready announcement; only this
-    // listener answers it, telling a fresh document whether to watch
-    // selections. The revision lets a slow reply lose to a newer broadcast.
+    // Only this listener answers the frame-ready announcement (navigation.ts
+    // observes it); the reply carries the selection-watch state and revision.
     sendResponse({
       selectionWatch: selectionWatchEnabled(sender.tab.windowId),
       selectionWatchEpoch: selectionWatchEpoch,
@@ -1451,9 +1426,8 @@ chrome.runtime.onConnect.addListener((port) => {
               if (connectionChanged) await startBridge()
               broadcastStatus()
             } else if (connectionChanged) {
-              // The settings write outlived its originating panel. Do not keep a
-              // healthy socket authenticated with stale connection settings: make
-              // the next explicit panel lease start from the persisted values.
+              // Connection settings changed after the last panel closed: the socket
+              // stops; the next panel lease starts from the persisted values.
               bridgeStartRevision += 1
               bridge?.stop()
               bridge = null
@@ -1494,9 +1468,7 @@ chrome.runtime.onConnect.addListener((port) => {
         break
       }
       case 'selection.clear': {
-        // The user sent, dismissed, or explicitly abandoned this window's
-        // quote. A send/dismiss names the value it acted on so a newer capture
-        // that arrived while work was in flight cannot be cleared by mistake.
+        // A send/dismiss names the selection it acted on; a newer capture is not cleared.
         const windowId = panelWindows.get(port)
         if (windowId === undefined) break
         const request = message as { selection?: unknown }
@@ -1518,10 +1490,8 @@ chrome.runtime.onConnect.addListener((port) => {
           panelActiveSessions.delete(port)
         } else {
           panelActiveSessions.set(port, sid)
-          // A session this worker has never bound (new, or created while a
-          // previous bind attempt lost the active-tab race) is bound to the
-          // panel's active tab now; only a session whose tab is known to be
-          // gone stays fail-closed.
+          // An unbound session binds to the panel's active tab; a session whose
+          // tab is gone stays lost.
           const needsBind = session.isNew === true
             || (tabAffinity.getSessionTab(sid) === undefined && !tabAffinity.isSessionLost(sid))
           if (needsBind) {
@@ -1675,8 +1645,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   void affinityReady.then(() => {
     const activationRevision = focusedWindow.acceptActivation(windowId)
     if (activationRevision === null) return
-    // Mark the switch before awaiting metadata so an already-running trusted
-    // action cannot slip through the handoff boundary.
+    // The switch is recorded before metadata resolves.
     observeActiveSummary({ tabId, windowId, title: '', url: '' })
     return chrome.tabs.get(tabId).then((tab) => {
       if (focusedWindow.isCurrent(activationRevision)) observeActiveTab(tab)
@@ -1699,9 +1668,8 @@ chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
     pageSessionContexts.replaceTab(removedTabId, addedTabId)
   })
   void affinityReady.then(() => {
-    // onReplaced is an identity swap (for example prerender activation), not
-    // a close or user-visible switch. Transfer IDs synchronously before any
-    // metadata lookup so tool resolution never observes the removed target.
+    // onReplaced is an identity swap (prerender activation); ids transfer
+    // before any metadata lookup.
     const affectedSessions = tabAffinity.sessionIdsForTab(removedTabId)
     if (!tabAffinity.replaceTab(removedTabId, addedTabId)) return
     for (const sid of affectedSessions) {
@@ -1738,16 +1706,12 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   })
 })
 
-// A committed navigation replaces a document; a same-document history or
-// fragment update does not, and must not drop a quote still on the screen.
-// Matching the exact frame keeps an iframe's navigation from invalidating a
-// quote taken from its parent page, and vice versa.
+// A committed navigation clears the selection of exactly that frame.
 chrome.webNavigation.onCommitted.addListener(({ tabId, frameId }) => {
   broadcastSelections(selections.clearTab(tabId, frameId))
 })
 
-// Ports are cleaned up by their own disconnect; only the window's quote is
-// left behind when the whole window goes away.
+// Ports disconnect on their own; the window's selection is dropped here.
 chrome.windows.onRemoved.addListener((windowId) => {
   selections.clear(windowId)
 })
@@ -1766,9 +1730,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     if (bridge === null || bridge.state !== 'connected') disarmBridgeKeepalive()
     return
   }
-  // `stopped` is intentionally terminal until an explicit panel reopen or
-  // settings save. In particular, code 4000 means another browser owns the
-  // single bridge slot and the keepalive must not reclaim it.
+  // `stopped` is terminal until a panel reopen or settings save; the keepalive
+  // restarts only an absent or `reconnecting` bridge.
   if (bridge === null || bridge.state === 'reconnecting') {
     void settingsReady.then(() => startBridge())
   }
@@ -1790,18 +1753,15 @@ function openAssistantPanel(windowId?: number): void {
   if (windowId !== undefined) void chrome.sidePanel.open({ windowId }).catch(() => {})
 }
 
-// Open the side panel when the toolbar icon is clicked.
-// Chrome 116+ uses chrome.sidePanel; Firefox has no sidePanel API, so the
-// action click opens the sidebar via sidebarAction.open() (user gesture).
+// Toolbar click: Chrome opens the side panel through sidePanel behavior;
+// Firefox opens the sidebar through sidebarAction.open().
 if (import.meta.env.EXT_TARGET === 'firefox') {
   chrome.action.onClicked.addListener(() => { openAssistantPanel() })
 } else {
   void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {})
 }
 
-// Alarms survive some extension/service-worker restarts. Remove any stale
-// schedule left by an older eager-connection build; onConnect re-arms it.
+// An alarm surviving a restart is cleared; onConnect re-arms it.
 disarmBridgeKeepalive()
 
-// `settingsReady` intentionally has no bridge-start continuation: opening a
-// side panel is the first action allowed to claim the bridge connection.
+// Opening a side panel is the first action that claims the bridge connection.

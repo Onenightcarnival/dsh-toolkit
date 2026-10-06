@@ -15,7 +15,7 @@ const STYLE_ID = 'dsh-s3/styles'
 /** Row order among global panels: after the shell's own rows and Database. */
 const PANEL_ORDER = 50
 
-/** Required services (fiber inject waiting — the runtime must be up first). */
+/** Services required before the client mounts. */
 export const inject = ['slots', 'locale', 'layout']
 
 function injectStyles(): void {

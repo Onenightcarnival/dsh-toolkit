@@ -24,7 +24,7 @@ dsh 浏览器操作桥，连接宿主与 Chrome / Firefox 扩展。
 | `deferSessionCreate` | `boolean` | `true` | 会话只在第一条消息时才真正创建：`session.create` 先返回一个内存暂定 ID（不落库），历史读取为空，第一次 `session.prompt` 才创建真实会话（同一 ID、回放原始创建参数）。仅打开面板不会持久化会话。 |
 | `discoveryPort` | `number` | 43189 | 发现信标：只回 `/ext/bridge-config` 的回环监听，返回本实例的桥地址，供随机端口启动的宿主（DeepSeek Harness Desktop）使用。端口被占时顺延后三个端口；`0` 关闭。 |
 
-工作区分组采用尽力而为方式。如果组合没有 workspace 域、目录创建失败，或 `workspace.create` 拒绝该路径，插件会记录一条警告，并在不注入工作区的情况下发送所有会话创建请求；浏览器聊天仍可使用。
+组合没有 workspace 域、目录创建失败，或 `workspace.create` 拒绝该路径时，插件记录一条警告并以无工作区方式创建会话；浏览器聊天仍可使用。
 
 ## 使用与权限
 

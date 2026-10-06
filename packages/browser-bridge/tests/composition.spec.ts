@@ -177,7 +177,7 @@ async function loadComposition(): Promise<{ ctx: Context; configPath: string; po
   return { ctx: context, configPath, port: web.port }
 }
 
-/** 扩展上下文 Origin（回环免 token 的必要条件）。 */
+/** Extension-context Origin; required for the loopback token exemption. */
 const EXT_ORIGIN = 'chrome-extension://test-extension-id'
 
 function connect(port: number): Promise<{
@@ -340,8 +340,8 @@ describe('real Loader composition', () => {
     await bridgeEntry.fiber!.dispose()
     expect(tools.get('browser_snapshot')).toBeUndefined()
     expect(tools.get('browser_click')).toBeUndefined()
-    // Self-disposing an include-tree entry persists `disabled: true`; await
-    // that debounced write so it cannot race the temp-dir removal.
+    // Self-disposing an include-tree entry persists `disabled: true` through a
+    // debounced write; the write completes before temp-dir removal.
     await expect.poll(async () => (await readFile(configPath, 'utf8')).includes('disabled: true')).toBe(true)
   })
 })

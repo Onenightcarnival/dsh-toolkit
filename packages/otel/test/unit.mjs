@@ -36,8 +36,7 @@ assert.equal(
 );
 assert.equal(normalizeEndpoint("http://localhost:3000/api/public/otel", true), "http://localhost:3000/api/public/otel");
 assert.equal(normalizeEndpoint("http://localhost:4318", false), "http://localhost:4318");
-// Gateway sub-path deployments: the Langfuse hint appends onto the prefix,
-// the way the Langfuse SDKs treat base_url.
+// Gateway sub-path deployments: the Langfuse hint appends onto the prefix.
 assert.equal(
   normalizeEndpoint("https://gateway.corp/langfuse-prod", true),
   "https://gateway.corp/langfuse-prod/api/public/otel"
@@ -46,12 +45,12 @@ assert.equal(
   normalizeEndpoint("https://gateway.corp/langfuse-prod/api/public/otel", true),
   "https://gateway.corp/langfuse-prod/api/public/otel"
 );
-// Langfuse-named host with a prefix path now also gets the append.
+// Langfuse-named host with a prefix path gets the append.
 assert.equal(
   normalizeEndpoint("https://langfuse.corp.example/team-a"),
   "https://langfuse.corp.example/team-a/api/public/otel"
 );
-// Explicit signal URL is the escape hatch: kept verbatim.
+// Explicit signal URL is kept verbatim.
 assert.equal(
   normalizeEndpoint("https://gateway.corp/otlp/v1/traces", true),
   "https://gateway.corp/otlp/v1/traces"

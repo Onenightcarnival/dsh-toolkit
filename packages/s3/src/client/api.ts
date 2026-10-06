@@ -80,7 +80,7 @@ export class S3Api {
     return `${S3_API.object}?${params.toString()}`
   }
 
-  /** XHR so upload progress is observable; resolves on 2xx. */
+  /** XHR with upload progress events; resolves on 2xx. */
   upload(id: string, key: string, file: File, onProgress?: (p: UploadProgress) => void): { promise: Promise<void>; abort: () => void } {
     const xhr = new XMLHttpRequest()
     const params = new URLSearchParams({ id, key })

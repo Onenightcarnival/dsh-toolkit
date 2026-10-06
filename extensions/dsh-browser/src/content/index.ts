@@ -90,9 +90,8 @@ function onMessage(message: unknown, _sender: chrome.runtime.MessageSender, send
   return true // async response
 }
 
-// executeScript is used to recover tabs opened before extension install/reload.
-// Replace any stale listener left in the isolated world so a reload always
-// installs a listener belonging to the current extension context.
+// A reload replaces the listener left in the isolated world by the previous
+// extension context.
 const contentGlobal = globalThis as typeof globalThis & {
   [CONTENT_SCRIPT_LISTENER]?: ContentListener
   [CONTENT_SELECTION_WATCHER]?: { dispose: () => void }

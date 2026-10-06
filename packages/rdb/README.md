@@ -42,8 +42,11 @@ Artifacts: [dsh-toolkit releases](https://github.com/Onenightcarnival/dsh-toolki
 | Storage | `~/.dsh/dsh-rdb.json`, mode `0600` |
 | Credentials | Host-only; excluded from browser and agent responses |
 | HTTP | Loopback and GUI session cookie required |
-| Reads | `db_query` uses server-side read-only classification |
+| Node selection | At connect time only; no read/write split within one connection. Writes to primary and reads from standby use two connections |
+| Reads | `db_query` / `db_explain` use server-side read-only classification, independent of the panel's check |
 | Writes | `db_execute` requires connection write permission and `confirm=true` |
+| Timeouts | 30 s per statement by default: `statement_timeout` (PostgreSQL / GaussDB), `max_execution_time` (MySQL), `max_statement_time` (MariaDB) |
+| Row caps | GUI 1000, tools 500, CSV export 100,000 |
 
 Detailed configuration and development: [Chinese guide](README.zh.md).
 

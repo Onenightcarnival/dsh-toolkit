@@ -747,7 +747,7 @@ export class AntigravityAdapter extends LlmAdapter {
     }
   }
 
-  /** Non-stream forwarding seam used by tests and future DSH complete calls. */
+  /** Non-stream forwarding seam. */
   async generate(options: GenerateOptions): Promise<StreamChunk[]> {
     const session = await this.options.tokens.session()
     const messages = await resolveImages(options.messages, this.options.resolveAttachments?.(), options.signal)

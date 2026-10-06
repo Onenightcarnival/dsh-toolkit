@@ -16,7 +16,7 @@ export const DEFAULT_FLOW_TIMEOUT_MS = 180_000
 /** Where the temporary callback server listens; port 0 asks the OS for an ephemeral port. */
 export interface ListenSpec {
   host: string
-  /** Tried in order; the first free port wins (covers the codex 1455→1457 fallback). */
+  /** Tried in order; the first free port wins. */
   ports: readonly number[]
 }
 
@@ -87,12 +87,7 @@ function failurePage(detail: string): string {
     + `<body style="font-family:sans-serif"><h1>Login failed</h1><p>${detail.replace(/[<>&]/g, '')}</p></body></html>`
 }
 
-/**
- * Loopback addresses one listen host covers. `localhost` resolves to ::1 or
- * 127.0.0.1 depending on the client, and Node binds exactly one of them per
- * listen call — a browser picking the other family gets connection-refused
- * and the login times out, so both families must serve the callback.
- */
+/** Loopback addresses one listen host covers: `localhost` serves both 127.0.0.1 and ::1. */
 function listenHosts(host: string): readonly string[] {
   return host === 'localhost' ? ['127.0.0.1', '::1'] : [host]
 }
@@ -269,8 +264,7 @@ export class OAuthFlowManager {
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code
       if (!spec.manualRedirectUri || !['EACCES', 'EPERM', 'EADDRINUSE'].includes(code ?? '')) throw error
-      // Keep a known redirect URI; an arbitrary free port may not be accepted
-      // by the OAuth provider. The browser URL can still be pasted after login.
+      // Manual mode uses the registered redirect URI; the browser URL is pasted after login.
       input.redirectUri = spec.manualRedirectUri
       manualOnly = true
     }

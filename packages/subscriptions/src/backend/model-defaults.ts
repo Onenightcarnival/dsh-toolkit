@@ -1,20 +1,12 @@
 /**
- * Per-model default reasoning effort overrides — the durable half of the
- * Settings page's per-model "default effort" pickers.
+ * Per-model default reasoning effort overrides.
  *
- * The file lives at `~/.dsh/plugins/subscriptions/model-defaults.json`
- * (mode 0600, atomic replace). Shape: `{ "<provider>": { "<model id>": "<effort>" } }`.
- * An absent entry means "follow the provider's own default": the `Default`
- * chip the model picker shows when the discovered catalog advertises no
- * default at all.
+ * File: `~/.dsh/plugins/subscriptions/model-defaults.json` (mode 0600, atomic
+ * replace). Shape: `{ "<provider>": { "<model id>": "<effort>" } }`. An absent
+ * entry follows the provider's own default.
  *
- * Writes are single-process and atomic, but *not* as serialised as the rest
- * of the page: the Settings page disables only the row being saved, so two
- * rows saved back to back can overlap. The write chain below serialises them,
- * so no update is lost to a read-modify-write race. Every read comes from the
- * in-memory snapshot, so the on-disk file only needs to survive a restart: a
- * malformed file reads as empty and is rewritten on the next save, never
- * taking the plugin down with it.
+ * Writes are serialized through one chain; reads come from the in-memory
+ * snapshot. A malformed file reads as empty and is rewritten on the next save.
  */
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
@@ -100,7 +92,6 @@ async function ensureReady(): Promise<void> {
   ready ??= loadFile(modelDefaultsFilePath()).then(
     (loaded) => {
       current = loaded
-      // loadFile itself sets loadError for skipped entries; do not clobber it.
     },
     (error) => {
       loadError = error
@@ -139,8 +130,7 @@ function sectionOf(defaults: ModelDefaults, provider: ProviderId): ModelDefaultM
 
 /**
  * Ready the defaults store.
- * @internal Exported for tests; index.ts calls it at apply time so every
- * later synchronous read sees the persisted state.
+ * @internal Exported for tests; `apply` calls it before the first synchronous read.
  */
 export async function loadModelDefaults(): Promise<void> {
   await ensureReady()
@@ -162,10 +152,7 @@ export function modelDefaultsLoadError(): unknown {
 export function defaultEffortOf(provider: ProviderId, model: string): string | undefined {
   const section = current[provider]
   if (section === undefined) return undefined
-  // Own-property lookup: a model id is provider-supplied catalog data, and a
-  // plain index would inherit from Object.prototype for names like
-  // `toString`, handing a *function* to mergeReasoning (which then throws and
-  // breaks that model's resolution).
+  // Model ids are catalog data; own-property lookup excludes `Object.prototype` names.
   return Object.prototype.hasOwnProperty.call(section, model) ? section[model] : undefined
 }
 
@@ -181,8 +168,7 @@ export function modelDefaultsSnapshot(): ModelDefaults {
 
 /**
  * Set or clear one model's configured default effort, then persist. The
- * memory snapshot updates only after the atomic write succeeds, so a failed
- * write never leaves the live state ahead of the file.
+ * in-memory snapshot updates after the atomic write succeeds.
  * @param provider - the subscription provider route.
  * @param model - the wire model id.
  * @param effort - the effort id, or undefined to clear the override.
@@ -192,10 +178,7 @@ export function setDefaultEffort(
   model: string,
   effort: string | undefined,
 ): Promise<void> {
-  // Chained behind every earlier write: the snapshot `current` is read inside
-  // the chain, so two overlapping saves cannot lose either update. The caller
-  // receives the promise of its own write (a rejection propagates), not the
-  // shared chain.
+  // Writes are chained; the caller receives its own write's promise.
   const run = writeChain.then(async () => {
     await ensureReady()
     const section = { ...sectionOf(current, provider) ?? {} }
@@ -214,17 +197,14 @@ export function setDefaultEffort(
     await persistDefaults(frozen, modelDefaultsFilePath())
     current = frozen
   })
-  // Keep the chain alive even when one write fails, or every later save would
-  // be stuck behind the rejected promise. The caller has already received the
-  // rejection through `run`.
+  // A rejected write does not block the chain.
   writeChain = run.catch(() => undefined)
   return run
 }
 
 /**
- * Drop the in-memory state and the cached load. Test-only: lets a suite
- * unwind the lazy singleton before the next `loadModelDefaults`.
- * @internal Exported for tests only; not part of the plugin's public surface.
+ * Drop the in-memory state and the cached load.
+ * @internal Exported for tests only.
  */
 export async function resetModelDefaultsForTests(): Promise<void> {
   current = EMPTY
@@ -235,10 +215,8 @@ export async function resetModelDefaultsForTests(): Promise<void> {
 }
 
 /**
- * Test-only seam: replace the atomic persistence so a failure happens on the
- * real write path. Proves a failed write propagates to the caller and does
- * not wedge the write chain (resetModelDefaultsForTests restores the real
- * implementation).
+ * Replace the persistence implementation; {@link resetModelDefaultsForTests}
+ * restores the default.
  * @internal Exported for tests only.
  */
 export function overridePersistForTests(

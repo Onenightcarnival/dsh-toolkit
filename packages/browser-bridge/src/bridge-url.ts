@@ -16,8 +16,7 @@ export interface BridgeLocationLike {
 
 /**
  * Build `ws(s)://…/ext/bridge` from the page that hosts the dsh web UI.
- * Loopback hostnames are normalized to `127.0.0.1` so the address pastes cleanly
- * into the Chrome extension settings.
+ * `localhost` is normalized to `127.0.0.1`.
  */
 export function bridgeWsUrlFromLocation(
   location: BridgeLocationLike,
@@ -51,7 +50,7 @@ export async function resolveBridgeWsUrl(
       return body.wsUrl
     }
   } catch {
-    // Discovery is best-effort: the settings row still shows the reconstructed URL.
+    // Fall through to the reconstructed URL.
   }
   return fallback
 }

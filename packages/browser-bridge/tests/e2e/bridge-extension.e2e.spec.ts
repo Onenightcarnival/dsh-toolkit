@@ -1,7 +1,6 @@
 /**
  * Browser smoke: the built MV3 extension connects through a real WebSocket to
- * the migrated bridge carrier. dsh 0.1.2 Remote semantics are covered by
- * remote-host-api.spec; this test deliberately owns no pre-0.1.2 Host shim.
+ * the bridge carrier. Remote semantics are covered by remote-host-api.spec.
  */
 
 import { existsSync } from 'node:fs'

@@ -1,9 +1,9 @@
 /**
  * Model-facing trust boundary for text extracted from browser pages.
  *
- * A fresh nonce makes it impractical for page-authored text to forge the exact
- * closing boundary. This is defense in depth only: user approval in the
- * background service worker remains the enforcement boundary for actions.
+ * Each wrap carries a fresh nonce in its opening and closing markers. User
+ * approval in the background service worker remains the enforcement boundary
+ * for actions.
  *
  * @module
  */

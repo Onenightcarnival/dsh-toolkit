@@ -170,8 +170,8 @@ export interface CodexProfileClaims {
 }
 
 /**
- * Decode the user-identity claims of a codex id token (pure, cheap — no
- * verification, same trust posture as {@link accountIdOf}). Claim paths
+ * Decode the user-identity claims of a codex id token (no signature
+ * verification). Claim paths
  * mirror codex-rs `login/src/token_data.rs`: the email is the top-level
  * `email` claim, falling back to `https://api.openai.com/profile`.email; the
  * plan is `https://api.openai.com/auth`.chatgpt_plan_type.
@@ -307,10 +307,8 @@ function matchesWindow(seconds: number, expected: number): boolean {
 }
 
 /**
- * Classify a wham/usage window by its reported duration. The backend has been
- * observed to place the weekly lane in `primary_window` with no secondary
- * window, so slot position alone is unreliable; the caller's positional
- * fallback applies only when the duration is absent.
+ * Classify a wham/usage window by its reported duration; the caller's
+ * positional fallback applies only when the duration is absent.
  */
 function codexWindowKind(window: CodexUsageWindow, fallback: UsageWindow['kind']): UsageWindow['kind'] {
   const seconds = window.limit_window_seconds
@@ -385,9 +383,7 @@ export const CODEX_MODELS_URL = 'https://chatgpt.com/backend-api/codex/models'
 
 /**
  * Client version sent on the /models catalog request. The backend gates the
- * visible model list by client version. Verified 2026-09-05: the same account
- * omitted GPT-6 Astra at 0.147.0 and listed it at stable CLI 0.153.4. This is
- * not an entitlement guarantee; the server remains authoritative.
+ * visible model list by client version; the server remains authoritative.
  */
 export const CODEX_CLIENT_VERSION = '0.153.4'
 
@@ -463,8 +459,7 @@ export function parseCodexModels(entries: CodexWireModel[]): DiscoveredModel[] {
   const discovered: DiscoveredModel[] = []
   for (const entry of entries) {
     if (typeof entry.slug !== 'string' || entry.slug.length === 0) continue
-    // codex-rs ModelVisibility: only "list" is picker-visible; hide/none are
-    // dropped, and an absent or unknown value is included (in doubt, include).
+    // `hide` and `none` are dropped; absent or unknown visibility is included.
     if (entry.visibility === 'hide' || entry.visibility === 'none') continue
     const efforts = (entry.supported_reasoning_levels ?? [])
       .filter(level => typeof level.effort === 'string' && level.effort.length > 0)
@@ -506,7 +501,7 @@ export function parseCodexModels(entries: CodexWireModel[]): DiscoveredModel[] {
 
 /** Constructor dependencies for {@link CodexAdapter}. */
 export interface CodexAdapterOptions {
-  /** Catalog compatibility version; defaults to the verified stable CLI version. */
+  /** Catalog compatibility version; defaults to {@link CODEX_CLIENT_VERSION}. */
   clientVersion?: string
   /** Automatic lookup used only when no explicit compatibility version is set. */
   resolveClientVersion?: () => Promise<string>
@@ -550,11 +545,9 @@ const CODEX_CALL_ID_MAX_LENGTH = 64
 const CODEX_CALL_ID_PREFIX = 'call_'
 
 /**
- * Bound tool-call ids at the Codex wire boundary without changing the shared
- * Responses translation. Short ids stay verbatim. Oversized ids
- * become deterministic hashes, and every id already present in this request
- * is reserved first so a generated id cannot collide with a legitimate short
- * one (or another oversized id).
+ * Bound tool-call ids at the Codex wire boundary. Short ids stay verbatim;
+ * oversized ids become deterministic hashes that never collide with ids
+ * already present in the request.
  */
 function normalizeCodexCallIds(input: ResponsesRequestInput['input']): ResponsesRequestInput['input'] {
   const mapping = new Map<string, string>()
@@ -632,10 +625,8 @@ export function reconcileResponsesToolCalls(input: ResponsesRequestInput['input'
 }
 
 /**
- * The Responses request body for one generation. A fast-tier request (the
- * composer Speed toggle, the codex CLI's fast mode) carries
- * `service_tier: priority`; the tier field is omitted entirely otherwise,
- * matching the CLI (it never sends an explicit standard tier).
+ * The Responses request body for one generation. A fast-tier request carries
+ * `service_tier: priority`; the field is omitted otherwise.
  */
 export function codexRequestBody(
   options: GenerateOptions,
@@ -646,9 +637,7 @@ export function codexRequestBody(
     model: options.model,
     instructions: resolved.instructions ?? DEFAULT_CODEX_INSTRUCTIONS,
     input: reconcileResponsesToolCalls(normalizeCodexCallIds(resolved.input)),
-    // Omit tool controls for tool-less requests, matching the other adapters.
-    // This is request-shape consistency, not a claim that Codex rejects the
-    // controls when no tools are supplied.
+    // Tool controls are omitted for tool-less requests.
     ...options.tools !== undefined && options.tools.length > 0
       ? { tools: toResponsesTools(options.tools, { strict: false }), tool_choice: 'auto', parallel_tool_calls: true }
       : {},
@@ -707,8 +696,7 @@ export class CodexAdapter extends LlmAdapter {
 
   /** Drop cached catalogs after login/logout so the next list does not reuse a stale plan. */
   clearAccountCatalog(account?: string): void {
-    // invalidate() also drops the persisted snapshot, so a logged-out account
-    // cannot resurface its models from disk.
+    // invalidate() also drops the persisted snapshot.
     if (account === undefined) {
       for (const cache of this.accountCatalogs.values()) cache.invalidate()
       this.accountCatalogs.clear()
@@ -755,8 +743,7 @@ export class CodexAdapter extends LlmAdapter {
 
   /**
    * The last catalog one account successfully listed, without any network.
-   * Routing asks for this when live discovery times out: an account that
-   * listed a model minutes ago is still a better answer than "no models".
+   * Routing falls back to it when live discovery times out.
    */
   async lastKnownOwnModels(provider: string, account: string): Promise<readonly LlmModelInfo[] | undefined> {
     if (!this.options.discovery || !await this.options.tokens.hasSession(account)) return undefined
@@ -812,9 +799,7 @@ export class CodexAdapter extends LlmAdapter {
     if (!this.options.discovery) return this.staticModels(provider)
     const catalog = await this.catalogFor(account)
     try {
-      // The fetcher runs only on a cache miss, and resolves the session
-      // through the refresh-aware path so an expired access token renews here
-      // instead of failing discovery into the static fallback.
+      // The fetcher runs on a cache miss and resolves the session through the refresh-aware path.
       const discovered = await discoverOrRetryAuth(
         force => this.options.tokens.session(account, force),
         catalog,
@@ -822,15 +807,11 @@ export class CodexAdapter extends LlmAdapter {
       )
       return this.listed(provider, discovered)
     } catch (error: unknown) {
-      // A cancelled discovery must not fall back to the static catalog — the
-      // caller (pool assembly) treats abort as "this account sits out".
+      // A cancelled discovery propagates; the caller excludes the account.
       if (isDiscoveryAborted(error, signal)) throw error
-      // A permanent refresh failure deletes the stored session: the provider
-      // is logged out, so hide it instead of showing a stale static catalog.
+      // The stored session is gone: the provider is logged out.
       if (isMissingOrInvalidCredential(error)) return []
-      // The backend rejected the token again right after a forced refresh:
-      // the login is revoked server-side. Listing the built-in catalog here
-      // would route requests to a dead account and show phantom models.
+      // The token was rejected again after a forced refresh: the login is revoked server-side.
       if (isDiscoveryAuthFailure(error)) {
         const who = (await this.options.tokens.peek(account))?.emailAddress ?? account ?? 'default account'
         this.options.onWarn?.(
@@ -838,9 +819,7 @@ export class CodexAdapter extends LlmAdapter {
         )
         return []
       }
-      // A transient failure (network, 5xx, timeout) must not demote a
-      // working account to the built-in catalog, which lags the backend by
-      // generations: the last successful discovery is the truthful answer.
+      // Transient failure: the last successful discovery is served ahead of the built-in catalog.
       const known = catalog.lastKnown()
       if (known !== undefined) {
         this.options.onWarn?.(
@@ -855,13 +834,7 @@ export class CodexAdapter extends LlmAdapter {
     }
   }
 
-  /**
-   * The discovered entry for one model. Resolved through the cache's
-   * stale-while-revalidate path so capability metadata stays stable across a
-   * long conversation: a discovered-only effort (one missing from the static
-   * CODEX_EFFORTS list) selected by the user must not vanish — and fail the
-   * call — just because the TTL lapsed mid-turn.
-   */
+  /** The discovered entry for one model, resolved through the cache's stale-while-revalidate path. */
   private async discovered(model: string, account?: string): Promise<DiscoveredModel | undefined> {
     if (!this.options.discovery) return undefined
     const accounts = account === undefined
@@ -882,9 +855,7 @@ export class CodexAdapter extends LlmAdapter {
   /** Ids of every discovered model with a fast tier (the Speed toggle's visibility list). */
   async fastCapableModels(): Promise<string[]> {
     if (!this.options.discovery) return []
-    // Not logged in → no fast models, so the Speed toggle hides after logout
-    // (mirrors the listModels guard above). Union every account: a fast-capable
-    // model only the non-default lists (e.g. gpt-5.6-sol) must still show Speed.
+    // Union of every account's catalog; no accounts means no fast models.
     const accounts = (await this.options.tokens.list()).map(entry => entry.key)
     if (accounts.length === 0) return []
     const seen = new Set<string>()
@@ -920,10 +891,8 @@ export class CodexAdapter extends LlmAdapter {
     // effort merges over both.
     const discovered = await this.discovered(model, account)
     const configured = this.options.models.find(entry => entry.id === model)
-    // `extendable` only while falling back to the built-in list: that one is
-    // known to trail the backend, so a configured level it omits still has to
-    // be selectable. A discovered catalog is the truth about what the model
-    // accepts, and a stale override must not be forced onto every request.
+    // `extendable` only for the built-in fallback list: a configured effort it
+    // omits remains selectable. A discovered catalog is not extended.
     const reasoning = mergeReasoning(
       this.options.defaultEffortOf?.(model),
       discovered?.reasoning ?? { efforts: CODEX_EFFORTS, defaultEffort: CODEX_DEFAULT_EFFORT },

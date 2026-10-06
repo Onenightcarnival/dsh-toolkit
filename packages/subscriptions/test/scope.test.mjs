@@ -11,7 +11,7 @@ test('subscription sources and bundle exclude unrelated providers and embedded O
   const oauthRegistration = /GOCSPX-[\w-]+|\d+-[\w-]+\.apps\.googleusercontent\.com/
   for (const file of files) {
     const source = await readFile(join(root, file), 'utf8')
-    // Boolean assertions deliberately avoid printing a matched credential.
+    // Boolean assertions do not print a matched credential.
     assert.equal(forbiddenProvider.test(file + '\n' + source), false, `Unrelated provider in ${file}`)
     assert.equal(oauthRegistration.test(source), false, `Unrelated OAuth registration in ${file}`)
   }

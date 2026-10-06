@@ -107,9 +107,8 @@ class RemoteHostApi implements BrowserHostApi {
     if ('error' in target) return { ok: false, error: target.error }
 
     try {
-      // Deferred Sessions have no history call with which to establish the
-      // follower. Open it after materialization and before prompt admission,
-      // so the first user/turn events cannot race past the extension.
+      // The Session follower is open before prompt admission; deferred
+      // Sessions establish it here rather than through session.history.
       if (call.method === 'session.prompt') {
         const sessionId = sessionIdOf(call.payload)
         if (sessionId !== undefined) await this.activeEvents?.ensureSessionFollow(sessionId, call.signal)
@@ -120,9 +119,7 @@ class RemoteHostApi implements BrowserHostApi {
         args: target.args,
         signal: call.signal,
       })
-      // Only claim ownership after a successful create/prompt. A failed prompt
-      // against a Desktop session must not steal later ask_user_question away
-      // from the native waterfall.
+      // Ownership is claimed only after a successful create/prompt.
       if (call.method === 'session.create' || call.method === 'session.prompt') {
         this.extensionSessions.note(sessionIdOf(call.payload))
         this.extensionSessions.note(sessionIdOf(value))
@@ -201,8 +198,8 @@ class RemoteHostApi implements BrowserHostApi {
   }
 
   /**
-   * Resolve a Host-legal throughSeq for older history pages.
-   * Never invent Number.MAX_SAFE_INTEGER — session/page rejects tips past the log cursor.
+   * Resolve a Host-legal throughSeq for older history pages; session/page
+   * rejects tips past the log cursor.
    */
   private async historyThroughSeq(sessionId: string, signal: AbortSignal): Promise<number> {
     const cached = this.historyCursors.get(sessionId)
@@ -219,8 +216,7 @@ class RemoteHostApi implements BrowserHostApi {
   }
 
   private noteHistoryCursor(sessionId: string, cursor: number): void {
-    // Host session/page refuses throughSeq past the durable tip; MAX_SAFE_INTEGER is
-    // only a UI sentinel elsewhere and must never be forwarded as a page tip.
+    // MAX_SAFE_INTEGER is a UI sentinel, never a page tip.
     if (!Number.isSafeInteger(cursor) || cursor < -1 || cursor === Number.MAX_SAFE_INTEGER) return
     const previous = this.historyCursors.get(sessionId)
     if (previous === undefined || cursor > previous) this.historyCursors.set(sessionId, cursor)
@@ -422,9 +418,7 @@ class EventGeneration {
       }
       this.onHistoryCursor(sessionId, first.value.cursor)
       const snapshotId = first.value.assistantStream === undefined ? undefined : crypto.randomUUID()
-      // Publish the reconnect prefix before any suffix chunks. RPC responses
-      // and pushed events can otherwise race, dropping the beginning of an
-      // already-running attempt when the panel reopens its history.
+      // The reconnect prefix is published before any suffix chunks.
       if (first.value.assistantStream !== undefined) {
         this.queue.push({
           rpcId: crypto.randomUUID(),
@@ -463,9 +457,7 @@ class EventGeneration {
     try {
       while (!signal.aborted) {
         const next = await iterator.next()
-        // Abort is advisory to an AsyncIterator: a buffered frame may still
-        // resolve after this follower was replaced. Never let that stale
-        // generation update the extension's active/recent session state.
+        // A buffered frame may resolve after replacement; a stale generation publishes nothing.
         if (signal.aborted || revision !== this.followRevision) break
         if (next.done) break
         if (isRecord(next.value) && next.value.type === 'assistant-stream' && isRecord(next.value.frame)) {
@@ -554,8 +546,8 @@ class EventGeneration {
       }
       return
     }
-    // Desktop-owned sessions keep the native waterfall. Only forward questions
-    // for sessions the extension successfully created or prompted.
+    // Questions are forwarded only for sessions the extension created or
+    // prompted; other sessions keep the native waterfall.
     if (!shouldBridgeOwnQuestion({
       hasExtensionConnection: true,
       sessionId: value.agentId,
@@ -734,9 +726,8 @@ async function oneShotSessionSnapshot(
 
 function historyValue(snapshot: SessionSnapshot): Record<string, unknown> {
   return {
-    // V3 records remain durable events with embedded Assistant streams. Keep
-    // the legacy chunk-row decoder for older logs/Hosts, without assigning
-    // synthetic durable seqs to the new process-local assistant stream.
+    // Chunk-row records expand to assistant/chunk events; the process-local
+    // assistant stream carries no durable seqs.
     events: snapshot.records.flatMap(historyRecordEvents).map(event => ({ event })),
     hasMore: snapshot.hasMore,
     ...(snapshot.projections === undefined ? {} : { projections: snapshot.projections }),

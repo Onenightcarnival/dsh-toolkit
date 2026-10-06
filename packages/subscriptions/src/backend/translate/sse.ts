@@ -1,9 +1,8 @@
 /**
- * Minimal SSE byte-stream parser (~30 lines of framing): reassembles chunks,
- * splits CRLF/LF lines, joins multi-`data:` payloads, skips comments and
- * non-data fields, and dispatches an event only on its blank-line terminator.
- * An unterminated tail at EOF is truncation and is dropped, matching the
- * spec-strict framing the harness's own adapters use.
+ * Minimal SSE byte-stream parser: reassembles chunks, splits CRLF/LF lines,
+ * joins multi-`data:` payloads, skips comments and non-data fields, and
+ * dispatches an event only on its blank-line terminator. An unterminated
+ * tail at EOF is dropped.
  */
 
 /** One parsed SSE event. */

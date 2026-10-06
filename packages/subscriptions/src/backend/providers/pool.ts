@@ -3,8 +3,7 @@
  * configured tier extras. The picker is the union of every account's
  * catalog. A model listed by several accounts failovers; a model listed by
  * one account is pinned to it. Tiers are extra picker rows. Member
- * selection is sticky per session (so prompt caches survive) and optionally
- * quota-aware; failures fail over to the next member as long as no stream
+ * selection is sticky per session and optionally quota-aware; failures fail over to the next member as long as no stream
  * chunk has been emitted.
  */
 
@@ -65,13 +64,12 @@ const POOLS_CACHE_TTL_MS = 5_000
 export class PoolAdapter extends LlmAdapter {
   /** sessionId|poolId → member key of the last member that served a chunk. */
   private readonly sticky = new Map<string, string>()
-  /** Messages already warned about — configuration diagnostics repeat every request otherwise. */
+  /** Messages already warned about; each is emitted once. */
   private readonly warned = new Set<string>()
   /**
-   * Short-lived pools snapshot. `owns()` runs on every resolveModel — the
-   * model picker issues one per entry — and pool assembly touches every
-   * provider's catalog and account store, so recompute at most this often.
-   * Auth changes bump {@link generation} so a stale snapshot cannot land.
+   * Short-lived pools snapshot, recomputed at most every
+   * {@link POOLS_CACHE_TTL_MS}. Auth changes bump {@link generation} so a
+   * stale snapshot cannot land.
    */
   private poolsCache: { at: number; pools: Map<string, PoolDefinition> } | undefined
   private poolsInflight: Promise<Map<string, PoolDefinition>> | undefined
@@ -88,14 +86,14 @@ export class PoolAdapter extends LlmAdapter {
     this.poolsInflight = undefined
   }
 
-  /** Warn once per distinct message (pools() runs on every request). */
+  /** Warn once per distinct message. */
   private warnOnce(message: string): void {
     if (this.warned.has(message)) return
     this.warned.add(message)
     this.options.onWarn(message)
   }
 
-  /** Drop members whose adapter is not registered (copy — caller state is shared). */
+  /** Drop members whose adapter is not registered (returns a copy). */
   private usable(pools: Map<string, PoolDefinition>): Map<string, PoolDefinition> {
     const result = new Map<string, PoolDefinition>(pools)
     for (const [id, definition] of [...result]) {
@@ -142,8 +140,7 @@ export class PoolAdapter extends LlmAdapter {
 
   /**
    * Extra picker rows one provider lists (configured tiers). Account pools
-   * reuse the catalog entry of the same wire id, so they are not listed
-   * again — the picker stays one row per model in ChatGPT.
+   * reuse the catalog entry of the same wire id and are not listed.
    */
   async modelsForProvider(provider: ProviderId): Promise<LlmModelInfo[]> {
     const pools = await this.pools()
@@ -172,8 +169,8 @@ export class PoolAdapter extends LlmAdapter {
 
   /**
    * Resolve every member's account (config members may omit it to mean "the
-   * default account") and drop members with no resolvable login. Duplicates
-   * collapse — an explicitly pinned account and the default may coincide.
+   * default account") and drop members with no resolvable login. Duplicate
+   * members collapse.
    */
   private async concrete(members: readonly PoolMemberRef[]): Promise<ConcretePoolMember[]> {
     const seen = new Set<string>()
@@ -193,9 +190,8 @@ export class PoolAdapter extends LlmAdapter {
   /**
    * Resolve a pool model to the conservative INTERSECTION of its members'
    * capabilities: the smallest context window and output cap, the reasoning
-   * efforts every member supports, and the modalities all of them accept —
-   * so a request valid for the pool stays valid after a failover. Capability
-   * metadata is account-specific, so every distinct member is resolved.
+   * efforts every member supports, and the modalities all of them accept.
+   * Capability metadata is account-specific; every distinct member is resolved.
    */
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     const definition = (await this.pools()).get(poolKey(provider, model))
@@ -206,9 +202,7 @@ export class PoolAdapter extends LlmAdapter {
     for (const member of members) {
       const adapter = this.options.adapters[member.provider]
       if (adapter === undefined) continue
-      // Tolerate per-member failures (a misconfigured tier member, a
-      // logged-out provider throwing AUTH): the pool serves as long as ONE
-      // member resolves, mirroring stream()'s failover semantics.
+      // The pool resolves as long as one member resolves.
       try {
         resolved.push(await adapter.resolveOwnModel(member.provider, member.model, member.account))
       } catch (error: unknown) {
@@ -271,9 +265,7 @@ export class PoolAdapter extends LlmAdapter {
             classification.cooldownMs,
             classification.reason,
           )
-          // A quota failure invalidates the cached usage snapshot so the NEXT
-          // selection re-polls instead of trusting minutes-old percentages.
-          // Transient/auth failures say nothing about quota — keep the cache.
+          // A quota failure invalidates the cached usage snapshot; other failures keep it.
           if (classification.reason === QUOTA_EXCEEDED_CODE || classification.reason === 'RATE_LIMIT') {
             this.options.usage.invalidate(member.provider, member.account)
           }
@@ -286,12 +278,9 @@ export class PoolAdapter extends LlmAdapter {
         continue
       }
       this.remember(options.model, options.sessionId, member)
-      // Past the first chunk there is no clean attempt boundary: whatever
-      // the member does next (including failing) reaches the caller as-is.
-      // The finally closes the member stream when the CALLER walks away
-      // early (break / .return()) — manual iteration does not propagate
-      // closure the way `yield*` would, and a half-consumed member stream
-      // must not linger holding its connection.
+      // After the first chunk, failures reach the caller as-is. The finally
+      // closes the member stream when the caller stops early; manual iteration
+      // does not propagate closure.
       try {
         yield first.value
         for (let next = await iterator.next(); next.done !== true; next = await iterator.next()) {
@@ -368,8 +357,7 @@ export class PoolAdapter extends LlmAdapter {
 
   /**
    * The error for an exhausted pool, carrying the earliest recovery hint of
-   * THIS pool's members (the health registry is shared across pools, so the
-   * hint is scoped to the keys this pool can actually recover through).
+   * this pool's members.
    */
   private exhausted(model: string, pool: ConcretePoolMember[], cause?: unknown): LlmError {
     const keys = new Set<string>()
@@ -422,8 +410,6 @@ function intersectModalities(
   if (first?.inputModalities === undefined) return undefined
   const modalities = first.inputModalities.filter(modality =>
     rest.every(info => info.inputModalities?.includes(modality) === true))
-  // An empty intersection would declare negative capability ("accepts
-  // nothing"); report unknown instead — the serving member enforces its own
-  // limits at request time.
+  // An empty intersection reports unknown; the serving member enforces its own limits.
   return modalities.length === 0 ? undefined : modalities
 }

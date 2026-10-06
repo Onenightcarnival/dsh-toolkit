@@ -51,7 +51,7 @@ export class ManagedEnvironment {
   private executable(name: 'uv' | 'uvx'): string { return join(this.directory, name + this.suffix) }
   private get supported(): boolean {
     if (!this.release) return false
-    // Published Linux builds here require glibc; do not install a mismatched binary on musl.
+    // Linux builds require glibc; musl hosts are unsupported.
     return process.platform !== 'linux' || Boolean((process.report.getReport() as { header?: { glibcVersionRuntime?: string } }).header?.glibcVersionRuntime)
   }
 
@@ -145,7 +145,7 @@ export class ManagedEnvironment {
     }).finally(() => { this.operation = undefined; this.progress = undefined })
   }
 
-  /** Await completion for host teardown and integration tests. */
+  /** Resolves when the running installation settles. */
   async settled(): Promise<void> { await this.operation }
 
   private async installRelease(): Promise<void> {
@@ -199,7 +199,7 @@ export class ManagedEnvironment {
         }
         await writeFileAtomic(join(this.root, 'installed.json'), JSON.stringify({ version: UV_VERSION, target: this.target, installedAt: new Date().toISOString() }) + '\n', { mode: 0o600 })
       } finally {
-        // temporary is created directly under our private root; never remove a user-supplied path.
+        // The staging directory is kept when it holds the preserved previous version.
         if (!preserveBackup) await rm(temporary, { recursive: true, force: true })
       }
     }, { waitMs: 360_000 })

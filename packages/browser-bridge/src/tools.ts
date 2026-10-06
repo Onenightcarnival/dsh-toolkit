@@ -3,7 +3,6 @@
  * over the bridge to the connected extension, which performs the action in the
  * user's explicitly controlled tab and returns a pure-text result.
  *
- * The browser tool surface uses structured text by design:
  * `browser_snapshot` renders the page as structured text with a numbered
  * interactive inventory, and every other tool addresses elements by that
  * inventory's stable index. Results are single `{ text }` objects rendered as
@@ -107,9 +106,8 @@ function sessionCwd(exec: Pick<ToolRunContext, 'agent'>): string | undefined {
 }
 
 /**
- * Read the files the model named, confined to the session's working
- * directory, and encode them for the extension. The agent already has file
- * tools scoped to that directory; uploads must not widen what it can reach.
+ * Read the named files, confined to the session working directory, and
+ * base64-encode them for the extension.
  */
 async function readUploadFiles(exec: Pick<ToolRunContext, 'agent'>, paths: readonly string[]): Promise<Array<{ name: string; mediaType: string; data: string }>> {
   const cwd = sessionCwd(exec)
@@ -135,10 +133,9 @@ async function readUploadFiles(exec: Pick<ToolRunContext, 'agent'>, paths: reado
 }
 
 /**
- * Register the browser tools on `ctx.tools`. Disposers are returned for the
- * caller's effect to own; each tool's cooperative timeout budget is declared
- * so `@deepseek-ai/dsh-timeout-policy` can enforce it, and every execute
- * forwards `exec.signal` into the bridge call (abort settles it).
+ * Register the browser tools on `ctx.tools`. Each tool declares its timeout
+ * budget for `@deepseek-ai/dsh-timeout-policy` and forwards `exec.signal` into
+ * the bridge call.
  *
  * @param ctx - Cordis context with the tools service.
  * @param bridge - the authenticated bridge server.
@@ -173,8 +170,7 @@ export function registerBrowserTools(
 /**
  * `browser_screenshot`: the extension answers with text plus a PNG; the PNG is
  * saved through the attachment store and projected into the final content as
- * an image block (same pattern as the MCP client), while the canonical value
- * stays the text so programmatic callers and logs remain JSON.
+ * an image block. The canonical value stays the text.
  */
 function screenshotTool(
   ctx: Context,
@@ -234,7 +230,7 @@ interface Call {
   (exec: Pick<ToolRunContext, 'agent' | 'signal'>, name: string, args: Record<string, unknown>): Promise<TextResult>
 }
 
-/** The v1 tool set, model-perspective contracts only (no transport vocabulary). */
+/** Bridge call with an explicit timeout and optional owning session id. */
 type BridgeCall = (exec: Pick<ToolRunContext, 'agent' | 'signal'>, name: string, args: Record<string, unknown>, timeoutMs: number, sessionId?: string) => Promise<unknown>
 
 function defineTools(call: Call, options: BrowserToolsOptions, bridgeCall: BridgeCall): ToolDefinition[] {

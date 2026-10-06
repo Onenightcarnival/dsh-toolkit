@@ -19,12 +19,7 @@ import { getDefaultAutoSelectFamilyAttemptTimeout, setDefaultAutoSelectFamilyAtt
 import { dirname } from 'node:path'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 
-/**
- * undici's own fetch, typed to the DOM fetch signature: its bundled types are
- * stricter (Request requires `duplex`, `RequestInit.body` is non-null) and
- * incompatible with the DOM shapes the provider code passes. The runtime
- * object is the same Web-fetch implementation Node uses.
- */
+/** undici's fetch, typed to the DOM fetch signature the provider code uses. */
 const dispatchFetch = undiciFetch as unknown as typeof fetch
 
 /** Stored proxy configuration (the proxy.json shape). */
@@ -86,23 +81,15 @@ export interface ProxyDraft {
 
 /** Destination the `proxyTest` endpoint probes when none is given. */
 export const DEFAULT_PROXY_TEST_URL = 'https://api.x.ai/v1/models'
-/** Probe deadline; a hung proxy must not pin the Settings dialog forever. */
+/** Probe deadline. */
 export const DEFAULT_PROXY_TEST_TIMEOUT_MS = 15_000
 
-/**
- * Minimum per-address connect attempt budget for Node's Happy Eyeballs
- * (`net.autoSelectFamilyAttemptTimeout`). Node's default is 250ms, which is
- * shorter than one TCP handshake to Cloudflare-fronted hosts (registry.npmjs.org,
- * chatgpt.com) on a high-latency link: every address then fails with
- * ETIMEDOUT and the whole fetch dies even though curl succeeds.
- */
+/** Minimum per-address connect attempt budget for Node's Happy Eyeballs (`net.autoSelectFamilyAttemptTimeout`). */
 export const MIN_CONNECT_ATTEMPT_TIMEOUT_MS = 1500
 
 /**
- * Raise the process-wide Happy Eyeballs attempt timeout to at least `minMs`.
- * Never lowers a host-configured value. The setting is per process (there is
- * no per-dispatcher knob that survives the host's global dispatcher), so the
- * plugin restores the previous value on dispose.
+ * Raise the process-wide Happy Eyeballs attempt timeout to at least `minMs`;
+ * never lowers a higher value. The plugin restores the previous value on dispose.
  * @param minMs - the floor to enforce.
  * @returns the value in effect before the call.
  */
@@ -126,7 +113,7 @@ let current: ProxyConfig = DISABLED
 let agent: ProxyAgent | undefined
 /** Last load/apply failure, surfaced by the config view. */
 let configError: string | undefined
-/** One lazy load of the on-disk config (module-import cheap; file read once). */
+/** One lazy load of the on-disk config. */
 let ready: Promise<ProxyConfig> | undefined
 
 /** Absolute path of the proxy config file. */
@@ -139,12 +126,9 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * Flatten a fetch failure into a readable message: undici wraps the true
- * cause (`connect ECONNREFUSED ...`) behind a bare "fetch failed", so walk
- * the cause chain and append each distinct layer (up to four, cycle-safe).
- * A hostname resolving to several addresses (e.g. `localhost` → ::1 and
- * 127.0.0.1) fails as an `AggregateError` with an empty message, so its
- * per-address `errors` entries are folded in too.
+ * Flatten a fetch failure into one message: each distinct layer of the
+ * `cause` chain (up to four, cycle-safe) with its `code`, plus the per-address
+ * `errors` of an `AggregateError`.
  */
 export function describeFetchError(error: unknown): string {
   const parts: string[] = []
@@ -333,9 +317,8 @@ async function persistConfig(cfg: ProxyConfig, path: string): Promise<void> {
 }
 
 /**
- * Close the live agent and drop the cached config. Test-only: lets a suite
- *  unwind the agent's keep-alive sockets before the process exits.
- * @internal Exported for tests only; not part of the plugin's public surface.
+ * Close the live agent and drop the cached config.
+ * @internal Exported for tests only.
  */
 export async function resetProxyForTests(): Promise<void> {
   const previous = agent
@@ -389,14 +372,9 @@ export async function proxySetConfig(input: ProxyInput): Promise<ProxyConfigView
 }
 
 /**
- * The fetch caller all subscription code uses: routes through the configured
- * proxy unless the host bypasses it. Identity-passthrough otherwise: the host
- * may itself route global fetch through an environment-configured proxy.
- *
- * Proxied requests run on undici's own fetch (not the global one) so the
- * ProxyAgent dispatcher always comes from the same undici build the request
- * is issued with — a mismatched dispatcher can be silently ignored by the
- * host's global fetch.
+ * The fetch all subscription code uses. Routes through the configured proxy
+ * unless the hostname matches a bypass entry; otherwise calls the global
+ * fetch. Proxied requests use undici's own fetch with the ProxyAgent dispatcher.
  */
 export async function proxiedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   await ensureReady()
@@ -440,7 +418,6 @@ export async function proxyTestConnection(target = DEFAULT_PROXY_TEST_URL, draft
   let viaProxy: boolean
   let closeProbe = false
   if (draft !== undefined) {
-    // Test the typed values: a throw here is a config problem, not a route one.
     try {
       probeAgent = buildAgent(normalizeConfig({
         enabled: true,
@@ -466,7 +443,7 @@ export async function proxyTestConnection(target = DEFAULT_PROXY_TEST_URL, draft
     const response = probeAgent !== undefined
       ? await dispatchFetch(parsed.toString(), init as RequestInit)
       : await fetch(parsed.toString(), init)
-    // Drain so the connection can be released; the body is irrelevant.
+    // Drain the body to release the connection.
     void response.arrayBuffer().catch(() => undefined)
     return { ok: true, viaProxy, status: response.status, latencyMs: Date.now() - started }
   } catch (error) {

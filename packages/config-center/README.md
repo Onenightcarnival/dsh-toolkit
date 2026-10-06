@@ -20,7 +20,6 @@ Location: Settings → Local logs, below Environment dependencies.
 - Logs are read-only UTF-8; downloads include a UTF-8 BOM. Content retains its original language. The viewer creates no log files or operation records.
 - Reads are limited to the last 256 KB. Display and download mask common credential fields without changing the original file. Review private information before sharing.
 
-
 ## Skills
 
 Entry: Sidebar → Skills, below MCP.

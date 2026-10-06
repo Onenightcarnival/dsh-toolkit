@@ -136,7 +136,7 @@ export class MysqlConnection implements DbConnection {
   placeholder(): string { return '?' }
   castToText(expr: string): string { return `CAST(${expr} AS CHAR)` }
   insertDefaults(target: string): string { return `INSERT INTO ${target} () VALUES ()` }
-  /** MySQL strings take backslash escapes; mysql2's escaper doubles both quotes and backslashes. */
+  /** MySQL strings take backslash escapes; mysql2's escaper backslash-escapes quotes and backslashes. */
   literal(value: unknown): string {
     if (value === null || value === undefined) return 'NULL'
     if (typeof value === 'number' || typeof value === 'bigint') return String(value)

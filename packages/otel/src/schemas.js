@@ -34,7 +34,7 @@ export const statusValueSchema = z.object({
   /** The secret key is stored host-side; it is never echoed back. */
   secretKeySet: z.boolean(),
   captureContent: z.boolean(),
-  /** gzip-compress OTLP request bodies (helps with gateway body-size caps). */
+  /** gzip-compress OTLP request bodies. */
   gzip: z.boolean(),
   /** Effective per-attribute content truncation (chars). */
   contentMaxChars: z.number(),

@@ -148,11 +148,8 @@ export class PoolUsageTracker {
   private refresh(key: string, fetcher: () => Promise<ProviderUsage>): Promise<ProviderUsage> {
     let pending = this.inflight.get(key)
     if (pending === undefined) {
-      // Captured before the fetch starts: whichever real snapshot is on
-      // record right now is what a failure below should fall back to. A
-      // failure entry's own `lastSnapshot` counts too — otherwise the stale
-      // snapshot would survive exactly one cooldown and vanish on the next
-      // consecutive failure, even though nothing newer ever replaced it.
+      // The last successful snapshot, including one carried by a previous
+      // failure entry, survives a failed refresh.
       const prior = this.entries.get(key)
       const lastSnapshot = prior?.snapshot ?? prior?.lastSnapshot
       pending = fetcher().then(
@@ -192,12 +189,7 @@ export class PoolUsageTracker {
   }
 }
 
-/**
- * The routing view of a fetch failure. Logged out: the member cannot serve
- * at all. Any other failure (network, endpoint rate limit) must not block
- * routing — the member stays available with a zero score, degrading the
- * strategy to plain priority order for it.
- */
+/** The routing view of a fetch failure. Logged out: unavailable. Any other failure: available with zero urgency. */
 function degradedQuota(error: unknown): MemberQuota {
   return isMissingOrInvalidCredential(error)
     ? { available: false, urgency: 0, fetchedAt: 0 }

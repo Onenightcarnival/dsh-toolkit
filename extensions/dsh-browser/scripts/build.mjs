@@ -23,7 +23,7 @@ const configs = [
 ]
 
 if (watch) {
-  // 三个 watcher 并行启动（串行时第一个永不停机，后面的永远不会启动）。
+  // Watchers run in parallel.
   const children = configs.map((config) => spawn('vite', ['build', '--config', config, '--watch'], {
     cwd: root,
     stdio: 'inherit',

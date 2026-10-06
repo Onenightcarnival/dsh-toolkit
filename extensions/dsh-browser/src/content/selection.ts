@@ -46,8 +46,7 @@ function selectionTouchesSensitiveField(selection: Selection | null): boolean {
       if (isSensitiveField(field) && range?.intersectsNode(field) === true) return true
     }
   } catch {
-    // If a live range cannot be inspected, fail closed rather than risk
-    // returning a protected field that changed during this read.
+    // An uninspectable live range fails closed.
     return true
   }
   return false
@@ -131,9 +130,7 @@ export class SelectionWatcher {
     this.enabled = next
     if (next) {
       document.addEventListener('selectionchange', this.onSelectionChange)
-      // Opening the panel arms the watcher, and the text the user highlighted
-      // just before opening it fires no further selectionchange. Reading it
-      // needs no page gesture: the user acted on the extension to get here.
+      // Arming reads the current highlight without a gesture requirement.
       this.flushNow(false)
       return true
     }
@@ -143,10 +140,7 @@ export class SelectionWatcher {
     return true
   }
 
-  /**
-   * Forget the last reported text after the panel dropped it, so re-selecting
-   * the same passage reports it again instead of being deduplicated away.
-   */
+  /** Forget the last reported text; re-selecting the same passage reports it again. */
   resetDedupe(): void {
     this.lastEmitted = null
   }
@@ -172,9 +166,7 @@ export class SelectionWatcher {
     if (!this.enabled) return
     if (requireGesture && !hasUserGesture()) return
     const capture = readSelectionCapture()
-    // A cleared highlight keeps the panel's capture: the user may have clicked
-    // into the page while composing the request about what they selected. It
-    // still resets deduplication so the same passage can be selected again.
+    // A cleared highlight keeps the panel's capture and resets deduplication.
     if (capture === null) {
       this.lastEmitted = null
       return

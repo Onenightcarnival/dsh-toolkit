@@ -12,10 +12,7 @@ interface PendingResponse {
   timer: ReturnType<typeof setTimeout>
 }
 
-/**
- * Correlates one interaction response with the panel that sent it. Receipts
- * must never be broadcast: separate side panels can answer at the same time.
- */
+/** Correlates one interaction response with the panel that sent it; receipts are routed to that panel only. */
 export class InteractionResponseRouter {
   private readonly pending = new Map<string, PendingResponse>()
 

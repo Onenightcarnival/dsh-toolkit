@@ -232,7 +232,7 @@ describe('purgeSessionFiles', () => {
       ctx.provide('storageDomain', facility)
       await ctx.plugin(WorkspaceRegistry)
 
-      // Create after WorkspaceRegistry startup, so its header cache is cold.
+      // Created after WorkspaceRegistry startup: its header cache is cold.
       const created = await ctx.sessionPersistence.create({
         version: SESSION_FORMAT_VERSION, id: SessionId(SESSION_A),
         createdAt: 1000, cwd: root, isSeeded: false,

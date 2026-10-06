@@ -2,9 +2,9 @@
  * Sidebar entry and center panel through the shell's slots: one id registered
  * on `sidebar.panellist` (the shell draws the row, wide and rail) and on
  * `main` (the panel occupies the center column while the layout service has
- * it selected). dsh-ssh and the task board still take the center column over
- * by DOM and announce it on `dsh-panel-activate`; the panel yields to them
- * and closes them when it opens.
+ * it selected). dsh-ssh and the task board take the center column over by
+ * DOM and announce it on `dsh-panel-activate`; the panel yields to them and
+ * closes them when it opens.
  */
 import type { ComponentType } from 'react'
 

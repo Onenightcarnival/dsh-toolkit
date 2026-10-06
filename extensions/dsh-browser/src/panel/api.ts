@@ -169,11 +169,9 @@ export function connectPanel(): PanelApi {
         const entry = pending.get(msg.id)
         if (entry === undefined) return
         pending.delete(msg.id)
-        // The bridge relays the gateway's ServerResponse envelope verbatim
-        // ({ type, rpcId, result: { ok, value | error } }); unwrap the value
-        // so callers get the business payload, and surface business errors.
-        // Bridge-internal methods (bridge.session.purge) answer with a flat
-        // result instead of that envelope; hand it over untouched.
+        // Gateway methods answer with the ServerResponse envelope
+        // ({ type, rpcId, result: { ok, value | error } }), which is unwrapped;
+        // bridge-internal methods answer with a flat result, passed through.
         const envelope = msg.result as { result?: { ok?: boolean; value?: unknown; error?: RpcFailurePayload } } | undefined
         const business = typeof envelope?.result === 'object' && envelope.result !== null && 'ok' in envelope.result
           ? envelope.result
@@ -222,7 +220,7 @@ export function connectPanel(): PanelApi {
         for (const listener of tabAffinityListeners) listener(msg.state)
         break
       case 'selection': {
-        // The page owns this text; validate it again on the way into the UI.
+        // Page-authored text is re-validated here.
         const selection = parsePageSelection(msg.selection)
         for (const listener of selectionListeners) listener(selection)
         break
@@ -278,9 +276,7 @@ export function connectPanel(): PanelApi {
       if (port !== next) return
       port = null
       failAll(connectionError())
-      // Firefox event pages and extension reloads can invalidate a live Port.
-      // Reconnect once while the panel is still open; later sends share the
-      // same attempt instead of opening competing ports.
+      // A lost Port reconnects once; concurrent sends share the attempt.
       void ensurePort(150).catch(() => {})
     })
     return next

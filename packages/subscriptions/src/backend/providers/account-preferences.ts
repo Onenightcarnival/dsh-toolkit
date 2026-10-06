@@ -49,8 +49,7 @@ export class AccountPreferencesAdapter extends LlmAdapter {
       this.options.discoveryTimeoutMs ?? DISCOVERY_TIMEOUT_MS,
     )
     if (models !== undefined) return models
-    // Discovery timed out: the catalog this account listed last time beats
-    // "no models", which would fail the turn with "No eligible account".
+    // Discovery timed out: fall back to the account's last known catalog.
     return await this.options.adapter.lastKnownOwnModels?.(this.options.provider, account) ?? []
   }
   private async requireAccount(account: string, model: string, independent: boolean): Promise<void> {
@@ -81,8 +80,7 @@ export class AccountPreferencesAdapter extends LlmAdapter {
       if (property === 'streamAccount') return async function* (options: GenerateOptions, account: string) {
         let key: string
         try { key = await keyFor(account, options.model) } catch (cause) {
-          // Skip policy-excluded members without poisoning account health. The
-          // pool treats TRANSPORT as switch-without-cooldown; raw is never called.
+          // TRANSPORT: the pool switches members without a cooldown record.
           throw new LlmError('Pool member unavailable under account preferences', 'TRANSPORT', { cause })
         }
         yield* raw.streamAccount(options, key)

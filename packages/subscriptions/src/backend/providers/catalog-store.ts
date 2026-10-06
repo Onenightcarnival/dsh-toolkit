@@ -156,8 +156,7 @@ async function writeCatalogFile(store: CatalogFile, path: string): Promise<void>
 
 /**
  * Build the durable half of one provider's catalog cache over the shared
- * models.json file (concurrent writers are last-writer-wins, acceptable for
- * a cache).
+ * models.json file (concurrent writers are last-writer-wins).
  * @param provider - the provider route keying the file entry.
  * @param path - store file path; defaults to {@link modelsFilePath}.
  * @returns the persistence hooks for {@link ModelCatalogCache}.
@@ -184,8 +183,7 @@ export function catalogStore(provider: ProviderId, path = modelsFilePath()): Cat
 /**
  * The durable half of one NON-default account's catalog cache. The provider
  * entry belongs to the default account; every other account keeps its own
- * snapshot under `accounts[provider][account]`, so a working secondary login
- * survives restarts and network failures even when the default login is dead.
+ * snapshot under `accounts[provider][account]`.
  * @param provider - the provider route.
  * @param account - the canonical account key.
  * @param path - store file path; defaults to {@link modelsFilePath}.

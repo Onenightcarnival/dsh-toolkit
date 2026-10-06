@@ -1,11 +1,7 @@
 /**
- * Text extraction primitives for the text-only page snapshot: visibility,
- * accessible names, interactive inventory, main-content heuristic, and
- * truncation helpers.
- *
- * The snapshot is the model's entire view of the page (no screenshots), so
- * every helper is written to produce dense, model-usable text under a hard
- * character budget.
+ * Text extraction primitives for the page snapshot: visibility, accessible
+ * names, interactive inventory, main-content heuristic, and truncation
+ * helpers. Every helper produces dense text under a hard character budget.
  *
  * @module
  */
@@ -71,8 +67,8 @@ function clean(text: string): string {
  */
 function elementText(el: Element): string {
   const own = el instanceof HTMLElement && typeof el.innerText === 'string' ? el.innerText : el.textContent ?? ''
-  // innerText stops at shadow boundaries; append the text of open shadow
-  // trees beneath this element so component-rendered prose is not lost.
+  // innerText stops at shadow boundaries; open shadow trees beneath the
+  // element are appended.
   const shadowText: string[] = []
   for (const host of shadowHosts(el)) {
     const root = host.shadowRoot as ShadowRoot
@@ -127,8 +123,7 @@ export function accessibleName(el: Element): string {
     }
   }
 
-  // A select's text content is its option list, which is data rather than a
-  // name; fall through to its name/id like an input does.
+  // A select's text content is its option list, not a name.
   const ownText = el instanceof HTMLInputElement || el instanceof HTMLSelectElement ? '' : el.textContent
   if (ownText !== undefined && ownText.trim() !== '') return truncate(clean(ownText), MAX_ITEM_NAME_CHARS).text
 
@@ -139,8 +134,7 @@ export function accessibleName(el: Element): string {
 
   if (el instanceof HTMLInputElement) {
     // Button-like inputs carry their label in `value`; other inputs never use
-    // the current value as a name (it is data, not identity — and for
-    // password/credit fields it would leak the secret into the snapshot).
+    // the current value as a name.
     const buttonLike = el.type === 'submit' || el.type === 'button' || el.type === 'reset'
     if (buttonLike && el.value !== '') return truncate(clean(el.value), MAX_ITEM_NAME_CHARS).text
     if (el.placeholder !== '') return truncate(clean(el.placeholder), MAX_ITEM_NAME_CHARS).text
@@ -176,9 +170,7 @@ export function collectInteractive(root: Document | Element): Element[] {
 
 /**
  * `querySelectorAll` that also descends into open shadow roots, in composed
- * document order. Web-component sites (YouTube, Lit/Stencil apps, many admin
- * consoles) keep their buttons and fields inside shadow trees, which the plain
- * query never sees. Closed shadow roots stay opaque.
+ * document order. Closed shadow roots stay opaque.
  * @param root - document, element, or shadow root to scan.
  * @param selector - CSS selector applied within each tree.
  * @returns matches from the light tree and every open shadow tree beneath it.

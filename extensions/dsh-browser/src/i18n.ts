@@ -1,10 +1,7 @@
 /** Languages supported by the extension UI. */
 export type UiLocale = 'en' | 'zh'
 
-/**
- * Chinese browser locales use Chinese; every other locale deliberately falls
- * back to English so an untranslated third language never leaks into the UI.
- */
+/** Chinese browser locales map to `zh`; every other locale maps to `en`. */
 export function localeFromLanguage(language: string | null | undefined): UiLocale {
   const normalized = language?.trim().toLowerCase() ?? ''
   return normalized === 'zh' || normalized.startsWith('zh-') ? 'zh' : 'en'

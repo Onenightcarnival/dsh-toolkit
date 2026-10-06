@@ -3,8 +3,7 @@
  * authenticates with the bearer token, keeps the connection alive with
  * exponential-backoff reconnects, and answers protocol pings.
  *
- * The reconnect policy mirrors the dsh GUI's own ConnectionController: base
- * 500ms, ×2 per attempt, capped at 10s, jittered 0.5–1×.
+ * Reconnect policy: base 500ms, ×2 per attempt, capped at 10s, jittered 0.5–1×.
  *
  * @module
  */
@@ -123,9 +122,7 @@ export class BridgeClient {
 
       const socket = new WebSocket(this.url)
       this.ws = socket
-      // A replacement is an ownership handoff, not a transient transport
-      // failure. Yield permanently so two open profiles cannot reconnect in a
-      // tight loop and repeatedly evict one another.
+      // Close code 4000 (replaced) stops the loop permanently.
       socket.addEventListener('close', (event) => {
         if (event.code !== 4000 || this.ws !== socket || !this.running) return
         this.running = false

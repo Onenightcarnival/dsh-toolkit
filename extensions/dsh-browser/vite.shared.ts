@@ -11,8 +11,8 @@ import { defineConfig } from 'vite'
 
 /**
  * Build target: `chrome` (default) or `firefox` (set EXT_TARGET=firefox or
- * pass --firefox to scripts/build.mjs). Each target gets its own manifest and
- * output directory so both builds can coexist.
+ * pass --firefox to scripts/build.mjs). Each target has its own manifest and
+ * output directory.
  */
 export const browserTarget = process.env.EXT_TARGET === 'firefox' ? 'firefox' : 'chrome'
 export const targetManifest = browserTarget === 'firefox' ? 'manifest.firefox.json' : 'manifest.json'

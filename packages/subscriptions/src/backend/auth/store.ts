@@ -110,7 +110,7 @@ export function accountKeyOf(provider: ProviderId, session: StoredSession): stri
       const profile = claimObject(payload?.['https://api.openai.com/profile'])
       const email = nonEmpty(codex.emailAddress) ?? nonEmpty(payload?.email) ?? nonEmpty(profile?.email)
       if (user === undefined && email === undefined) return codex.accountId
-      // JSON tuple encoding avoids separator collisions and distinguishes IDs from emails.
+      // Key: JSON tuple of workspace id, kind (`user` | `email`) and identity.
       return JSON.stringify([codex.accountId, user === undefined ? 'email' : 'user', user ?? email!.toLowerCase()])
     }
   }
@@ -140,10 +140,8 @@ function resolveAccount(entry: ProviderAccounts<StoredSession>, key: string): st
 
 /**
  * Resolve a Codex reference that is neither a stored key nor a recorded alias:
- * a config `account` may name the login email (as the other providers' keys
- * do) or the bare workspace ID that keys stored before per-user keys. Only an
- * unambiguous match resolves; two users sharing the workspace stay apart, and
- * the reference is returned unchanged so the caller reports it as missing.
+ * a login email or a bare workspace ID. Only a unique match resolves;
+ * otherwise the reference is returned unchanged.
  */
 function resolveCodexReference(entry: ProviderAccounts<CodexSession>, reference: string): string {
   const wanted = reference.trim().toLowerCase()
@@ -172,7 +170,7 @@ export async function resolveAccountKey(
   return key
 }
 
-/** Migrate workspace-only keys once; retain collisions rather than discard credentials. */
+/** The lowercased login email of a Codex session, when known. */
 function codexEmail(session: CodexSession): string | undefined {
   const payload = typeof session.idToken === 'string' ? decodeJwtPayload(session.idToken) : undefined
   const profile = claimObject(payload?.['https://api.openai.com/profile'])
@@ -342,8 +340,7 @@ async function writeStore(store: SessionMap, path: string): Promise<void> {
   const tmp = `${path}.tmp-${process.pid}-${Math.random().toString(36).slice(2)}`
   try {
     await writeFile(tmp, JSON.stringify(store, null, 2), { mode: 0o600 })
-    // An existing destination keeps its old mode through rename on some
-    // filesystems; enforce 0600 on the source before the swap.
+    // The renamed file carries the temporary file's mode.
     await chmod(tmp, 0o600)
     await rename(tmp, path)
   } catch (error) {
@@ -353,14 +350,8 @@ async function writeStore(store: SessionMap, path: string): Promise<void> {
 }
 
 /**
- * One write chain per store path. Every mutation is a read-modify-write of a
- * single JSON file, and the plugin has several independent writers — a login,
- * a logout, and one token refresh per provider account, each on its own
- * schedule. Overlapping them unserialized costs whichever account read the
- * store first its entry.
- *
- * A chain is dropped once nothing is queued behind it, so the map holds an
- * entry only while writes are in flight.
+ * One write chain per store path serializes read-modify-write mutations.
+ * A chain is dropped once nothing is queued behind it.
  */
 const writeChains = new Map<string, Promise<unknown>>()
 
@@ -373,7 +364,7 @@ const writeChains = new Map<string, Promise<unknown>>()
  */
 async function serialize<T>(path: string, action: () => Promise<T>): Promise<T> {
   const previous = writeChains.get(path) ?? Promise.resolve()
-  // Both handlers: a failed write must not strand everything queued behind it.
+  // A failed write does not block the writes queued behind it.
   const next = previous.then(action, action)
   const tail = next.then(() => undefined, () => undefined)
   writeChains.set(path, tail)

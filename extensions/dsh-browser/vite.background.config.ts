@@ -2,8 +2,8 @@ import { browserTarget, copyManifest, outDir, targetBuild } from './vite.shared.
 
 /**
  * Background: Chrome loads an ES-module service worker (`"type": "module"`);
- * Firefox loads classic scripts in an event page, so the same entry is bundled
- * as an IIFE there. Keep the output filename identical (background.js).
+ * Firefox loads a classic event-page script, bundled as an IIFE. Both output
+ * background.js.
  */
 export default targetBuild(
   'src/background/index.ts',

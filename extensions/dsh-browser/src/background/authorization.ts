@@ -63,7 +63,7 @@ export function approvalPromptForCall(
       kind: 'action',
       action: call.name,
       summary: summarizeAction(call, locale),
-      // A new tab does not mutate the current page; only the destination matters.
+      // Origins: the destination only.
       origins: destination === undefined ? [] : [destination],
       canTrust: destination !== undefined,
     }
@@ -75,8 +75,7 @@ export function approvalPromptForCall(
   if (call.name === 'browser_navigate') {
     const destination = originFromUrl(typeof call.args.url === 'string' ? call.args.url : '')
     if (destination !== undefined && !origins.includes(destination)) origins.push(destination)
-    // Do not let an invalid, opaque, or cross-origin navigation become a
-    // back door for adding the current page to the persistent allowlist.
+    // Only a same-origin navigation to a valid destination is trustable.
     canTrust = destination !== undefined && origins.length === 1 && origins[0] === destination
   }
   return {
@@ -84,8 +83,7 @@ export function approvalPromptForCall(
     action: call.name,
     summary: summarizeAction(call, locale),
     origins,
-    // Cross-origin/invalid navigation and unknown history destinations always
-    // require a fresh decision; they must never expand trust implicitly.
+    // False for cross-origin or invalid navigation and for history moves.
     canTrust,
   }
 }

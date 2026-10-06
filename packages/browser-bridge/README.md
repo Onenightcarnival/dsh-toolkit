@@ -24,7 +24,7 @@ Browser control bridge between dsh and the Chrome / Firefox extension.
 | `deferSessionCreate` | `boolean` | `true` | Sessions materialize only on the first message: `session.create` answers with a provisional id (nothing persisted), history reads empty, and the first `session.prompt` creates the real session (same id, original payload). Opening the panel alone creates no stored session. |
 | `discoveryPort` | `number` | 43189 | Discovery beacon: a loopback listener that answers only `/ext/bridge-config` with this instance's bridge URL, for hosts on a random web port (DeepSeek Harness Desktop). Falls back through the next three ports when taken; `0` disables. |
 
-Workspace grouping is best-effort. If the composition has no workspace domain, directory creation fails, or `workspace.create` rejects the path, the plugin logs one warning and sends every session creation without an injected workspace with browser chat still available.
+When the composition has no workspace domain, directory creation fails, or `workspace.create` rejects the path, the plugin logs one warning and creates sessions without a workspace; browser chat stays available.
 
 ## Usage and permissions
 

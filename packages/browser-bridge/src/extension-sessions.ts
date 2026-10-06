@@ -1,7 +1,6 @@
 /**
  * Track session ids that the browser extension has driven through the bridge.
- * Desktop-native sessions must keep the host userQuestions waterfall so the
- * Desktop UI can render ask_user_question cards.
+ * Desktop-native sessions keep the host userQuestions waterfall.
  * @module @onenightcarnival/dsh-bridge-browser/src/extension-sessions
  */
 
@@ -26,8 +25,8 @@ export class ExtensionSessionRegistry {
 }
 
 /**
- * Decide whether the bridge should own ask_user_question for this request.
- * Desktop sessions must fall through to the native answerer waterfall.
+ * Whether the bridge owns ask_user_question for this request: true only for a
+ * session the extension has driven while an extension connection is active.
  */
 export function shouldBridgeOwnQuestion(input: {
   hasExtensionConnection: boolean

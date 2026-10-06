@@ -54,9 +54,8 @@ ctx.provide("storageDomain", {
   }
 });
 
-// sessions/llm stubs so the embedded collector's inject is satisfied. The
-// collector calls sessions.list() at apply time, so the call count proves the
-// inner plugin actually mounted rather than parking on unresolved inject.
+// sessions/llm stubs satisfy the embedded collector's inject. The collector
+// calls sessions.list() at apply time; the call count asserts that it mounted.
 let sessionsListCalls = 0;
 ctx.provide("sessions", { list: () => { sessionsListCalls += 1; return []; } });
 ctx.provide("llm", {});
@@ -92,11 +91,9 @@ assert.equal(saved.value.traceEndpoint, `${endpoint}/v1/traces`);
 await new Promise((resolve) => setTimeout(resolve, 200));
 assert.ok(sessionsListCalls >= 1, "embedded collector should have enumerated sessions on apply");
 
-// Drive one real conversation turn through the embedded collector: emit the
-// native DSH session events the coordinator subscribes to, then wait past
-// the 5s batch interval and assert the session trace reached the stub at the
-// SAME /v1/traces URL the panel test uses — the real-reporting URL and the
-// test URL are one code path.
+// Drive one conversation turn through the embedded collector: emit the native
+// DSH session events, wait past the 5s batch interval, and assert the session
+// trace reached the stub at the same /v1/traces URL as the panel test.
 {
   const before = posts.length;
   const sess = {

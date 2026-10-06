@@ -1,9 +1,8 @@
 /**
  * Host config store: one JSON file (`$DSH_HOME/dsh-s3.json`, defaulting to
  * `~/.dsh/dsh-s3.json`) holding the bucket profiles and the plugin switches,
- * written atomically (tmp + rename) with mode 0600. Secrets (AK/SK) live in
- * this user-owned file in plaintext — same trust model as dsh-ssh; document
- * it, never log it, never return it to the browser or the agent.
+ * written atomically (tmp + rename) with mode 0600. Secrets (AK/SK) are stored
+ * in plaintext; they are never logged or returned to the browser or the agent.
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
@@ -37,7 +36,7 @@ interface StoreFile {
 
 const DEFAULT_SETTINGS: S3Settings = { agentTools: false }
 
-/** Profile name grammar: something the agent can type unambiguously. */
+/** Profile name grammar: letter or digit first; letters, digits, spaces, dots, hyphens and underscores; 64 characters max. */
 const NAME_RE = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,63}$/u
 
 function str(value: unknown): string | undefined {
@@ -170,7 +169,7 @@ export class ProfileStore {
       endpoint: patch.endpoint ?? profile.endpoint,
       region: patch.region ?? profile.region,
       accessKeyId: patch.accessKeyId ?? profile.accessKeyId,
-      // An empty/absent secret on update keeps the stored one (the form never echoes it).
+      // An empty or absent secret keeps the stored one.
       secretAccessKey: patch.secretAccessKey !== undefined && patch.secretAccessKey !== '' ? patch.secretAccessKey : profile.secretAccessKey,
       pathStyle: patch.pathStyle ?? profile.pathStyle,
       prefix: patch.prefix ?? profile.prefix,
@@ -223,8 +222,7 @@ export class ProfileStore {
       this.cache = { mtimeMs: stats.mtimeMs, size: stats.size, file: parsed }
       return parsed
     } catch {
-      // A corrupt store must not brick the plugin, nor be silently
-      // overwritten: rename it aside for manual recovery.
+      // An unparsable store is renamed to `.corrupt-<timestamp>` and replaced by an empty store.
       this.cache = undefined
       try { renameSync(this.path, `${this.path}.corrupt-${Date.now()}`) } catch { /* best effort */ }
       return { version: FORMAT_VERSION, settings: { ...DEFAULT_SETTINGS }, profiles: [] }

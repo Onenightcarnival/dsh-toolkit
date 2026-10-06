@@ -1,9 +1,9 @@
 /**
  * Host config store: one JSON file (`$DSH_HOME/dsh-rdb.json`, defaulting to
  * `~/.dsh/dsh-rdb.json`) holding the connection profiles and the plugin
- * switches, written atomically (tmp + rename) with mode 0600. Passwords live
- * in this user-owned file in plaintext (same trust model as dsh-ssh); they
- * are never returned to the browser or the agent.
+ * switches, written atomically (tmp + rename) with mode 0600. Passwords are
+ * stored in this user-owned file in plaintext and are never returned to the
+ * browser or the agent.
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
@@ -248,7 +248,7 @@ export class ProfileStore {
       const parsed = JSON.parse(readFileSync(this.path, 'utf8')) as StoreFile
       if (typeof parsed !== 'object' || parsed === null || !Array.isArray(parsed.profiles)) throw new Error('store file shape invalid')
       parsed.settings = { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) }
-      // Fields added after 0.1.0 default in place for files written by older versions.
+      // Missing profile fields take their defaults.
       for (const p of parsed.profiles) {
         p.targetSessionAttrs = attrs(p.targetSessionAttrs)
         p.loadBalanceHosts = p.loadBalanceHosts === true

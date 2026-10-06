@@ -1,6 +1,6 @@
 /**
  * Wire contract shared by the host half (routes/tools) and the browser half
- * (panel). Keep this file dependency-free: the client bundle imports it.
+ * (panel). No imports; the client bundle includes this file.
  */
 
 /** Route family paths (exact). */
@@ -46,7 +46,7 @@ export interface S3ProfileSummary {
   bucket: string
   endpoint: string
   region: string
-  /** Masked access key (first 4 chars) so the user can tell keys apart. */
+  /** Masked access key: first 4 and last 2 characters. */
   accessKeyHint: string
   pathStyle: boolean
   prefix: string

@@ -1,16 +1,13 @@
 /**
  * Attaching a captured page selection to a prompt, and reading it back out.
  *
- * The quote is page-authored text, so it ships inside the same nonce-fenced
- * boundary as every snapshot — including its source title and URL, which a
- * hostile page also controls. The header line above the fence is the only
+ * The quote ships inside the nonce-fenced untrusted boundary together with
+ * its source title and URL; the header line above the fence is the only
  * extension-authored part.
  *
- * The composed text is what the transcript stores, so the panel parses its own
- * format back into a quote card. Parsing survives a session resume, where the
- * only record of the attachment is the message itself. Every field the parser
- * reads is a labelled header line above the quote, so page text can never be
- * mistaken for metadata by ending with the right sentence.
+ * The composed text is what the transcript stores; the panel parses it back
+ * into a quote card, including after a session resume. Every parsed field is
+ * a labelled header line above the quote.
  *
  * @module
  */
@@ -25,7 +22,7 @@ const TRUNCATED_LABEL = 'Truncated: '
 const TEXT_LABEL = 'Selected text:'
 const TRUNCATED_NOTE = 'yes (the highlight was longer than the capture limit and was cut)'
 const OPEN_PREFIX = '<UNTRUSTED_PAGE_CONTENT nonce="'
-/** Generous ceiling: a capture is already bounded well below the boundary cost. */
+/** Ceiling for one composed selection block. */
 const SELECTION_BLOCK_MAX_CHARS = 8_000
 
 /** The attachment recovered from a stored message, for the quote card. */
@@ -78,8 +75,7 @@ export function splitSelectionMessage(text: string): { selection: AttachedSelect
     || truncatedLine?.startsWith(TRUNCATED_LABEL) !== true
     || textLine !== TEXT_LABEL) return null
 
-  // Everything after the last header line is quote, so page text cannot be
-  // read as metadata however it happens to end.
+  // Everything after the last header line is quote.
   return {
     selection: {
       title: titleLine.slice(TITLE_LABEL.length),

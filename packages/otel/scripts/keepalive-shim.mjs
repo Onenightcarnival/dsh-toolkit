@@ -1,8 +1,6 @@
 /**
- * esbuild plugin: every importer except the shims themselves gets the
- * keep-alive-off OTLP exporters from src/otlp-shims/ in place of the proto
- * exporters, so the embedded collector and the test exporter share one
- * transport behaviour.
+ * esbuild plugin: resolves the OTLP proto exporter imports to the keep-alive-off
+ * shims in src/otlp-shims/ for every importer outside that directory.
  */
 import { fileURLToPath } from "node:url";
 

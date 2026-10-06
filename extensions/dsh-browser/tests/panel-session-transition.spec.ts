@@ -178,8 +178,8 @@ describe('panel session transitions', () => {
     expect(panelApi.setActiveSession).toHaveBeenLastCalledWith('session-saved')
     expect(document.querySelector('.row.assistant')).toBeNull()
 
-    // The old follower stops on switch; only the next history RPC reports what
-    // settled while this session was inactive, before any fresh stream opening.
+    // The old follower stops on switch; the next history RPC reports what
+    // settled while this session was inactive.
     await selectSession(0)
     expect(panelApi.setActiveSession).toHaveBeenLastCalledWith('session-current')
     expect(currentHistoryReads).toBe(2)

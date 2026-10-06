@@ -55,8 +55,7 @@ export class AssistantStreamView {
         if (!isIndex(record.index) || !Array.isArray(members) || members.length === 0
           || members.some(member => typeof member !== 'string') || !Array.isArray(record.dt)
           || record.dt.length !== members.length - 1) return 'rebaseline'
-        // Rendering needs one joined delta; the dense index still counts every
-        // original member, including reasoning and tool arguments we don't show.
+        // Members join into one delta; the dense index counts every original member.
         if (record.type !== 'tool-call-chunks') {
           pushChunk(attempt, {
             type: record.type === 'text-chunks' ? 'text-delta' : 'reasoning-delta',
@@ -85,8 +84,7 @@ export class AssistantStreamView {
       return 'changed'
     }
     const attempt = this.active
-    // A Host controller mounted in the middle of an attempt has no reconstructible
-    // prefix. Its eventual durable message is still rendered normally.
+    // Chunks for an unknown attempt are ignored; the durable message still renders.
     if (attempt === undefined || value.attemptId !== attempt.id) return 'ignored'
     if (!isIndex(value.index) || value.index !== attempt.nextIndex) return this.rebaseline()
     if (value.type === 'chunk') {

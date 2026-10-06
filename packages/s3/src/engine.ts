@@ -1,8 +1,7 @@
 /**
  * S3 engine: one thin layer over @aws-sdk/client-s3 shared by the routes and
- * the agent tools. Every key that crosses this boundary is RELATIVE to the
- * profile's prefix; the engine maps to/from full bucket keys itself, so the
- * browser and the agent never see (or escape) the scoped prefix.
+ * the agent tools. Every key that crosses this boundary is relative to the
+ * profile prefix; the engine maps to and from full bucket keys.
  */
 
 import { createReadStream, createWriteStream, mkdirSync, statSync } from 'node:fs'
@@ -30,7 +29,7 @@ export const MAX_PAGE = 1000
 /** Upper bound for text reads served to the browser / the agent. */
 export const MAX_TEXT_BYTES = 2 * 1024 * 1024
 
-/** Small extension → MIME map so uploads carry a sensible Content-Type. */
+/** Extension → Content-Type map for uploads and downloads without a stored type. */
 const MIME: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.csv': 'text/csv; charset=utf-8',
   '.json': 'application/json', '.yml': 'application/yaml', '.yaml': 'application/yaml', '.xml': 'application/xml',
@@ -125,9 +124,7 @@ export class S3Engine {
       ...(profile.endpoint !== '' ? { endpoint: profile.endpoint } : {}),
       forcePathStyle: profile.pathStyle,
       credentials: { accessKeyId: profile.accessKeyId, secretAccessKey: profile.secretAccessKey },
-      // Default SDK integrity checksums (CRC32 headers on every PUT/DELETE)
-      // break many S3-compatible services; only send them where the API
-      // requires one.
+      // Checksums only where the S3 API requires them (S3-compatible service contract).
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',
       maxAttempts: 3,
@@ -338,8 +335,7 @@ export class S3Engine {
         deleted += batch.length - (out.Errors?.length ?? 0)
         for (const e of out.Errors ?? []) errors.push({ key: this.rel(profile, e.Key ?? ''), error: `${e.Code ?? ''} ${e.Message ?? ''}`.trim() })
       } catch (error) {
-        // Some S3-compatible services lack multi-object delete (or reject
-        // its checksum header): fall back to one request per key.
+        // Fallback when multi-object delete fails: one request per key.
         const first = errorText(error)
         for (const Key of batch) {
           try {
@@ -354,7 +350,7 @@ export class S3Engine {
     return { deleted, errors }
   }
 
-  /** Server-side copy (optionally deleting the source). Objects above 5 GiB need multipart copy and fail here. */
+  /** Server-side copy (optionally deleting the source). Objects above 5 GiB are not supported. */
   async copy(idOrName: string, from: string, to: string, move = false): Promise<void> {
     const profile = this.profile(idOrName)
     const source = this.full(profile, from)

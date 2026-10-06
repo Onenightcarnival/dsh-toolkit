@@ -438,8 +438,8 @@ describe('dsh 0.2.0 Remote Host adapter', () => {
           async *[Symbol.asyncIterator]() {
             try {
               yield { type: 'snapshot', cursor: -1, records: [], hasMore: false }
-              // Deliberately ignore abort while this read is pending: some
-              // iterators can still release one buffered frame after abort.
+              // Abort is ignored while this read is pending: the fixture
+              // releases one buffered frame after abort.
               await (stale ? staleGate : freshGate)
               yield {
                 type: 'event',

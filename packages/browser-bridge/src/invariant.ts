@@ -15,10 +15,8 @@ export const name = 'bridge-browser-invariant'
 export const inject = ['invariants']
 
 /**
- * No runtime invariant: the bridge's connection registry and pending tool map
- * are instance-private (no published event stream to assert against), and the
- * wire contract is pinned by protocol.ts and covered by its unit tests. The
- * tools are plain ctx.tools registrations observed by dsh-tools' own
+ * Installs no runtime invariant. The wire contract is verified by the
+ * `protocol.ts` unit tests; tool registrations are observed by the dsh-tools
  * invariant.
  */
 const install: InvariantInstaller = () => {}

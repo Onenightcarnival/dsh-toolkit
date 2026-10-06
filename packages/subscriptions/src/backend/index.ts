@@ -98,7 +98,7 @@ export const inject = ['llm']
 /** Default maximum provider idle time while one stream read is outstanding. */
 export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000
 
-/** Bound on one pool quota poll — member selection must not hang on a usage endpoint. */
+/** Bound on one pool quota poll. */
 export const POOL_USAGE_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS
 export { withTimeout } from './providers/common.js'
 
@@ -191,8 +191,7 @@ const DEFAULT_MODELS: Record<ProviderId, ModelEntry[]> = {
 
 /** Validate and detach the model catalog for every provider. */
 function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry[]> {  const resolve = (provider: ProviderId): ModelEntry[] => {
-    // Schemastery injects `[]` for omitted array fields, so an empty list
-    // cannot be told apart from an absent one: both mean the built-ins.
+    // Empty and absent lists both select the built-in catalog (schemastery injects `[]` for omitted arrays).
     const configured = models?.[provider]
     const entries = configured !== undefined && configured.length > 0 ? configured : DEFAULT_MODELS[provider]
     return validateModels(entries, `${name}: models.${provider}`)
@@ -212,8 +211,7 @@ function accountOf(provider: ProviderId, session: StoredSession | undefined): st
     case 'antigravity': return (session as AntigravitySession).account ?? (session as AntigravitySession).projectId
     case 'codex': {
       const codex = session as CodexSession
-      // Sessions stored before identity claims were persisted still carry the
-      // id token: decode the email on the fly instead of forcing a re-login.
+      // Sessions without persisted identity claims decode the email from the id token.
       return codex.emailAddress ?? codexProfileClaims(codex.idToken).emailAddress ?? codex.accountId
     }
   }
@@ -262,16 +260,10 @@ export class SubscriptionsAuthController implements AuthController {
   private completions = new Map<ProviderId, Promise<void>>()
 
   /**
-   * Per-provider claim counter. Everything that takes ownership of a
-   * provider's session — starting a login,
-   * cancelling, logging out — bumps it, and a session write carrying an older
-   * number has been superseded and is dropped.
-   *
-   * The counter is what makes a late OAuth completion safe: an attempt leaves
-   * `OAuthFlowManager`'s pending map the moment its callback delivers the
-   * code, while the token exchange that follows can still run for seconds. For
-   * that whole window `pending(provider)?.cancel()` is a no-op, so ownership
-   * cannot be read off the flow manager.
+   * Per-provider claim counter. Starting a login, cancelling and logging out
+   * each take a new claim; a session write carrying an older claim is dropped.
+   * An attempt leaves the flow manager's pending map when its code arrives
+   * while its token exchange may still run; the claim covers that window.
    */
   private claims = new Map<ProviderId, number>()
 
@@ -303,7 +295,7 @@ export class SubscriptionsAuthController implements AuthController {
 
   async status(provider: ProviderId): Promise<ProviderStatus> {
     const entries = await listAccounts(provider)
-    // The plan name is shown by the usage section, so `detail` only carries errors.
+    // `detail` carries only errors.
     const detail = this.lastError.get(provider)
     const clientVersion = await this.clientVersions[provider]?.()
     return {
@@ -337,8 +329,7 @@ export class SubscriptionsAuthController implements AuthController {
     if (registration && previous && !chatGptPlanEnabled(previous)) registration.planEnabled = false
     const attempt = await this.flows.start(provider, registration ? chatGptFlow(registration, previous?.idToken) : oauth ? antigravityFlow(oauth) : codexFlow)
     if (registration) this.registrations.set(attempt, registration)
-    // Claimed only once the attempt exists: a rejected `start()` (one attempt
-    // per provider) must not supersede the attempt already running.
+    // The claim is taken after `start()` succeeds; a rejected start leaves the running attempt's claim intact.
     this.beginFinalizing(provider)
     this.completions.set(provider, this.complete(provider, attempt, this.claim(provider)))
     return { authorizeUrl: attempt.authorizeUrl, manualOnly: attempt.manualOnly }
@@ -357,19 +348,15 @@ export class SubscriptionsAuthController implements AuthController {
 
   /**
    * Drive one attempt to a stored session; records failures for the status
-   * endpoint. The exchange runs unsupervised — the attempt is gone from the
-   * flow manager as soon as its code arrives — so the result is stored only
-   * while `claim` still owns the provider's session.
+   * endpoint. The result is stored only while `claim` still owns the
+   * provider's session.
    */
   private async complete(provider: ProviderId, attempt: OAuthAttempt, claim: number): Promise<void> {
     try {
       const code = await attempt.waitCode()
       const session = await this.exchange(provider, code, attempt)
-      // Whoever claimed the session while the exchange ran owns it now, and
-      // this result is stale. The check and the store call sit in one
-      // synchronous stretch, and the store queues a write the moment it is
-      // called, so a claim arriving after the check is ordered after this
-      // write too.
+      // A superseded claim drops the result. The check and the store call run
+      // in one synchronous stretch; the store queues its write synchronously.
       if (this.claims.get(provider) !== claim) return
       if (provider === 'chatgpt') {
         await withChatGptLock('sessions', async () => {
@@ -380,10 +367,7 @@ export class SubscriptionsAuthController implements AuthController {
       this.lastError.delete(provider)
       this.onAuthChanged(provider, accountKeyOf(provider, session))
     } catch (error) {
-      // A failure is as stale as a success would have been: whoever claimed
-      // the session while the exchange ran owns what the card shows, so a
-      // superseded attempt must not put an error on a provider that has since
-      // been logged in again or logged out.
+      // A superseded claim drops the failure as well.
       if (this.claims.get(provider) !== claim) return
       if (error instanceof ChatGptPlanNotEnabledError) {
         await withChatGptLock('sessions', async () => {
@@ -392,10 +376,7 @@ export class SubscriptionsAuthController implements AuthController {
         if (this.claims.get(provider) !== claim) return
         this.onAuthChanged('chatgpt', error.clientId)
       }
-      // A user-cancelled attempt is not a failure worth surfacing. Every
-      // in-tree canceller claims first, so the guard above already covers
-      // this; the check stands on its own so the invariant does not depend on
-      // callers ordering the two.
+      // Cancellation is not surfaced as a failure.
       if (!(error instanceof Error && error.message === 'login cancelled')) {
         this.lastError.set(provider, errorChain(error))
       }
@@ -438,8 +419,7 @@ export class SubscriptionsAuthController implements AuthController {
   }
 
   cancel(provider: ProviderId): Promise<void> {
-    // Claiming covers the attempt whose code already arrived: it is no longer
-    // pending, but its token exchange may still be on its way to a store write.
+    // The claim also supersedes an attempt whose token exchange is still running.
     this.claim(provider)
     this.flows.pending(provider)?.cancel()
     return Promise.resolve()
@@ -496,9 +476,6 @@ export function presentedVersion(
 }
 
 export function apply(ctx: Context, config: Config): void {
-  // Outbound requests (catalog discovery, the npm version lookup, token
-  // refresh) must survive links where one TCP handshake exceeds Node's 250ms
-  // Happy Eyeballs attempt budget; see MIN_CONNECT_ATTEMPT_TIMEOUT_MS.
   const previousAttemptTimeout = ensureConnectAttemptTimeout()
   ctx.effect(() => () => { restoreConnectAttemptTimeout(previousAttemptTimeout) }, 'dsh-plugin-subscriptions: connect attempt timeout')
   const preferences = new ProviderSettingsStore()
@@ -510,9 +487,7 @@ export function apply(ctx: Context, config: Config): void {
   }
   const rateLimit = resolveRateLimitWait(config.rateLimit, `${name}: rateLimit`)
   const catalog = resolveCatalog(config.models)
-  // A non-empty configured catalog is an explicit override: it wins over live
-  // discovery entirely (schemastery injects [] for omitted arrays, so only a
-  // non-empty list counts as configured).
+  // A non-empty configured catalog disables live discovery for that provider.
   const overridden = new Set<ProviderId>(
     PROVIDER_IDS.filter(provider => (config.models?.[provider]?.length ?? 0) > 0),
   )
@@ -520,23 +495,17 @@ export function apply(ctx: Context, config: Config): void {
   const onWarn = (message: string): void => {
     ctx.logger.warn(`dsh-plugin-subscriptions: ${message}`)
   }
-  // Optional: resolves ImageBlock references to bytes for vision-capable
-  // models. Resolved per request — the attachments service may start after
-  // this plugin's apply, so a one-time capture would stay undefined forever.
+  // Resolved per request: the attachments service may start after this plugin.
   const resolveAttachments = (): AttachmentStore | undefined =>
     ctx.get('attachments') as AttachmentStore | undefined
 
-  // Registration handles are kept so an auth-state change can re-announce the
-  // route (`replace` fires `llm/adapters-updated`), which makes the web model
-  // picker re-query `listModels` and show/hide the provider.
+  // Registration handles: `replace` fires `llm/adapters-updated`, and the model picker re-queries `listModels`.
   const handles = new Map<string, AdapterRegistrationHandle>()
   // The constructed adapters, for the pool route to fail over between.
   const adapters = new Map<ProviderId, AccountAwareAdapter>()
   // Per-provider account token managers; also the pool's account lists.
   const accountTokens = new Map<ProviderId, AccountTokenManager<StoredSession>>()
-  // Pool state, assigned when the pool route registers below; read here so an
-  // auth change immediately recovers the account's cooling members and
-  // refreshes its quota snapshot.
+  // Pool state, assigned when the pool route registers below.
   let poolHealth: PoolHealthRegistry | undefined
   let poolUsage: PoolUsageTracker | undefined
   let poolAdapter: PoolAdapter | undefined
@@ -550,24 +519,17 @@ export function apply(ctx: Context, config: Config): void {
     poolHealth?.clear(provider, account)
     poolUsage?.invalidate(provider, account)
     poolAdapter?.invalidate()
-    // Pool membership follows the accounts: re-announce every route so the
-    // picker re-queries (the changed provider's own catalog may shift too).
+    // Re-announce every route; pool membership follows the accounts.
     for (const [route, handle] of handles) handle.replace([route])
   }
-  // Per-model default effort overrides: start the load so the adapters'
-  // synchronous `defaultEffortOf` callbacks see the persisted state as soon
-  // as the model picker resolves; a load failure leaves the overrides empty.
+  // Model default overrides load in the background; a load failure leaves them empty.
   void loadModelDefaults()
-  // Token managers double as the tools' credential source, so they are
-  // captured beside the registrations for the inject block below.
+  // Token managers are also the tools' credential source.
   let codexTokens: AccountTokenManager<CodexSession> | undefined
   let antigravityTokens: AccountTokenManager<AntigravitySession> | undefined
-  // Usage lookups resolve the session through the refresh-aware path, so an
-  // expired access token renews instead of failing the lookup.
+  // Usage lookups resolve the session through the refresh-aware path.
   const usageFetchers: UsageFetchers = {}
-  // The composer Speed toggle's state: per-session, in-memory (a restart
-  // restores standard routing), gated per request on the model's discovered
-  // fast-tier support so a stale choice cannot leak onto a plain model.
+  // Speed toggle state: per session, in memory; each request checks the model's discovered fast-tier support.
   const speedBySession = new Map<string, SpeedTier>()
   let codexAdapter: CodexAdapter | undefined
   let antigravityAdapter: AntigravityAdapter | undefined
@@ -653,8 +615,7 @@ export function apply(ctx: Context, config: Config): void {
           discovery: !overridden.has('codex'),
           onWarn,
           resolveAttachments,
-          // Durable catalog: capability metadata (reasoning efforts) survives
-          // restarts, so a resumed session's selected effort keeps resolving.
+          // Durable catalog: capability metadata survives restarts.
           catalogStore: catalogStore('codex'),
           accountCatalogStore: account => accountCatalogStore('codex', account),
           defaultEffortOf: (model: string) => defaultEffortOf('codex', model),
@@ -673,16 +634,12 @@ export function apply(ctx: Context, config: Config): void {
     }
   }
 
-  // Same-subscription account pools: a catalog model with ≥2 accounts of
-  // that provider is served through the pool (same id, same picker group).
-  // Configured tiers are extra picker rows. Built whenever enabled; a
-  // provider with fewer than two accounts simply has nothing to pool.
+  // Account pools: a catalog model listed by ≥2 accounts of one provider is
+  // served through the pool under the same id. Configured tiers are extra picker rows.
   const poolConfig = config.pool
   const autoAccounts = poolConfig?.autoAccounts ?? poolConfig?.autoFamilies ?? true
   if (poolConfig?.enabled !== false && adapters.size >= 1) {
-    // Every poll gets a hard timeout: a cold usage cache AWAITS the first
-    // fetch during member selection, and a hanging usage endpoint must
-    // degrade the strategy (zero urgency), not stall the user's request.
+    // Every usage poll has a hard timeout; a timed-out poll scores zero urgency.
     const fetcherFor = (provider: ProviderId, account: string): (() => Promise<ProviderUsage>) | undefined => {
       switch (provider) {
         case 'antigravity': return () => usageFetchers.antigravity!(account, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
@@ -698,9 +655,7 @@ export function apply(ctx: Context, config: Config): void {
     const families = async (): Promise<Map<string, PoolDefinition>> => {
       const pools = new Map<string, PoolDefinition>()
       if (autoAccounts) {
-        // Discover each account's catalog separately: a model only pools the
-        // accounts that actually list it (Plus is not asked to serve Pro-only
-        // models). A hang or discovery failure sits that account out.
+        // Per-account discovery: a model pools only the accounts that list it; a hang or failure excludes that account.
         const sources: Parameters<typeof buildAccountPools>[0] = {}
         await Promise.all([...adapters].map(async ([provider, adapter]) => {
           try {
@@ -776,10 +731,7 @@ export function apply(ctx: Context, config: Config): void {
       else speedBySession.set(sessionId, tier)
     },
   }
-  // Per-model default effort overrides (the Settings page's model pickers).
-  // The catalog re-reads the live model info per model — same source as the
-  // session model picker, so the offered effort levels match the picker
-  // exactly, and the configured default merges in through the adapters.
+  // Model default-effort catalog: effort levels come from the live model info, the same source as the session model picker.
   const modelDefaults: ModelDefaultsController = {
     async catalog(force = false): Promise<ModelDefaultsCatalog[]> {
       if (force) {
@@ -799,17 +751,13 @@ export function apply(ctx: Context, config: Config): void {
         } catch {
           continue // provider unregistered or catalog unavailable; leave it out
         }
-        // Configured tier rows resolve through the pool, which intersects its
-        // members' own capabilities and never consults defaultEffortOf for the
-        // tier id — an override on one would save cleanly and do nothing. Leave
-        // them out rather than offer a control that cannot take effect.
+        // Configured tier rows are excluded: the pool resolves them from member capabilities and ignores defaultEffortOf.
         let tierIds: ReadonlySet<string> = new Set()
         try {
           const tiers = await poolAdapter?.modelsForProvider(provider)
           if (tiers !== undefined) tierIds = new Set(tiers.map(tier => tier.id))
         } catch {
-          // A pool that cannot enumerate leaves every row listed; the worst
-          // case is the pre-existing behaviour, not a missing card.
+          // A pool that cannot enumerate leaves every row listed.
         }
         const views: ModelDefaultView[] = []
         for (const model of models) {
@@ -821,8 +769,6 @@ export function apply(ctx: Context, config: Config): void {
             continue // one broken entry must not hide the rest
           }
           if (info === undefined) continue
-          // `defaultEffortOf` rather than a bare index: model ids are catalog
-          // data, and an id like `toString` would otherwise inherit a function.
           const override = defaultEffortOf(provider, model.id)
           views.push({
             id: model.id,
@@ -836,18 +782,13 @@ export function apply(ctx: Context, config: Config): void {
       return catalog
     },
     async set(provider, model, effort) {
-      // Garbage in, garbage out: accept only levels the model's own catalog
-      // actually advertises (clearing with `undefined` always passes). A value
-      // from elsewhere — a hand-edited store file — would otherwise ride on
-      // every request and 400. An unknown effort fails the save instead of
-      // silently saving something unusable.
+      // Only efforts the model's catalog advertises are accepted; clearing with `undefined` always passes.
       if (effort !== undefined) {
         let info: LlmResolvedModelInfo | undefined
         try {
           info = await ctx.llm.resolveModelInfo(provider, model)
         } catch {
-          // Fall through when the catalog is unavailable: rejecting the save
-          // here would make every write fail during an outage.
+          // An unavailable catalog does not reject the save.
         }
         const offered = info?.reasoning?.efforts ?? []
         if (offered.length > 0 && !offered.some(entry => entry.id === effort)) {
@@ -855,8 +796,7 @@ export function apply(ctx: Context, config: Config): void {
         }
       }
       await setDefaultEffort(provider, model, effort)
-      // Re-announce the route so the model picker re-queries `listModels` and
-      // reflects the new default immediately (same path as auth changes).
+      // Re-announce the route so the model picker re-queries `listModels`.
       handles.get(provider)?.replace([provider])
     },
   }

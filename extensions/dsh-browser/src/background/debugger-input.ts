@@ -1,12 +1,10 @@
 /**
  * Trusted input through `chrome.debugger` (Chrome DevTools Protocol).
  *
- * Synthetic DOM events carry `isTrusted: false`: Tab does not move focus,
- * arrow keys do not walk menus, and canvas apps ignore them entirely. CDP's
- * `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` produce the same
- * events a real mouse and keyboard would. The cost is Chrome's "started
- * debugging this browser" bar while a tab is attached, so this path is opt-in
- * (the "trusted input" setting, which also requests the optional permission).
+ * CDP `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` produce trusted
+ * events: Tab moves focus, arrow keys walk menus, canvas apps receive input.
+ * Chrome shows its debugging bar while a tab is attached. The path is opt-in
+ * through the "trusted input" setting.
  *
  * The attachment is per tab and lazy; it is released when the setting is
  * turned off, when the tab closes, or when Chrome detaches it (DevTools
@@ -119,7 +117,7 @@ interface KeyDescriptor {
   text?: string
 }
 
-/** DOM key name → CDP key descriptor for the keys agents actually press. */
+/** DOM key name → CDP key descriptor for non-printable keys. */
 const SPECIAL_KEYS: Record<string, KeyDescriptor> = {
   Enter: { key: 'Enter', code: 'Enter', keyCode: 13, text: '\r' },
   Tab: { key: 'Tab', code: 'Tab', keyCode: 9 },

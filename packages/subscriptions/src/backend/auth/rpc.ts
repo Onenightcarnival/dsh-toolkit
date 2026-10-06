@@ -25,10 +25,7 @@ import type { CliVersion } from '../providers/npm-cli-version.js'
  */
 export const SUBSCRIPTIONS_AUTH_PREFIX = 'subscriptions-auth.'
 
-/**
- * Every endpoint {@link dispatch} answers; each gets one exact Fetch route.
- * Kept in one place so the route table and the switch cannot drift apart.
- */
+/** Every endpoint {@link dispatch} answers; each gets one exact Fetch route. */
 export const SUBSCRIPTIONS_AUTH_ENDPOINTS = [
   'providerSettings', 'setProviderSettings',
   'status', 'login', 'manual', 'cancel', 'logout', 'setDefault', 'usage',
@@ -173,8 +170,7 @@ export interface AuthController {
   /**
    * Current subscription usage of one account.
    * @param signal - caller cancellation from the RPC transport.
-   * @param force - bypass a fresh cached snapshot for an honest re-check
-   *   (the manual Refresh button); a live failure cooldown still applies.
+   * @param force - bypass a fresh cached snapshot; a failure cooldown still applies.
    * @returns `{ supported: false }` when the provider has no usage endpoint.
    * @throws when logged out or the usage lookup fails.
    */
@@ -189,7 +185,7 @@ export interface AuthController {
   readImage(ref: ImageAttachmentRef, signal: AbortSignal): Promise<ImageBytesResult>
 }
 
-/** Payload carried no usable provider id — an RPC client bug, not a server failure. */
+/** Invalid request payload or unavailable endpoint; answered with code `bad-request`. */
 export class BadRequest extends Error {}
 
 /**
@@ -199,7 +195,7 @@ export class BadRequest extends Error {}
 interface FetchRouteCompat {
   readonly path: string
   readonly methods: readonly ('GET' | 'HEAD' | 'POST')[]
-  /** Buffered: the bridge aggregates the JSON body before `fetch` runs (0.1.5+; ignored earlier). */
+  /** Buffered: the bridge aggregates the JSON body before `fetch` runs. */
   readonly requestBody: 'buffered'
   readonly fetch: (request: Request) => Promise<Response>
 }
@@ -276,7 +272,6 @@ function ok(value: unknown): RpcResult<unknown> {
 function failure(error: unknown): RpcResult<unknown> {
   const message = error instanceof Error ? error.message : String(error)
   if (error instanceof BadRequest) {
-    // The issues array is zod-shaped upstream; this channel validates by hand.
     return { ok: false, error: { code: 'bad-request', message, details: { issues: [] } } }
   }
   return { ok: false, error: { code: 'internal', message, details: {} } }
@@ -473,9 +468,7 @@ async function dispatch(
       return ok({ ok: true })
     }
     case 'status': {
-      // One provider's failure (a corrupt store entry, a broken flow) must not
-      // blind the whole page: it degrades to an error detail on that provider
-      // while the others still report their real status.
+      // One provider's failure degrades to its `detail`; the others report normally.
       const entries = await Promise.all(PROVIDER_IDS.map(
         async provider => [provider, await controller.status(provider).catch((error: unknown) => ({
           busy: false,
@@ -559,18 +552,10 @@ export function registerAuthRpc(
   modelDefaults: ModelDefaultsController | undefined = undefined,
   providerSettings: ProviderSettingsController | undefined = undefined,
 ): void {
-  // `connection` is not in this plugin's inject list (headless compositions
-  // lack it), so its startup order is unconstrained: defer registration until
-  // the service exists instead of probing once at apply time.
-  //
-  // Exact Fetch routes under `/api` rather than a dedicated `rpc.handle`
-  // channel: since dsh 0.1.5 the connection plugin no longer injects
-  // `webServer` itself, and `rpc.handle` resolves `webServer` through the
-  // connection plugin's own fiber, so every dedicated channel registration
-  // throws `cannot get property "webServer" without inject`. The `/api`
-  // route is mounted by the connection plugin (with its own webServer scope)
-  // and applies the same trust fence and browser authentication, so exact
-  // routes below it work on both dsh lines.
+  // `connection` is not in the inject list (headless compositions lack it);
+  // registration waits until the service exists. Endpoints are exact Fetch
+  // routes under `/api`, which the connection plugin mounts with its trust
+  // fence and browser authentication.
   ctx.inject(['connection'], (ctx) => {
     const connection = ctx.get('connection') as HostConnectionHandle
     const handler: AuthRpcHandler = async (endpoint, payload, signal) => {

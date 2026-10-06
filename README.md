@@ -93,7 +93,7 @@ pnpm --filter dsh-browser-extension run build:firefox
 | Item | Contract |
 |---|---|
 | Host dependencies | dsh provides `@deepseek-ai/*`; package build configurations select other dependencies for inlining |
-| Subscription authentication | `@cortexkit/antigravity-auth-core` remains a runtime dependency of subscriptions and toolkit |
+| Subscription authentication | `@cortexkit/antigravity-auth-core` is a runtime dependency of subscriptions and toolkit |
 | Integrated package | Bundles the seven packages' sources directly; typechecking covers the same sources |
 | Runtime versions | Pinned through `pnpm-workspace.yaml` overrides |
 
@@ -103,7 +103,7 @@ pnpm --filter dsh-browser-extension run build:firefox
 2. Start `dsh web --no-open --port 0` and exchange the ready log's token URL for a cookie. Each token permits one exchange.
 3. Use the cookie to check `/api/dsh-toolkit/modules`, `/api/dsh-rdb/profiles`, `/api/dsh-s3/profiles`, `/api/dsh-config-center/mcp` and `/ext/bridge-config`.
 
-pnpm caches same-version `file:` packages in its store. Repeat validation requires `plugin remove` before reinstallation.
+Same-version `file:` packages install from the pnpm store cache; repeat validation requires `plugin remove` before reinstallation.
 
 ## Release
 

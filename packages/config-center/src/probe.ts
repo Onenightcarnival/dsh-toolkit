@@ -15,7 +15,7 @@ import { DEFAULT_STDIO_TIMEOUT_SECONDS } from './protocol.ts'
 
 const PROTOCOL_VERSION = '2025-03-26'
 const CLIENT_INFO = { name: 'dsh-config-center', version: '1' }
-/** `npx -y` and `uvx` download on first run. */
+/** Default stdio test budget, including first-run package downloads. */
 export const STDIO_TIMEOUT_MS = DEFAULT_STDIO_TIMEOUT_SECONDS * 1000
 export const HTTP_TIMEOUT_MS = 8_000
 const STDERR_TAIL = 600
@@ -113,7 +113,7 @@ function testStdio(server: McpServer, timeoutMs: number): Promise<McpTestResult>
         buffer = buffer.slice(end + 1)
         if (line === '') continue
         let message: RpcMessage
-        // Servers may print log lines before speaking JSON-RPC.
+        // Non-JSON lines (server logs) are skipped.
         try { message = JSON.parse(line) as RpcMessage } catch { continue }
         if (message.id === 1 && message.result !== undefined) {
           label = serverLabel(message)

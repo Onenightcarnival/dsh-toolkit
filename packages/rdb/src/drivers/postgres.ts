@@ -147,7 +147,7 @@ export class PgConnection implements DbConnection {
   insertDefaults(target: string): string { return `INSERT INTO ${target} DEFAULT VALUES` }
   literal(value: unknown): string { return sqlLiteral(value) }
 
-  /** Statements from concurrent GUI requests run one at a time so the timeout SET/RESET pair stays scoped. */
+  /** Statements run one at a time per connection; the timeout SET/RESET pair wraps each statement. */
   private chain: Promise<unknown> = Promise.resolve()
   private locked<T>(fn: () => Promise<T>): Promise<T> {
     const next = this.chain.then(fn, fn)
@@ -161,8 +161,7 @@ export class PgConnection implements DbConnection {
 
   private async runOne(sql: string, params: unknown[], options: QueryOptions): Promise<QueryResult> {
     const started = Date.now()
-    // statement_timeout scopes the cap to this session; SET LOCAL needs a
-    // transaction, so a plain SET is applied and reset around the statement.
+    // Session-level statement_timeout, reset after the statement.
     if (options.timeoutMs > 0) await this.client.query({ text: `SET statement_timeout = ${Math.floor(options.timeoutMs)}` }).catch(() => undefined)
     try {
       const res = await this.client.query({ text: sql, values: params, rowMode: 'array' })
@@ -232,9 +231,7 @@ export class PgConnection implements DbConnection {
   }
 
   async indexes(table: TableRef): Promise<IndexInfo[]> {
-    // indkey is read as text ("1 3") and mapped through pg_attribute in JS:
-    // portable across PostgreSQL and GaussDB without array-type parsing or
-    // WITH ORDINALITY.
+    // indkey is read as text ("1 3") and mapped to column names through pg_attribute.
     const rows = await this.rows(`
       SELECT ic.relname AS name, i.indisunique AS "unique", i.indisprimary AS "primary", i.indkey::text AS keys
       FROM pg_index i JOIN pg_class c ON c.oid = i.indrelid JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_namespace n ON n.oid = c.relnamespace

@@ -1,11 +1,10 @@
 /**
  * Stable element numbering for the interactive inventory.
  *
- * Numbers are the model's addressing scheme ("click 7"), so they must survive
- * re-snapshots as long as the element itself survives: ids are assigned once
- * per element (WeakMap) and only renumbered when the element set is
- * restructured. `data-dsh-el` attributes are also written so the ids stay
- * observable from the outside.
+ * Ids are assigned once per element and survive re-snapshots while the
+ * element survives; renumbering happens only when the element set is
+ * restructured. Every inventoried element also carries a `data-dsh-el`
+ * attribute.
  *
  * @module
  */
@@ -59,11 +58,6 @@ export class ElementIds {
   }
 
   /**
-   * Resolve an element's stable id.
-   * @param el - element.
-   * @returns the assigned id, or undefined when not inventoried.
-   */
-  /**
    * Give ids to elements that are not inventoried yet (find results, text
    * hits) without touching the existing registry.
    * @param elements - elements to make addressable.
@@ -80,6 +74,11 @@ export class ElementIds {
     }
   }
 
+  /**
+   * Resolve an element's stable id.
+   * @param el - element.
+   * @returns the assigned id, or undefined when not inventoried.
+   */
   indexOf(el: Element): number | undefined {
     return this.idByElement.get(el)
   }

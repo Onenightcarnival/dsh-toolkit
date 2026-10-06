@@ -1,9 +1,6 @@
 /**
- * Markdown → sanitized HTML for conversation bubbles.
- *
- * Model and user text is untrusted: the rendered output goes through
- * DOMPurify before touching the DOM, and http(s) links are forced to open in
- * a new tab (the side panel must never navigate away from the chat).
+ * Markdown → sanitized HTML for conversation bubbles. Rendered output passes
+ * through DOMPurify; http(s) links open in a new tab.
  *
  * @module
  */
@@ -25,7 +22,7 @@ const MARKDOWN_SANITIZE_OPTIONS = {
 
 marked.setOptions({
   gfm: true,
-  // 聊天式文本：单个换行渲染为 <br>（与 DeepSeek 聊天界面的换行行为一致）。
+  // Single line breaks render as <br>.
   breaks: true,
 })
 

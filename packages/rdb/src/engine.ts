@@ -167,7 +167,7 @@ export class RdbEngine {
   async tableInfo(idOrName: string, ref: { schema?: string; name: string; kind?: 'table' | 'view' }): Promise<TableInfo> {
     const { conn } = await this.connect(idOrName)
     const table: TableRef = { schema: ref.schema || conn.defaultSchema, name: ref.name, kind: ref.kind ?? 'table' }
-    // One statement at a time per connection: pg clients serialize anyway and warn on overlap.
+    // One statement at a time per connection.
     const columns = await conn.columns(table)
     const indexes = await conn.indexes(table)
     const estimatedRows = await conn.estimatedRows(table)

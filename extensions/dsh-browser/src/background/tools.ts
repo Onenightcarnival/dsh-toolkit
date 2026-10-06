@@ -3,7 +3,7 @@
  * the content script and answers with the text-only result.
  *
  * The background service owns tab-affinity policy. Direct callers may omit a
- * target for backward-compatible active-tab dispatch in isolated tests.
+ * target; the active tab is used.
  *
  * @module
  */
@@ -437,11 +437,10 @@ async function captureVisibleOrDebug(tabId: number, windowId: number, trustedInp
 }
 
 /**
- * Capture the controlled tab's viewport. The capture API photographs the
- * window, so the controlled tab must be its active tab; otherwise the model
- * is told how to bring it forward instead of receiving a picture of some
- * other page. With a main-frame content script available, the inventoried
- * elements are labeled with their indices.
+ * Capture the controlled tab's viewport. The controlled tab must be its
+ * window's active tab, or trusted input must be on; otherwise the result
+ * explains how to bring it forward. With a main-frame content script
+ * available, the inventoried elements are labeled with their indices.
  */
 async function screenshotTab(
   tab: chrome.tabs.Tab,
@@ -714,8 +713,7 @@ async function dispatchOnce(
   if (frame === undefined) {
     return unavailable(`Frame ${frameId} does not exist or has navigated. Call browser_snapshot again.`)
   }
-  // No await occurs between this guard and tabs.sendMessage, so an expired
-  // approval cannot cross the final state-changing dispatch boundary.
+  // No await between this guard and tabs.sendMessage.
   if (isCancelled(call, signal)) return cancelled()
   if (targetStillAllowed?.() === false) return targetChanged()
   const hasSnapshotBaseline = snapshotDocumentsByTab.get(tabId)?.get(frameId) === frameDocumentKey(frame)
@@ -761,16 +759,15 @@ async function dispatchOnce(
         const snapshot = await snapshotAfterNavigation(tabId, call, text, budget, targetStillAllowed)
         if (snapshot !== undefined) return snapshot
       } catch {
-        // Preserve the successful navigation status when the replacement page
-        // becomes unavailable before its opportunistic snapshot completes.
+        // The navigation status stands when the replacement page is not yet readable.
       }
     }
   } else {
     navigationWait?.cancel()
   }
   if (call.name === 'browser_find') {
-    // Found elements are addressable like snapshot entries; record the
-    // document so a following click/type passes the reference check.
+    // Found elements are addressable like snapshot entries; the document key
+    // is recorded for the reference check.
     let documents = snapshotDocumentsByTab.get(tabId)
     if (documents === undefined) {
       documents = new Map()
@@ -802,7 +799,7 @@ async function drainDialogs(tabId: number): Promise<string> {
 }
 
 const MAIN_WORLD_TOOLS = new Set(['browser_handle_dialog', 'browser_console', 'browser_network', 'browser_evaluate'])
-/** Read-only tools that must not modify the page; hooks are installed by the first action instead. */
+/** Tools that install no main-world hooks. */
 const HOOK_FREE_TOOLS = new Set(['browser_snapshot', 'browser_get_text', 'browser_find', 'browser_wait_for', 'browser_screenshot', 'browser_wait', 'browser_scroll'])
 const FULL_CONTROL_TOOLS = new Set(['browser_console', 'browser_network', 'browser_evaluate'])
 
@@ -1157,9 +1154,7 @@ export async function dispatchToolCall(
     if (!contentScriptReceiverMissing(error)) {
       return unavailable('The content script stopped responding after the operation was dispatched. Call browser_snapshot before continuing.')
     }
-    // Manifest content scripts do not run retroactively in tabs that were
-    // already open when an unpacked extension was installed or reloaded.
-    // Recover in place so the user never has to refresh and lose page state.
+    // Tabs open before install or reload have no content script; inject it in place.
     try {
       await injectContentScript(tab.id)
     } catch {
@@ -1261,8 +1256,7 @@ async function removeCreatedTab(tabId: number): Promise<void> {
  * Open a URL in a new tab, then optionally snapshot it once the document is ready.
  * Affinity rebinding is owned by the caller via `bindCreatedTab`.
  *
- * Creates a blank tab first, arms the readiness listener, then navigates so a
- * fast `document_idle` cannot announce readiness before the listener exists.
+ * Creates a blank tab, arms the readiness listener, then navigates.
  * Cancellation before affinity bind rolls the orphan tab back; after bind the
  * open is treated as committed and reported as success even if the call expires.
  */

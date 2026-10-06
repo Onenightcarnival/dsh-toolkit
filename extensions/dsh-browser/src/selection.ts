@@ -1,11 +1,9 @@
 /**
  * Shared contract for the text a user highlights in a browser page.
  *
- * A selection travels content script → service worker → side panel before the
- * user attaches it to a prompt, so it crosses two message boundaries as
- * page-authored data. Each hop re-validates and re-normalizes it here rather
- * than trusting the previous one, and the character ceiling is enforced at
- * every hop so a hostile page cannot grow the payload after capture.
+ * A selection travels content script → service worker → side panel as
+ * page-authored data. Each hop re-validates and re-normalizes it here,
+ * including the character ceiling.
  *
  * @module
  */

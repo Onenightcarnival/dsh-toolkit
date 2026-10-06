@@ -1,7 +1,6 @@
 /**
- * Build the four published bundles into lib/. Everything except the DSH
- * runtime's own host packages (and react on the client) is bundled, so the
- * packed .tgz installs fully offline with zero runtime dependencies.
+ * Build the four published bundles into lib/.
+ * Externals: the DSH runtime's host packages, and react on the client; everything else is bundled.
  */
 import { build } from "esbuild";
 import { mkdir, readFile, rm } from "node:fs/promises";
@@ -20,8 +19,7 @@ const HOST_EXTERNALS = [
 
 const banner = `/* ${PKG} — MIT; bundles @loongsuite/dsh-plugin and OpenTelemetry JS (Apache-2.0), zod and schemastery (MIT); see THIRD-PARTY-NOTICES. */`;
 
-// Bundled CJS dependencies (@opentelemetry/*, protobufjs) require node
-// builtins by bare name; an ESM output needs a real require for those.
+// `require` for bundled CJS dependencies (@opentelemetry/*, protobufjs) that load Node builtins by bare name.
 const hostBanner = `${banner}
 import { createRequire as __dshOtelCreateRequire } from "node:module";
 const require = __dshOtelCreateRequire(import.meta.url);`;

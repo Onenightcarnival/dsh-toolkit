@@ -1,5 +1,5 @@
 export const PAGE_SESSION_CONTEXT_STORAGE_KEY = 'dshPageSessionContexts'
-/** Obsolete global-recency key retained only so startup can remove it. */
+/** Storage key removed at startup. */
 export const LEGACY_RECENT_SESSION_STORAGE_KEY = 'dshRecentBrowserSession'
 
 export interface PageSessionContext {
@@ -126,7 +126,7 @@ export class PageSessionContextTracker {
       const restored = parseStoredContexts(await this.storage.read())
       if (this.revision === revision) this.tabs = restored
     } catch {
-      // Session continuity is best effort; a storage failure still permits a new chat.
+      // A storage failure restores no contexts.
     }
   }
 }

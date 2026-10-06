@@ -43,7 +43,7 @@ async function mount(ctx, remote) {
   });
 
   const t = ctx.locale.bind(NS);
-  // Side cards uses order 100; place Observability immediately below it.
+  // Order 110: directly below the side cards section (order 100).
   ctx.slots.inject("settings.section", () =>
     ctx.slots.register(
       {

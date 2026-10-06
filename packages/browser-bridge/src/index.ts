@@ -2,17 +2,14 @@
  * `@onenightcarnival/dsh-bridge-browser`: token-authenticated WebSocket bridge for
  * the browser extension plus the text-only `browser_*` tool set.
  *
- * The bridge mounts its own upgrade route (`/ext/bridge`) on the host
- * webserver, OUTSIDE the /api trust fence — so it brings its own bearer-token
- * authentication (first frame `hello` within HELLO_TIMEOUT_MS). Extension
- * calls, Session streams, and Host waterfalls use dsh 0.2.0's Typert Gateway
- * and Connection services.
- * Tools execute by dispatching
- * `tool.call` frames to the connected extension, which performs the action in
- * the tab explicitly controlled by the user.
+ * The bridge mounts the `/ext/bridge` upgrade route on the host webserver,
+ * outside the /api trust fence, with its own bearer-token authentication
+ * (first frame `hello` within HELLO_TIMEOUT_MS). Extension calls, Session
+ * streams and Host waterfalls use dsh 0.2.0's Typert Gateway and Connection
+ * services. Tools dispatch `tool.call` frames to the connected extension,
+ * which performs the action in the tab the user controls.
  *
- * Opt-in by design: nothing is registered unless this plugin appears in the
- * composition. No dsh core code is touched.
+ * Nothing is registered unless this plugin appears in the composition.
  *
  * @module @onenightcarnival/dsh-bridge-browser
  */
@@ -82,9 +79,9 @@ export interface Config {
   token?: string
   /** Per-tool-call timeout in ms. Defaults to 90000. */
   toolTimeoutMs?: number
-  /** Upper bound on one snapshot's rendered characters. Defaults to 32000; minimum 500. */
+  /** Upper bound on one snapshot's rendered characters. Defaults to 200000; minimum 500. */
   snapshotMaxChars?: number
-  /** Upper bound on interactive inventory items per snapshot. Defaults to 60. */
+  /** Upper bound on interactive inventory items per snapshot. Defaults to 400. */
   maxInteractiveItems?: number
   /** Dedicated workspace path for extension-created sessions. Empty disables grouping. */
   sessionWorkspacePath?: string
@@ -170,10 +167,9 @@ function mountBridge(
   tokenRes: Awaited<ReturnType<typeof resolveToken>>,
   hostApi: BrowserHostApi,
 ): void {
-  // Workspace grouping wraps the gateway create; session deferral wraps the
-  // result so materialization at first prompt still flows through grouping.
-  // Sessions whose purge is deferred (see deferred-purge.ts) are hidden from
-  // listings at the outermost layer so every caller sees them as deleted.
+  // Layers, innermost first: workspace grouping, session deferral, deferred-purge
+  // filter. Materialization at first prompt flows through grouping; sessions
+  // awaiting purge are hidden from every listing.
   const pendingPurges = new DeferredPurgeStore(dshHomePath(DEFERRED_PURGE_FILE_NAME))
   const api = withDeferredPurgeFilter(withSessionDeferral(
     withSessionWorkspace(
@@ -207,8 +203,8 @@ function mountBridge(
         }
       }
     } catch {
-      // Listing is advisory; the required exclusive persistence handle below
-      // protects both active and idle sessions, including in other processes.
+      // Listing is advisory; exclusive ownership below guards active, idle and
+      // foreign-process sessions.
     }
     const deps: SessionPurgeDeps = {
       sessionsRoot: SESSIONS_ROOT,
@@ -237,13 +233,11 @@ function mountBridge(
     store: pendingPurges,
     isLive: (id) => ctx.agents.get(id as Parameters<typeof ctx.agents.get>[0]) !== undefined,
   }, sessionId)
-  // Ids queued by an earlier process are purged before any panel can resume
-  // them; a failure here only delays the purge to the next start.
+  // Queued ids are purged at start; a failure defers the purge to the next start.
   void pendingPurges.load()
     .then(async () => {
       if (pendingPurges.list().length === 0) return
-      // Persistence and the gateway are sibling Loader entries; wait for the
-      // whole tree before touching session storage.
+      // Session storage is touched only after the whole Loader tree is ready.
       await (ctx.get('loader') as { await?: () => Promise<unknown> } | undefined)?.await?.()
       await drainDeferredPurges({ purge: await purgeDeps(), store: pendingPurges }, {
         info: (m) => { ctx.logger.info(m) },
@@ -270,7 +264,7 @@ function mountBridge(
     handler: (req, socket, head) => { server.handleUpgrade(req, socket, head) },
   }
   ctx.effect(() => ctx.webServer.registerUpgrade(route), 'bridge-browser: /ext/bridge upgrade route')
-  // 异步 disposer：HMR/卸载时先等桥完全关闭（socket/泵/acceptor 静默）再继续。
+  // Async disposer: unload waits for the bridge to close fully (sockets, pumps, acceptor).
   ctx.effect(() => () => server.close(), 'bridge-browser: bridge server')
 
   // /ext/bridge-config on the host port: the extension's zero-config discovery route.

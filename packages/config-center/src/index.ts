@@ -175,8 +175,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     skills: new SkillStore(profile.home),
     environment: () => environment.status(),
     installEnvironment: () => environment.install(async () => {
-      // Persist aliases as private absolute paths, including existing uv MCPs. The
-      // kernel can then restart them without relying on plugin mount order or PATH.
+      // Existing uv / uvx MCP entries are rewritten to managed absolute paths.
       await mutate(document => {
         for (const { id, server } of listMcp(document)) {
           if (server.transport === 'stdio' && environment.tool(server.command)) upsertMcp(document, environment.invocation(server), id)
@@ -188,10 +187,10 @@ function applyImpl(ctx: Context, config?: Config): void {
     saveMcpTimeout: seconds => prefs.saveTimeout(seconds),
     saveMcp: async (server, id) => {
       const prepared = await environment.prepare(server, server.enabled)
-      // Reject invalid edits before starting a preparation process.
+      // Dry-run edit: refused edits fail here, before dependency preparation.
       upsertMcp(parsePatch(await readText()), prepared, id)
-      // Complete first-run package downloads before the kernel's own connection
-      // handshake, whose timeout is not configurable in the upstream MCP plugin.
+      // A new or inactive enabled stdio entry completes a probe (dependency
+      // download and handshake) within the stdio startup wait before the save.
       const currentEntry = id === undefined ? undefined : entryOf(id)
       const active = currentEntry?.fiber?.state === FIBER_ACTIVE && currentEntry.options.disabled !== true
       if (server.enabled && server.transport === 'stdio' && !active) {

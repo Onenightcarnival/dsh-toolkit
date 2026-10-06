@@ -172,7 +172,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
         const sql = str(body?.sql) ?? ''
         if (id === '' || sql.trim() === '') return fail(res, 'id and sql are required')
         try {
-          // The panel may run anything the user types: the GUI is the user.
+          // The GUI route has no read-only gate; the panel confirms write statements before sending them.
           writeJson(res, 200, { result: await engine.query(id, sql, { allowWrite: true, maxRows: num(body?.maxRows), timeoutMs: num(body?.timeoutMs) }) })
         } catch (error) { fail(res, error) }
       },

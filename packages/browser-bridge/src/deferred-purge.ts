@@ -1,14 +1,10 @@
 /**
  * Deletion of sessions whose durable log is still held open by this runtime.
  *
- * The Web gateway resumes a session into a live Agent on first use and never
- * disposes it, so every session the panel has chatted in stays "owned by a
- * runtime" for the rest of the process. `purgeSessionFiles` then fails with
- * `running` even though nothing is executing. There is no gateway method to
- * release an Agent, so deletion of such a session is split in two: it is
- * archived now (it leaves every session list immediately and runs no further
- * model steps) and its id is queued in a small JSON file under the dsh home;
- * the next bridge start, when no Agent holds the log, purges the files.
+ * A session held by this runtime's idle Agent is archived at once (it leaves
+ * every session list and runs no further model steps) and its id is queued in
+ * a JSON file under the dsh home; the next bridge start purges the files once
+ * no Agent holds the log.
  *
  * @module @onenightcarnival/dsh-bridge-browser/src/deferred-purge
  */
@@ -120,8 +116,7 @@ export async function deleteSession(deps: SessionDeleteDeps, sessionId: string):
       && deps.isLive(sessionId)
     if (!ownedByIdleAgent) throw error
   }
-  // Archive first: the session must vanish from lists even if persisting the
-  // queue fails, and archiving an already archived id is a no-op upstream.
+  // Archiving precedes queue persistence; archiving an archived id is a no-op upstream.
   try {
     await deps.purge.archiveSession(sessionId)
   } catch (error: unknown) {

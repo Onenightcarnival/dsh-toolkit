@@ -57,7 +57,7 @@ ENTRY → AGENT → STEP → LLM / TOOL
 
 每轮对话对应一条 trace；重试记录为同一 STEP 下的多次尝试，subagent 会话使用独立 trace。
 
-每个 span 的 `langfuse.session.id` 和 `session.id` 均取自 `gen_ai.session.id`，供不同 Langfuse 版本归组会话。采集模型来自内嵌的 `@loongsuite/dsh-plugin`。
+每个 span 的 `langfuse.session.id` 和 `session.id` 取自 `gen_ai.session.id`，缺失时依次回退到 `gen_ai.conversation.id`、`dsh.session.id`；`langfuse.user.id` 取自 `gen_ai.user.id`。采集模型来自内嵌的 `@loongsuite/dsh-plugin`。
 
 ## 诊断
 
@@ -118,6 +118,6 @@ node packages/otel/test/service.integration.mjs
 
 本项目 MIT。采集管线来自 Apache-2.0 的 [@loongsuite/dsh-plugin](https://github.com/loongsuite/dsh-plugin)。第三方版权声明与许可全文见 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES)。
 
-## Interface language
+## 界面语言
 
-Settings labels, controls, status and operation summaries follow the host Chinese or English language. Expanded diagnostic details and synthetic test records use English.
+设置页的字段、控件、状态与操作摘要跟随宿主的中文或英文；展开的诊断明细与合成测试记录使用英文。

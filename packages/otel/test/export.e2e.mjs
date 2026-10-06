@@ -82,8 +82,7 @@ assert.equal(realReplica.ok, true, JSON.stringify(realReplica));
 assert.match(realReplica.traceId, /^[0-9a-f]{32}$/);
 assert.ok(realReplica.spanCount >= 4, `expected ENTRY/AGENT/STEP/LLM spans, got ${realReplica.spanCount}`);
 assert.ok(received.at(-1).bytes > 1500, `real replica batch should be attribute-rich: ${received.at(-1).bytes}`);
-// Legacy Langfuse session alias must ride along on the wire, so old
-// versions that only map langfuse.session.id still group sessions.
+// The langfuse.session.id alias is present in the exported batch.
 assert.equal(received.at(-1).hasLegacySession, true, "expected langfuse.session.id alias in the exported batch");
 
 // Auth failure path.
@@ -91,9 +90,8 @@ const bad = await runTestExport({ endpoint, headers: buildAuthHeaders("pk", "wro
 assert.equal(bad.ok, false);
 assert.match(describeTestFailure(bad.message), /Authentication failed|401/);
 
-// Gateway body-size cap: a second stub rejects bodies over 500KB with 413,
-// the way nginx client_max_body_size does. The small test passes, the
-// payload test must surface the cap.
+// Gateway body-size cap: a second stub rejects bodies over 500KB with 413.
+// The small test passes; the payload test surfaces the cap.
 {
   const capped = createServer((req, res) => {
     let size = 0;

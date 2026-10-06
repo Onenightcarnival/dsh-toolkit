@@ -2,9 +2,8 @@
  * Image results for browser tools: decode the extension's base64 payload,
  * admit it against the current model route (image input must be declared),
  * store it through the attachment service, and build the content blocks the
- * tool's `finalizeContent` hands to the model. Mirrors the MCP client's image
- * projection so screenshots behave exactly like chrome-devtools-mcp images:
- * a refusal degrades to a text diagnostic, never to a failed tool call.
+ * tool's `finalizeContent` hands to the model. A refused or failed image
+ * degrades to a text diagnostic; the tool call itself does not fail.
  *
  * @module @onenightcarnival/dsh-bridge-browser/src/tool-images
  */

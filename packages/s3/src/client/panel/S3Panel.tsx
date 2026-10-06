@@ -35,7 +35,6 @@ export function S3Panel(props: S3PanelProps): JSX.Element {
     }
   }, [api])
 
-  // Load when the panel opens (cheap; picks up CLI-side edits of the store).
   useEffect(() => { void refresh() }, [refresh])
 
   const toggleAgentTools = async (next: boolean): Promise<void> => {

@@ -17,7 +17,7 @@ pnpm build
 node benchmark/run.mjs --dry-run --smoke
 ```
 
-扩展自动加载需要 Chrome for Testing 或 Chromium。新版 Google Chrome Stable 会忽略 `--load-extension`，不能作为扩展后端的自动评测浏览器。
+扩展自动加载需要 Chrome for Testing 或 Chromium；Google Chrome Stable 忽略 `--load-extension`，不作为扩展后端的评测浏览器。
 
 不调用模型的全链路基础设施探针：
 
@@ -84,7 +84,7 @@ node benchmark/report.mjs benchmark/results/<file>.jsonl
 - 两边共享同一提示词、任务实例、DSH profile、模型选择、浏览器尺寸、locale 和时区。
 - Playwright 适配器使用与扩展相同的 `browser_snapshot`、`browser_click`、`browser_type` 等模型可见工具名、说明、参数 schema 和通用系统提示；动作后的 DOM 稳定等待策略也使用相同时间预算。
 - 两个 DSH 进程使用隔离的 session/storage 目录，共用本机 DSH profile 的模型凭据。
-- 同任务、同 seed 形成一个 pair，谁先运行由确定性哈希交替，降低固定顺序导致的热身偏差。
+- 同任务、同 seed 形成一个 pair，先后顺序由确定性哈希交替。
 - 提示词禁止非 `browser_*` 工具，validator 也会把使用其他工具的运行判为失败。
 - 两边都使用当前仓库构建产物；正式评测前必须先执行 `pnpm build`。
 
@@ -106,17 +106,18 @@ node benchmark/report.mjs benchmark/results/<file>.jsonl
 
 ## 解释边界
 
-评测范围为完整浏览器后端：页面表示、元素索引、动作执行与模型调用。模型可见工具契约一致，后端实现各自独立。速度比反映端到端耗时，不能单独归因于传输。
-
-模型服务端延迟也无法由本地 runner 隔离。结论须同时包含成功率、配对结果、失败惩罚比、运行顺序敏感性和置信区间。
+- 评测范围为完整浏览器后端：页面表示、元素索引、动作执行与模型调用。
+- 模型可见工具契约一致，后端实现各自独立。
+- 速度比反映端到端耗时，不能单独归因于传输；模型服务端延迟不由本地 runner 隔离。
+- 结论须同时包含成功率、配对结果、失败惩罚比、运行顺序敏感性和置信区间。
 
 ## 正式评测流程
 
 1. 关闭会争抢 CPU 的应用，固定网络环境和 DSH/model 配置。
-2. 先跑 `--smoke`，确认两边都成功，不要把基础设施故障混入正式数据。
+2. 先跑 `--smoke`，确认两边都成功。
 3. 至少使用默认 5 个 seed；结果噪声大时增加 `--trials`。
 4. 先比较成功率，再看成功配对的耗时比和 95% bootstrap 置信区间。
-5. 保留原始 JSONL。报告可以重算，原始事件摘要和失败诊断更适合定位异常。`diagnostics.eventTypeRuns` 使用无损连续事件计数，按 `{ type, count }` 展开即可还原完整事件顺序。
+5. 保留原始 JSONL；报告可由其重算。`diagnostics.eventTypeRuns` 为无损连续事件计数，按 `{ type, count }` 展开还原完整事件顺序。
 
 ## 目录结构
 

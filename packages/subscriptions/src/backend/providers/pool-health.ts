@@ -40,16 +40,13 @@ function retryAfterMs(error: LlmError): number | undefined {
 }
 
 /**
- * Classify a member failure. Quota and rate-limit failures cool down (using
- * the provider's own `retry-after` when sent, which is more accurate than
- * any fixed guess) — account-wide for account-metered providers, per-member
- * for model-scoped ones; auth failures park the account until re-login
- * (credentials are account-level); server/timeout failures get a short
- * per-member cooldown; transport failures switch without a record;
- * everything else — most importantly CONTEXT_WINDOW_EXCEEDED and ABORTED —
- * is the request's own fault and is rethrown untouched.
+ * Classify a member failure. Quota and rate-limit failures cool down the
+ * account (for the provider's `retry-after` when sent, otherwise the default); auth failures park
+ * the account until re-login; server/timeout failures get a short per-member
+ * cooldown; transport failures switch without a record; everything else
+ * (including CONTEXT_WINDOW_EXCEEDED and ABORTED) is rethrown.
  * @param error - the failure thrown by a member adapter's stream.
- * @param provider - the failing member's provider (decides the quota scope).
+ * @param provider - the failing member's provider.
  * @returns the action the pool should take.
  */
 export function classifyPoolFailure(error: unknown, provider: ProviderId): PoolFailureAction {
@@ -75,9 +72,7 @@ export function classifyPoolFailure(error: unknown, provider: ProviderId): PoolF
       return { action: 'switch' }
     case 'HTTP_402':
     case 'HTTP_404':
-      // Plan/model availability is account-shaped: another account of the
-      // same subscription may still serve. A 400 that is not a context-window
-      // error stays HTTP_400 and throws (the request itself is at fault).
+      // Plan/model availability is account-scoped; another account may serve.
       return { action: 'switch', cooldownMs: TRANSIENT_COOLDOWN_MS, reason: error.code, scope: 'member' }
     case CONTEXT_WINDOW_EXCEEDED_CODE:
     case 'ABORTED':
@@ -93,8 +88,7 @@ interface HealthRecord {
 
 /**
  * Cooldown registry keyed by {@link memberKey}. A member whose cooldown has
- * expired is simply available again — recovery is proven by the next real
- * request, not by a background probe.
+ * expired is available again; there is no background probe.
  */
 export class PoolHealthRegistry {
   private readonly records = new Map<string, HealthRecord>()
@@ -126,11 +120,8 @@ export class PoolHealthRegistry {
 
   /**
    * Epoch ms at which the earliest cooling record among `keys` recovers;
-   * `undefined` when none of them is cooling. The registry is shared by
-   * every pool, so the caller passes the keys of ITS members (member and
-   * account keys alike) — an unrelated pool's cooldown must not shape this
-   * pool's retry hint. Feeds the pool-exhausted error's
-   * `providerRetryAfterMs`.
+   * `undefined` when none of them is cooling. Callers pass their own members'
+   * member and account keys.
    */
   earliestRecovery(keys: ReadonlySet<string>, now = Date.now()): number | undefined {
     let earliest: number | undefined

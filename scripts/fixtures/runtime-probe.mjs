@@ -21,7 +21,7 @@ export async function apply(ctx, config) {
   }
   ctx.on('session/created', async (session) => {
     if (session.id !== config.sessionId) return
-    // The flush barrier persists the empty session for the post-restart read.
+    // The marker is written only after the empty session is persisted.
     await ctx.sessionPersistence.flush()
     await writeFile(config.marker, JSON.stringify({ sessionId: session.id }))
   })

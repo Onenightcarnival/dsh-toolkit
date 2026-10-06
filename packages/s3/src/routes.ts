@@ -11,7 +11,7 @@ import { errorMessage, isLoopbackRequest, readJsonBody, writeJson } from './http
 import { S3_API, type S3ProfilePayload } from './protocol.ts'
 import type { ProfileStore } from './store.ts'
 
-/** Upload bodies above this are refused (5 TiB is the S3 object limit; keep a sane cap). */
+/** Upload bodies above this are refused. */
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 * 1024
 
 /** Inline preview cap for the browser's text viewer. */
@@ -20,7 +20,7 @@ const PREVIEW_TEXT_BYTES = 512 * 1024
 export interface RouteDeps {
   store: ProfileStore
   engine: S3Engine
-  /** Called after a settings write so the host re-syncs tools. */
+  /** Called after each settings write; the host re-syncs tool registration. */
   onSettingsChange: () => void
   /**
    * Optional browser-session check (dsh-client-connection's
@@ -59,9 +59,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
       writeJson(res, 403, { error: 'forbidden: loopback-only' })
       return false
     }
-    // Same browser-session cookie the shell's own /api requires: a local
-    // process without the GUI's cookie gets 401 (credentials + deletes live
-    // behind these routes).
+    // Browser-session check: requests without the GUI cookie get 401.
     let status: number | undefined
     try { status = deps.rejection?.(req) } catch { status = undefined }
     if (status !== undefined) {
@@ -191,9 +189,8 @@ export function makeRoutes(deps: RouteDeps): Route[] {
         try {
           const opened = await engine.open(id, key)
           const name = basename(cleanKey(key)) || 'download'
-          // Inline previews only for image/pdf/video/audio types; everything
-          // else is forced to a download so a stored HTML/SVG object can
-          // never execute in the GUI origin.
+          // Inline previews only for image / PDF / video / audio types; other
+          // types are served as `application/octet-stream` attachments.
           const type = opened.contentType.toLowerCase()
           const previewable = /^(image\/(png|jpeg|gif|webp|bmp|avif)|application\/pdf|video\/|audio\/)/.test(type)
           const headers: Record<string, string> = {
