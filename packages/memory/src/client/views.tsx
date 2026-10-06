@@ -32,7 +32,7 @@ export function ResumeView(props: ViewProps): JSX.Element {
       {entries.filter(e => e.kind === kind).map(entry => <article className="mem-experience" key={entry.id}>
         <div className="mem-section-heading"><div><time>{period(entry)}</time><h3>{kind === 'work' ? entry.fields.organization || t('none') : entry.fields.title}</h3><p className="mem-muted">{kind === 'work' ? entry.fields.jobTitle : entry.fields.role}</p></div><Actions entry={entry} edit={edit} remove={remove}/></div>
         <Fields entry={entry} keys={['highlights']}/>
-        <button className="mem-link" onClick={() => open(entry.id)}>{t(kind === 'work' ? 'viewProjects' : 'archives')} <span>{entries.filter(e => kind === 'work' ? e.kind === 'project' && e.fields.workId === entry.id : e.kind === 'episode' && e.fields.parentId === entry.id).length}</span> →</button>
+        <button className="mem-link" onClick={() => open(entry.id)}>{t(kind === 'work' ? 'viewProjects' : 'episodes')} <span>{entries.filter(e => kind === 'work' ? e.kind === 'project' && e.fields.workId === entry.id : e.kind === 'episode' && e.fields.parentId === entry.id).length}</span> →</button>
       </article>)}
     </section>)}
   </article></div>
@@ -50,11 +50,11 @@ export function DirectoryView(props: ViewProps & { selected: string }): JSX.Elem
   const independent = independentGroup || !!project && !work
   const works = entries.filter(e => e.kind === 'work')
   const projects = entries.filter(e => e.kind === 'project' && (work ? e.fields.workId === work.id : independent && !e.fields.workId))
-  const archiveParent = project ?? work
-  const archives = archiveParent ? entries.filter(e => e.kind === 'episode' && e.fields.parentId === archiveParent.id) : []
+  const episodeParent = project ?? work
+  const episodes = episodeParent ? entries.filter(e => e.kind === 'episode' && e.fields.parentId === episodeParent.id) : []
   const path = [work, project, current.kind === 'episode' ? current : undefined].filter((e): e is Entry => !!e)
   const column = (kind: 'work' | 'project' | 'episode', items: Entry[], activeId: string | undefined, empty: Key, onAdd?: () => void) => <section className={`mem-column mem-column-${kind}`} aria-label={t(kind)}>
-    <header><h2>{t(kind)}</h2><button aria-label={t(kind === 'work' ? 'addWork' : kind === 'project' ? 'addProject' : 'addArchive')} disabled={!onAdd} onClick={onAdd}>+</button></header>
+    <header><h2>{t(kind)}</h2><button aria-label={t(kind === 'work' ? 'addWork' : kind === 'project' ? 'addProject' : 'addEpisode')} disabled={!onAdd} onClick={onAdd}>+</button></header>
     <nav className="mem-column-list" aria-label={t(kind)}>
       {items.map(entry => <button key={entry.id} className="mem-column-item" data-selected={entry.id === activeId || undefined} aria-current={entry.id === current.id && !independentGroup} onClick={() => open(entry.id)}>
         <span><strong>{entryName(entry)}</strong><time>{period(entry)}</time></span><span className="mem-column-arrow" aria-hidden="true">{entry.kind === 'episode' ? '·' : '›'}</span>
@@ -70,13 +70,13 @@ export function DirectoryView(props: ViewProps & { selected: string }): JSX.Elem
     <div className="mem-columns">
       {column('work', works, work?.id, 'emptyWork', () => add('work'))}
       {column('project', projects, project?.id, work || independent ? 'emptyProject' : 'selectWork', work || independent ? () => add('project', work?.id) : undefined)}
-      {column('episode', archives, current.kind === 'episode' ? current.id : undefined, project || archives.length ? 'emptyArchives' : 'selectProject', project ? () => add('episode', project.id) : undefined)}
+      {column('episode', episodes, current.kind === 'episode' ? current.id : undefined, project || episodes.length ? 'emptyEpisodes' : 'selectProject', project ? () => add('episode', project.id) : undefined)}
       <article className="mem-directory-detail" aria-label={t('content')}>
         {independentGroup ? <><div className="mem-section-heading"><h2>{t('noWork')}</h2><button onClick={() => add('project')}>+ {t('add')}</button></div><p className="mem-muted">{t('selectProject')}</p></> : <>
           <div className="mem-detail-type">{t(current.kind === 'profile' ? 'personal' : current.kind)}</div>
           <div className="mem-section-heading"><div><h2>{entryName(current)}</h2>{current.createdAt && <p className="mem-muted">{t('createdAt')} · {new Date(current.createdAt).toLocaleString()}</p>}</div><Actions entry={current} edit={edit} remove={remove}/></div>
           <div className={current.kind === 'profile' ? 'mem-profile' : ''}><Fields entry={current} keys={FIELDS[current.kind].filter(key => !['parentId', 'workId'].includes(key))}/></div>
-          {current.kind === 'work' && !!archives.length && <button className="mem-link" onClick={() => open(archives[0].id)}>{t('legacyArchives')} · {archives.length} →</button>}
+          {current.kind === 'work' && !!episodes.length && <button className="mem-link" onClick={() => open(episodes[0].id)}>{t('legacyEpisodes')} · {episodes.length} →</button>}
         </>}
       </article>
     </div>

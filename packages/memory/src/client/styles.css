@@ -48,7 +48,7 @@
 .mem-toggle>input:focus-visible+.mem-switch { outline: 2px solid var(--mem-accent); outline-offset: 2px; }
 .mem-toggle>input:disabled+.mem-switch { opacity: .45; }
 .mem-scroll { flex: 1; overflow: auto; min-height: 0; border: 1px solid var(--mem-border); border-radius: 10px; }
-.mem-resume, .mem-archives { padding: 16px; }
+.mem-resume { padding: 16px; }
 .mem-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .mem-section-heading>div { min-width: 0; }
 .mem-section-heading>div:last-child:has(>button) { display: flex; gap: 6px; flex-shrink: 0; }
@@ -69,7 +69,6 @@
 .mem-app .mem-primary:hover { background: var(--dsw-alias-button-info-hover, #3c5cee); }
 .mem-app .mem-danger { color: var(--mem-muted); border-color: transparent; }
 .mem-app .mem-danger:hover { color: var(--dsw-alias-state-error-primary, #ba4444); }
-.mem-archives>.mem-section-heading { margin-top: 10px; }
 .mem-episode { margin-top: 12px; padding: 14px; border: 1px solid var(--mem-border); border-radius: 8px; }
 .mem-episode dl, .mem-episode .mem-detail:last-child { margin-bottom: 0; }
 .mem-history { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100%; }

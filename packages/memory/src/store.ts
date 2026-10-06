@@ -1,156 +1,143 @@
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, renameSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { DATE_FIELDS, FIELDS, validDate, emptySnapshot, type Commit, type Entry, type Snapshot, type State } from './model.ts'
+import { basename, dirname, extname, join } from 'node:path'
+import { FIELDS, emptySnapshot, type Commit, type Diff, type Entry, type Revision, type Snapshot, type State } from './model.ts'
+import { readLegacyFile } from './legacy.ts'
+import { MemoryError, fail, idOk, migrateSnapshot, plain, validateSnapshot } from './validate.ts'
+export { MemoryError } from './validate.ts'
 
-export class MemoryError extends Error {
-  constructor(readonly code: string, readonly detail = '') { super(code + (detail ? ': ' + detail : '')) }
+interface Statement { get(...params: unknown[]): Record<string, unknown> | undefined; all(...params: unknown[]): Record<string, unknown>[]; run(...params: unknown[]): unknown }
+interface Database { exec(sql: string): void; prepare(sql: string): Statement; close(): void }
+
+/** `node:sqlite` ships with Node 22.5+ and Electron's Node; no native add-on is involved. */
+function openDatabase(path: string): Database {
+  const require = createRequire(import.meta.url)
+  const { DatabaseSync } = require('node:sqlite') as { DatabaseSync: new (path: string) => Database }
+  return new DatabaseSync(path)
 }
-function fail(code: string, detail = ''): never { throw new MemoryError(code, detail) }
-const plain = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
-const idOk = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,95}$/.test(value)
+
+/** Entries are content-addressed blobs; the current resume and every revision reference them by hash in display order. */
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS blobs (hash TEXT PRIMARY KEY, body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS entries (seq INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, hash TEXT NOT NULL REFERENCES blobs(hash));
+CREATE TABLE IF NOT EXISTS revisions (revision INTEGER PRIMARY KEY, time TEXT NOT NULL, actor TEXT NOT NULL, source TEXT NOT NULL, summary TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS revision_entries (revision INTEGER NOT NULL REFERENCES revisions(revision) ON DELETE CASCADE, seq INTEGER NOT NULL, id TEXT NOT NULL, hash TEXT NOT NULL REFERENCES blobs(hash), PRIMARY KEY (revision, seq));
+`
 const copy = <T>(value: T): T => structuredClone(value)
-
-/** Validate references and content before a snapshot reaches disk. */
-export function validateSnapshot(value: unknown, schemaVersion = 4): asserts value is Snapshot {
-  if (!plain(value) || !Array.isArray(value.entries) || value.entries.length > 1000) fail('invalid')
-  const snapshot = value as unknown as Snapshot
-  const ids = new Set<string>()
-  for (const entry of snapshot.entries) {
-    if (!plain(entry) || !idOk(entry.id) || ids.has(entry.id) || !Object.hasOwn(FIELDS, entry.kind) || !plain(entry.fields) || !Array.isArray(entry.protected)) fail('invalid')
-    if (entry.createdAt !== undefined && (typeof entry.createdAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(entry.createdAt) || !Number.isFinite(Date.parse(entry.createdAt)))) fail('invalid', 'createdAt')
-    ids.add(entry.id)
-    if (entry.legacyPeriod !== undefined && (typeof entry.legacyPeriod !== 'string' || entry.legacyPeriod.length > 12000 || !['work', 'project'].includes(entry.kind))) fail('invalid', 'legacyPeriod')
-    const allowed: readonly string[] = schemaVersion === 1 && entry.kind === 'work' ? ['title', 'period', 'organization', 'role', 'responsibilities', 'achievements'] : schemaVersion < 4 && entry.kind === 'work' ? ['organization', 'period', 'jobTitle', 'highlights'] : schemaVersion < 4 && entry.kind === 'project' ? ['title', 'period', 'role', 'objective', 'contribution', 'outcome', 'workId'] : schemaVersion < 4 && entry.kind === 'episode' ? FIELDS.episode.filter(k => k !== 'date') : FIELDS[entry.kind]
-    for (const [key, text] of Object.entries(entry.fields)) if (!allowed.includes(key) || typeof text !== 'string' || text.length > (key === 'highlights' ? 50000 : 12000)) fail('invalid', key)
-    if (entry.protected.some(key => typeof key !== 'string' || !allowed.includes(key))) fail('invalid')
-    if (schemaVersion === 4) {
-      for (const key of DATE_FIELDS) if (entry.fields[key] && !(key === 'endDate' && entry.fields[key] === 'present') && !validDate(entry.fields[key])) fail('date', key)
-      if (entry.fields.startDate && entry.fields.endDate && entry.fields.endDate !== 'present' && entry.fields.startDate > entry.fields.endDate) fail('dateRange')
-    }
-    if (entry.kind === 'profile' ? entry.id !== 'profile' : entry.kind === 'work' && schemaVersion !== 1 ? !entry.legacyPeriod?.trim() && !Object.values(entry.fields).some(v => v.trim()) : !entry.fields.title?.trim()) fail('title')
-  }
-  if (snapshot.entries.filter(e => e.kind === 'profile').length !== 1) fail('invalid')
-  for (const entry of snapshot.entries) {
-    const parent = snapshot.entries.find(e => e.id === entry.fields.parentId)
-    if (entry.kind === 'episode' && (!parent || !['work', 'project'].includes(parent.kind))) fail('reference', entry.id)
-    if (entry.kind === 'project' && entry.fields.workId && !snapshot.entries.some(e => e.id === entry.fields.workId && e.kind === 'work')) fail('reference', entry.id)
-  }
-}
-
-/** Preserve legacy prose and metadata; only complete, unambiguous dates become structured fields. */
-function migrateSnapshot(value: unknown, schemaVersion: number): Snapshot {
-  validateSnapshot(value, schemaVersion)
-  const snapshot = copy({ entries: value.entries })
-  for (const entry of snapshot.entries) {
-    const merge = (keys: string[]) => {
-      const content = keys.filter(key => entry.fields[key]).map(key => entry.fields[key]).join('\n\n')
-      if (keys.some(key => key in entry.fields)) entry.fields.highlights = content
-      entry.protected = [...new Set(entry.protected.map(key => keys.includes(key) ? 'highlights' : key))]
-      for (const key of keys) delete entry.fields[key]
-    }
-    if (schemaVersion === 1 && entry.kind === 'work') merge(['title', 'role', 'responsibilities', 'achievements'])
-    if (schemaVersion < 4 && entry.kind === 'project') merge(['objective', 'contribution', 'outcome'])
-    if (schemaVersion < 4 && ['work', 'project'].includes(entry.kind)) {
-      const period = entry.fields.period?.trim()
-      if (period) {
-        const range = period.match(/^(\d{4}-\d{2}-\d{2})\s*(?:—|–|~|至|to|\s-\s)\s*(\d{4}-\d{2}-\d{2})$/i)
-        if (validDate(period)) entry.fields.startDate = period
-        else if (range && validDate(range[1]) && validDate(range[2]) && range[1] <= range[2]) { entry.fields.startDate = range[1]; entry.fields.endDate = range[2] }
-        else entry.legacyPeriod = entry.fields.period
-      }
-      entry.protected = [...new Set(entry.protected.flatMap(key => key === 'period' ? ['startDate', 'endDate'] : [key]))]
-      delete entry.fields.period
-    }
-  }
-  validateSnapshot(snapshot)
-  return snapshot
-}
+const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
+const sqliteCode = (error: unknown): number | undefined => plain(error) && typeof error.errcode === 'number' ? error.errcode : undefined
+/** SQLITE_BUSY and SQLITE_LOCKED surface as the retryable `busy` error. */
+const translate = (error: unknown): unknown => [5, 6].includes(sqliteCode(error) ?? -1) ? new MemoryError('busy') : error
 
 export function defaultPath(): string {
   const home = process.env.DSH_HOME?.trim()
   const resolved = home === '~' ? homedir() : home?.startsWith('~/') || home?.startsWith('~\\') ? join(homedir(), home.slice(2)) : home || join(homedir(), '.dsh')
-  return join(resolved, 'memory', 'career.json')
+  return join(resolved, 'memory', 'career.sqlite')
 }
 
-/** Atomic snapshots with optimistic revisions and an exclusive cross-process write lock. */
+export interface StoreOptions {
+  /** Milliseconds to wait for a concurrent writer before failing with `busy`. */
+  busyTimeout?: number
+}
+
+/** SQLite-backed resume with optimistic revisions; every write runs in one immediate transaction. */
 export class MemoryStore {
-  constructor(readonly path = defaultPath()) {}
-  read(): State {
-    if (!existsSync(this.path)) return { schemaVersion: 4, revision: 0, ...emptySnapshot(), agentTools: true, history: [] }
-    const raw = JSON.parse(readFileSync(this.path, 'utf8'))
-    if (!plain(raw) || ![1, 2, 3, 4].includes(raw.schemaVersion as number) || !Number.isSafeInteger(raw.revision) || !Array.isArray(raw.history)) fail('invalid')
-    const agentTools = (raw.schemaVersion as number) >= 3 ? raw.agentTools : raw.agentUpdates
-    if (typeof agentTools !== 'boolean') fail('invalid')
-    const snapshot = (value: unknown): Snapshot => {
-      if (raw.schemaVersion !== 4) return migrateSnapshot(value, raw.schemaVersion as number)
-      validateSnapshot(value)
-      return { entries: value.entries }
-    }
-    const history = raw.history.map(h => {
-      if (!plain(h) || !Number.isSafeInteger(h.revision) || typeof h.time !== 'string' || !Number.isFinite(Date.parse(h.time))) fail('invalid')
-      return { ...h, snapshot: snapshot(h.snapshot) } as State['history'][number]
-    })
-    const state: State = { schemaVersion: 4, revision: raw.revision as number, ...snapshot(raw), agentTools, history }
-    const firstSeen = new Map<string, string>()
-    for (const h of [...history].sort((a, b) => a.revision - b.revision)) {
-      for (const entry of h.snapshot.entries) if (!firstSeen.has(entry.id)) firstSeen.set(entry.id, entry.createdAt ?? new Date(h.time).toISOString())
-    }
-    for (const entry of [...state.entries, ...history.flatMap(h => h.snapshot.entries)]) entry.createdAt ??= firstSeen.get(entry.id)
-    validateSnapshot(state)
-    return state
+  /** Legacy JSON store beside the database; imported once when the database is empty, then renamed with `.migrated`. */
+  readonly legacyPath: string
+  private readonly busyTimeout: number
+  private db?: Database
+  constructor(readonly path = defaultPath(), options: StoreOptions = {}) {
+    this.legacyPath = join(dirname(path), basename(path, extname(path)) + '.json')
+    this.busyTimeout = options.busyTimeout ?? 5000
   }
-  private locked<T>(action: () => T): T {
+
+  close(): void { this.db?.close(); this.db = undefined }
+
+  private open(): Database {
+    if (this.db) return this.db
     mkdirSync(dirname(this.path), { recursive: true })
-    const lock = this.path + '.lock'
-    let fd: number
-    try { fd = openSync(lock, 'wx', 0o600) } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'EEXIST') fail('busy')
-      throw error
-    }
-    try { return action() } finally { closeSync(fd); rmSync(lock, { force: true }) }
+    const db = openDatabase(this.path)
+    try {
+      db.exec(`PRAGMA busy_timeout = ${this.busyTimeout}; PRAGMA foreign_keys = ON; PRAGMA secure_delete = ON;`)
+      db.exec(SCHEMA)
+      const migrated = transaction(db, 'BEGIN IMMEDIATE', () => {
+        if (db.prepare('SELECT value FROM meta WHERE key = ?').get('revision')) return false
+        const legacy = existsSync(this.legacyPath) ? readLegacyFile(this.legacyPath) : undefined
+        const setMeta = db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)')
+        setMeta.run('schemaVersion', '4')
+        setMeta.run('revision', String(legacy?.revision ?? 0))
+        setMeta.run('agentTools', legacy?.agentTools === false ? '0' : '1')
+        if (!legacy) { writeEntries(db, emptySnapshot().entries, { current: true }); return false }
+        for (const h of legacy.history) {
+          db.prepare('INSERT INTO revisions (revision, time, actor, source, summary) VALUES (?, ?, ?, ?, ?)').run(h.revision, h.time, h.actor, h.source, h.summary)
+          writeEntries(db, h.snapshot.entries, { revision: h.revision, current: false })
+        }
+        writeEntries(db, legacy.entries, { current: true })
+        return true
+      })
+      if (migrated) renameSync(this.legacyPath, this.legacyPath + '.migrated')
+      this.db = db
+      return db
+    } catch (error) { db.close(); throw error }
   }
-  private persist(state: State): State {
-    const bytes = JSON.stringify(state, null, 2)
-    if (Buffer.byteLength(bytes) > 32 * 1024 * 1024) fail('capacity')
-    const temp = this.path + '.' + randomUUID() + '.tmp'
-    try { writeFileSync(temp, bytes, { mode: 0o600 }); renameSync(temp, this.path) }
-    finally { rmSync(temp, { force: true }) }
-    return state
+
+  read(): State { return transaction(this.open(), 'BEGIN', db => readState(db)) }
+
+  /** Entries of one recorded revision; undefined when the revision is not in history. */
+  snapshot(revision: number): Snapshot | undefined { return transaction(this.open(), 'BEGIN', db => snapshotAt(db, revision)) }
+
+  /** One revision with its predecessor for field comparison; undefined when the revision is not in history. */
+  diff(revision: number): Diff | undefined {
+    return transaction(this.open(), 'BEGIN', db => {
+      const after = snapshotAt(db, revision)
+      if (!after) return undefined
+      const previous = db.prepare('SELECT revision FROM revisions WHERE revision < ? ORDER BY revision DESC LIMIT 1').get(revision)
+      return { revision, before: previous ? snapshotAt(db, previous.revision as number)! : emptySnapshot(), after }
+    })
   }
+
   /** Tool availability is runtime configuration and never creates a content revision. */
   setAgentTools(enabled: boolean): State {
     if (typeof enabled !== 'boolean') fail('invalid')
-    return this.locked(() => {
-      const state = this.read()
-      if (state.agentTools === enabled) return state
-      return this.persist({ ...state, agentTools: enabled })
+    return transaction(this.open(), 'BEGIN IMMEDIATE', db => {
+      db.prepare('UPDATE meta SET value = ? WHERE key = ?').run(enabled ? '1' : '0', 'agentTools')
+      return readState(db)
     })
   }
-  /** Erase content and history; advance the revision to reject drafts created before clearing. */
+
+  /** Erase content and history; advance the revision so drafts created before clearing are rejected. */
   clear(baseRevision: number): State {
     if (!Number.isSafeInteger(baseRevision)) fail('invalid')
-    return this.locked(() => {
-      const state = this.read()
+    const db = this.open()
+    const { state, erased } = transaction(db, 'BEGIN IMMEDIATE', db => {
+      const state = readState(db)
       if (baseRevision !== state.revision) fail('conflict')
       const empty = emptySnapshot()
-      if (!state.history.length && JSON.stringify(state.entries) === JSON.stringify(empty.entries)) return state
-      return this.persist({ schemaVersion: 4, revision: state.revision + 1, ...empty, agentTools: state.agentTools, history: [] })
+      if (!state.history.length && JSON.stringify(state.entries) === JSON.stringify(empty.entries)) return { state, erased: false }
+      db.exec('DELETE FROM entries; DELETE FROM revisions; DELETE FROM blobs;')
+      writeEntries(db, empty.entries, { current: true })
+      db.prepare('UPDATE meta SET value = ? WHERE key = ?').run(String(state.revision + 1), 'revision')
+      return { state: readState(db), erased: true }
     })
+    if (erased) db.exec('VACUUM')
+    return state
   }
+
   commit(input: Commit, actor: 'human' | 'agent', source = ''): State {
     if (!plain(input) || !Number.isSafeInteger(input.baseRevision) || typeof input.summary !== 'string' || !input.summary.trim() || input.summary.length > 500) fail('invalid')
     if (typeof source !== 'string' || source.length > 2000) fail('invalid')
     if ('agentUpdates' in input || 'agentTools' in input) fail('invalid')
-    return this.locked(() => {
-      const state = this.read()
+    return transaction(this.open(), 'BEGIN IMMEDIATE', db => {
+      const state = readState(db)
       if (input.baseRevision !== state.revision) fail('conflict')
       if (actor === 'agent' && !state.agentTools) fail('disabled')
       if (actor === 'agent' && (input.restore !== undefined || input.imported !== undefined)) fail('protected')
       let next: Snapshot = copy({ entries: state.entries })
       if (input.restore !== undefined) {
-        const prior = input.restore === 0 ? emptySnapshot() : state.history.find(h => h.revision === input.restore)?.snapshot
+        const prior = input.restore === 0 ? emptySnapshot() : snapshotAt(db, input.restore)
         if (!prior) fail('missing')
         next = copy(prior)
       } else if (input.imported !== undefined) {
@@ -193,9 +180,49 @@ export class MemoryStore {
       if (JSON.stringify(next) === JSON.stringify({ entries: state.entries })) return state
       for (const entry of next.entries) entry.createdAt ??= state.entries.find(e => e.id === entry.id)?.createdAt ?? new Date().toISOString()
       const revision = state.revision + 1
-      const result: State = { schemaVersion: 4, revision, ...next, agentTools: state.agentTools, history: [...state.history,
-        { revision, actor, source, summary: input.summary.trim(), time: new Date().toISOString(), snapshot: copy(next) }] }
-      return this.persist(result)
+      db.prepare('INSERT INTO revisions (revision, time, actor, source, summary) VALUES (?, ?, ?, ?, ?)').run(revision, new Date().toISOString(), actor, source, input.summary.trim())
+      writeEntries(db, next.entries, { revision, current: true })
+      db.prepare('UPDATE meta SET value = ? WHERE key = ?').run(String(revision), 'revision')
+      return readState(db)
     })
   }
+}
+
+/** Run one transaction; lock contention becomes `busy`, any failure rolls back. */
+function transaction<T>(db: Database, begin: 'BEGIN' | 'BEGIN IMMEDIATE', action: (db: Database) => T): T {
+  try { db.exec(begin) } catch (error) { throw translate(error) }
+  try {
+    const result = action(db)
+    db.exec('COMMIT')
+    return result
+  } catch (error) {
+    try { db.exec('ROLLBACK') } catch { /* the connection already left the transaction */ }
+    throw translate(error)
+  }
+}
+
+function readState(db: Database): State {
+  const meta = Object.fromEntries(db.prepare('SELECT key, value FROM meta').all().map(row => [row.key as string, row.value as string]))
+  const entries = db.prepare('SELECT b.body FROM entries e JOIN blobs b ON b.hash = e.hash ORDER BY e.seq').all().map(row => JSON.parse(row.body as string) as Entry)
+  const history = db.prepare('SELECT revision, time, actor, source, summary FROM revisions ORDER BY revision').all() as unknown as Revision[]
+  return { schemaVersion: 4, revision: Number(meta.revision), entries, agentTools: meta.agentTools === '1', history }
+}
+
+function snapshotAt(db: Database, revision: number): Snapshot | undefined {
+  if (!Number.isSafeInteger(revision) || !db.prepare('SELECT 1 FROM revisions WHERE revision = ?').get(revision)) return undefined
+  return { entries: db.prepare('SELECT b.body FROM revision_entries r JOIN blobs b ON b.hash = r.hash WHERE r.revision = ? ORDER BY r.seq').all(revision).map(row => JSON.parse(row.body as string) as Entry) }
+}
+
+/** Store entries as blobs and reference them from the current resume and/or one revision, in array order. */
+function writeEntries(db: Database, entries: Entry[], target: { revision?: number; current: boolean }): void {
+  const insertBlob = db.prepare('INSERT OR IGNORE INTO blobs (hash, body) VALUES (?, ?)')
+  const insertEntry = db.prepare('INSERT INTO entries (seq, id, hash) VALUES (?, ?, ?)')
+  const insertVersion = db.prepare('INSERT INTO revision_entries (revision, seq, id, hash) VALUES (?, ?, ?, ?)')
+  if (target.current) db.exec('DELETE FROM entries')
+  entries.forEach((entry, seq) => {
+    const body = JSON.stringify(entry), hash = sha256(body)
+    insertBlob.run(hash, body)
+    if (target.current) insertEntry.run(seq, entry.id, hash)
+    if (target.revision !== undefined) insertVersion.run(target.revision, seq, entry.id, hash)
+  })
 }

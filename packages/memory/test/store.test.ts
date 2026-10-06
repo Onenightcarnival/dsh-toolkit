@@ -1,15 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { sortEntries } from '../src/model.ts'
 import { MemoryStore } from '../src/store.ts'
 
-function fixture(t: { after(fn: () => void): void }): MemoryStore {
+function fixture(t: { after(fn: () => void): void }, options?: ConstructorParameters<typeof MemoryStore>[1]): MemoryStore {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-memory-'))
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
-  return new MemoryStore(join(dir, 'career.json'))
+  const store = new MemoryStore(join(dir, 'career.sqlite'), options)
+  t.after(() => { store.close(); rmSync(dir, { recursive: true, force: true }) })
+  return store
 }
 test('two-level records survive restart and retain evidence', t => {
   const store = fixture(t)
@@ -19,8 +21,11 @@ test('two-level records survive restart and retain evidence', t => {
     { id: 'episode-a', kind: 'episode', fields: { title: 'Bridge', parentId: 'project-a', result: 'Passed', evidence: 'test:123', limits: 'Windows only' } },
   ] }, 'agent', 'session:test/call:123')
   assert.equal(state.revision, 1)
-  assert.deepEqual(new MemoryStore(store.path).read(), state)
+  const reopened = new MemoryStore(store.path)
+  assert.deepEqual(reopened.read(), state)
+  reopened.close()
   assert.equal(state.history[0].actor, 'agent')
+  assert.deepEqual(store.snapshot(1), { entries: state.entries })
 })
 test('global access permits editing human-written fields and disabling it blocks Agent writes', t => {
   const store = fixture(t)
@@ -38,21 +43,25 @@ test('global access permits editing human-written fields and disabling it blocks
   assert.equal(store.read().entries[0].fields.name, 'D')
 })
 
-test('stale writer and cross-process lock preserve committed bytes', t => {
-  const store = fixture(t), other = new MemoryStore(store.path)
-  store.commit({ baseRevision: 0, summary: 'Human edit', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
-  const bytes = readFileSync(store.path, 'utf8')
+test('stale writers are rejected and a concurrent writer surfaces as busy without altering committed data', t => {
+  const store = fixture(t, { busyTimeout: 0 }), other = new MemoryStore(store.path, { busyTimeout: 0 })
+  t.after(() => other.close())
+  const committed = store.commit({ baseRevision: 0, summary: 'Human edit', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
   assert.throws(() => other.commit({ baseRevision: 0, summary: 'Stale', changes: [] }, 'human'), /conflict/)
-  writeFileSync(store.path + '.lock', '')
-  assert.throws(() => other.commit({ baseRevision: 1, summary: 'Locked', changes: [] }, 'human'), /busy/)
-  assert.equal(readFileSync(store.path, 'utf8'), bytes)
+  const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite') as { DatabaseSync: new (path: string) => { exec(sql: string): void; close(): void } }
+  const writer = new DatabaseSync(store.path)
+  writer.exec('PRAGMA busy_timeout = 0; BEGIN IMMEDIATE')
+  try {
+    assert.throws(() => other.commit({ baseRevision: 1, summary: 'Locked', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'B' } }] }, 'human'), /busy/)
+  } finally { writer.exec('ROLLBACK'); writer.close() }
+  assert.deepEqual(other.read(), committed)
 })
 test('references, evidence and atomic batch validation', t => {
   const store = fixture(t)
   assert.throws(() => store.commit({ baseRevision: 0, summary: 'Broken link', changes: [{ id: 'e', kind: 'episode', fields: { title: 'Event', parentId: 'missing', evidence: 'source' } }] }, 'agent'), /reference/)
   assert.throws(() => store.commit({ baseRevision: 0, summary: 'No evidence', changes: [{ id: 'e', kind: 'episode', fields: { title: 'Event', parentId: 'missing' } }] }, 'agent'), /evidence/)
   assert.equal(store.read().revision, 0)
-  assert.throws(() => store.commit({ baseRevision: 0, summary: 'Archive without project', changes: [
+  assert.throws(() => store.commit({ baseRevision: 0, summary: 'Episode without project', changes: [
     { id: 'w', kind: 'work', fields: { organization: 'Company' } },
     { id: 'e', kind: 'episode', fields: { title: 'Event', parentId: 'w', evidence: 'source' } },
   ] }, 'agent'), /reference/)
@@ -65,17 +74,34 @@ test('restore creates a revision and preserves later history; Agent cannot resto
   const state = store.commit({ baseRevision: 2, summary: 'Restore', restore: 1 }, 'human')
   assert.equal(state.revision, 3)
   assert.equal(state.entries[0].fields.name, 'A')
-  assert.equal(state.history[1].snapshot.entries[0].fields.name, 'B')
+  assert.equal(store.snapshot(2)!.entries[0].fields.name, 'B')
   assert.throws(() => store.commit({ baseRevision: 3, summary: 'Restore', restore: 2 }, 'agent'), /protected/)
   store.setAgentTools(false)
   assert.throws(() => store.commit({ baseRevision: 3, summary: 'Write', changes: [] }, 'agent'), /disabled/)
 })
+test('diff pairs each revision with its predecessor and the first with the empty resume', t => {
+  const store = fixture(t)
+  store.commit({ baseRevision: 0, summary: 'A', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
+  store.commit({ baseRevision: 1, summary: 'Work', changes: [{ id: 'w', kind: 'work', fields: { organization: 'Company' } }] }, 'human')
+  const first = store.diff(1)!, second = store.diff(2)!
+  assert.deepEqual(first.before, { entries: [{ id: 'profile', kind: 'profile', fields: {}, protected: [] }] })
+  assert.equal(first.after.entries[0].fields.name, 'A')
+  assert.deepEqual(second.before, first.after)
+  assert.equal(second.after.entries[1].fields.organization, 'Company')
+  assert.equal(store.diff(3), undefined)
+  assert.equal(store.snapshot(0), undefined)
+})
 test('malformed import cannot erase data; corrupt store fails closed', t => {
   const store = fixture(t)
   assert.throws(() => store.commit({ baseRevision: 0, summary: 'Import', imported: { entries: [] } }, 'human'), /invalid/)
-  writeFileSync(store.path, '{broken')
-  assert.throws(() => store.commit({ baseRevision: 0, summary: 'Edit', changes: [] }, 'human'))
-  assert.equal(readFileSync(store.path, 'utf8'), '{broken')
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-memory-corrupt-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const path = join(dir, 'career.sqlite')
+  writeFileSync(path, '{broken')
+  const corrupt = new MemoryStore(path)
+  assert.throws(() => corrupt.commit({ baseRevision: 0, summary: 'Edit', changes: [] }, 'human'))
+  assert.throws(() => corrupt.read())
+  assert.equal(readFileSync(path, 'utf8'), '{broken')
 })
 
 test('legacy work migration retains content, protection, links and historical restores', t => {
@@ -87,19 +113,22 @@ test('legacy work migration retains content, protection, links and historical re
   ] }
   const legacy = { schemaVersion: 1, revision: 1, ...snapshot, history: [{ revision: 1, actor: 'human', source: 'ui', summary: 'Initial', time: new Date().toISOString(), snapshot }] }
   const bytes = JSON.stringify(legacy)
-  writeFileSync(store.path, bytes)
+  writeFileSync(store.legacyPath, bytes)
   const state = store.read(), work = state.entries[1]
   assert.equal(state.schemaVersion, 4)
   assert.equal(work.fields.jobTitle, undefined)
   assert.equal(work.fields.highlights, 'Desktop development\n\nDeveloper / reviewer\n\nBuild plugins\n\nReleased')
   assert.deepEqual(work.protected, ['highlights', 'organization'])
   assert.equal(state.entries[2].fields.workId, work.id)
-  assert.equal(readFileSync(store.path, 'utf8'), bytes)
+  assert.equal(existsSync(store.legacyPath), false)
+  assert.equal(readFileSync(store.legacyPath + '.migrated', 'utf8'), bytes)
   store.commit({ baseRevision: 1, summary: 'Position', changes: [{ id: work.id, kind: 'work', fields: { jobTitle: 'Engineer' } }] }, 'human')
   const restored = store.commit({ baseRevision: 2, summary: 'Restore', restore: 1 }, 'human')
   assert.deepEqual(restored.entries[1].fields, work.fields)
-  assert.equal(restored.history[1].snapshot.entries[1].fields.jobTitle, 'Engineer')
-  assert.equal(JSON.parse(readFileSync(store.path, 'utf8')).schemaVersion, 4)
+  assert.equal(store.snapshot(2)!.entries[1].fields.jobTitle, 'Engineer')
+  const reopened = new MemoryStore(store.path)
+  assert.deepEqual(reopened.read(), restored)
+  reopened.close()
 })
 
 test('legacy exports import with protection and current work uses structured dates', t => {
@@ -123,22 +152,31 @@ test('v3 project migration merges prose, preserves protection and converts only 
     { id: 'w', kind: 'work', fields: { organization: 'Company', period: '2025.05 — 至今' }, protected: ['period'] },
     { id: 'p', kind: 'project', fields: { title: 'Project', workId: 'w', period: '2025-03-01 — 2025-10-01', objective: 'Goal', contribution: 'Work', outcome: 'Result' }, protected: ['outcome', 'period'] },
   ] }
-  const original = JSON.stringify({ schemaVersion: 3, revision: 7, agentTools: true, ...snapshot, history: [{ revision: 7, actor: 'human', source: 'ui', summary: 'Old content', time: '2026-01-01T00:00:00.000Z', snapshot }] })
-  writeFileSync(store.path, original)
+  writeFileSync(store.legacyPath, JSON.stringify({ schemaVersion: 3, revision: 7, agentTools: true, ...snapshot, history: [{ revision: 7, actor: 'human', source: 'ui', summary: 'Old content', time: '2026-01-01T00:00:00.000Z', snapshot }] }))
   const migrated = store.read(), work = migrated.entries[1], project = migrated.entries[2]
   assert.equal(migrated.schemaVersion, 4); assert.equal(migrated.revision, 7)
   assert.equal(project.fields.highlights, 'Goal\n\nWork\n\nResult')
   assert.equal(project.fields.startDate, '2025-03-01'); assert.equal(project.fields.endDate, '2025-10-01')
   assert.deepEqual(project.protected, ['highlights', 'startDate', 'endDate'])
   assert.equal(work.legacyPeriod, '2025.05 — 至今'); assert.equal(work.fields.startDate, undefined)
-  assert.deepEqual(migrated.history[0].snapshot.entries[2].fields, project.fields)
-  assert.equal(readFileSync(store.path, 'utf8'), original)
+  assert.deepEqual(store.snapshot(7)!.entries[2].fields, project.fields)
   store.commit({ baseRevision: 7, summary: 'Confirm date', changes: [{ id: 'w', kind: 'work', fields: { startDate: '2025-05-20' } }] }, 'agent')
   assert.equal(store.read().entries[1].legacyPeriod, undefined)
   const restored = store.commit({ baseRevision: 8, summary: 'Restore', restore: 7 }, 'human')
   assert.equal(restored.entries[1].legacyPeriod, '2025.05 — 至今')
   const exported = { schemaVersion: 4, entries: restored.entries }
   assert.deepEqual(store.commit({ baseRevision: 9, summary: 'Import', imported: exported }, 'human').entries, restored.entries)
+})
+
+test('an existing database ignores a legacy file beside it', t => {
+  const store = fixture(t)
+  store.commit({ baseRevision: 0, summary: 'Current', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'Current' } }] }, 'human')
+  writeFileSync(store.legacyPath, JSON.stringify({ schemaVersion: 4, revision: 9, agentTools: false, entries: [{ id: 'profile', kind: 'profile', fields: { name: 'Legacy' }, protected: [] }], history: [] }))
+  const reopened = new MemoryStore(store.path)
+  t.after(() => reopened.close())
+  assert.equal(reopened.read().entries[0].fields.name, 'Current')
+  assert.equal(reopened.read().agentTools, true)
+  assert.equal(existsSync(store.legacyPath), true)
 })
 
 test('dates reject impossible calendar values and reversed ranges atomically', t => {
@@ -150,14 +188,14 @@ test('dates reject impossible calendar values and reversed ranges atomically', t
   assert.throws(() => store.commit({ baseRevision: 0, summary: 'Reversed', changes: [{ id: 'w', kind: 'work', fields: { organization: 'Company', startDate: '2026-02-01', endDate: '2026-01-01' } }] }, 'human'), /dateRange/)
   const state = store.commit({ baseRevision: 0, summary: 'Leap date', changes: [
     { id: 'p', kind: 'project', fields: { title: 'Project', startDate: '2024-02-29', endDate: '' } },
-    { id: 'e', kind: 'episode', fields: { title: 'Archive', parentId: 'p', date: '2024-03-01', evidence: 'test:passed' } },
+    { id: 'e', kind: 'episode', fields: { title: 'Episode', parentId: 'p', date: '2024-03-01', evidence: 'test:passed' } },
   ] }, 'agent')
   assert.equal(state.entries[1].fields.startDate, '2024-02-29')
   assert.throws(() => store.commit({ baseRevision: 1, summary: 'Invalid import', imported: { schemaVersion: 4, entries: state.entries.map(e => e.id === 'e' ? { ...e, fields: { ...e.fields, date: '2024-02-30' } } : e) } }, 'human'), /date/)
   assert.equal(store.read().revision, 1)
 })
 
-test('experience sorting ignores creation time, places undated records last, and supports archives', () => {
+test('experience sorting ignores creation time, places undated records last, and supports episodes', () => {
   const make = (id: string, fields: Record<string, string>, kind: 'work' | 'episode' = 'work') => ({ id, kind, fields, protected: [], createdAt: id === 'old' ? '2026-01-01T00:00:00.000Z' : '2020-01-01T00:00:00.000Z' })
   const entries = [make('undated', {}), make('old', { startDate: '2020-01-01' }), make('recent', { startDate: '2025-01-01' }), make('tie', { startDate: '2025-01-01' }), make('endOnly', { endDate: '2022-01-01' })]
   assert.deepEqual(sortEntries(entries).map(e => e.id), ['recent', 'tie', 'endOnly', 'old', 'undated'])
@@ -189,7 +227,9 @@ test('tool toggle leaves content, revisions and drafts unchanged; restore and im
   assert.equal(disabled.revision, first.revision)
   assert.deepEqual(disabled.entries, first.entries)
   assert.deepEqual(disabled.history, first.history)
-  assert.equal(new MemoryStore(store.path).read().agentTools, false)
+  const reopened = new MemoryStore(store.path)
+  assert.equal(reopened.read().agentTools, false)
+  reopened.close()
   const edited = store.commit({ baseRevision: first.revision, summary: 'Draft', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'B' } }] }, 'human')
   assert.equal(edited.revision, 2)
   assert.equal(edited.agentTools, false)
@@ -198,7 +238,7 @@ test('tool toggle leaves content, revisions and drafts unchanged; restore and im
   assert.equal(restored.entries[0].fields.name, 'A')
   const imported = store.commit({ baseRevision: 3, summary: 'Import', imported: { entries: edited.entries } }, 'human')
   assert.equal(imported.agentTools, false)
-  assert.ok(imported.history.every(h => !('agentTools' in h.snapshot) && !('agentUpdates' in h.snapshot)))
+  assert.ok(imported.history.every(h => Object.keys(store.snapshot(h.revision)!).join() === 'entries'))
   assert.equal(store.setAgentTools(true).revision, imported.revision)
 })
 
@@ -208,7 +248,7 @@ test('creation metadata survives edits, restore and import without determining e
   const old = { id: 'old', kind: 'work', fields: { organization: 'Old' }, protected: [] }
   const recent = { id: 'recent', kind: 'work', fields: { organization: 'Recent' }, protected: [] }
   const time1 = '2025-01-01T00:00:00.000Z', time2 = '2026-01-01T00:00:00.000Z'
-  writeFileSync(store.path, JSON.stringify({ schemaVersion: 2, revision: 2, agentUpdates: false, entries: [profile, old, recent], history: [
+  writeFileSync(store.legacyPath, JSON.stringify({ schemaVersion: 2, revision: 2, agentUpdates: false, entries: [profile, old, recent], history: [
     { revision: 1, actor: 'human', time: time1, source: 'ui', summary: 'Old', snapshot: { entries: [profile, old], agentUpdates: true } },
     { revision: 2, actor: 'human', time: time2, source: 'ui', summary: 'Recent', snapshot: { entries: [profile, old, recent], agentUpdates: false } },
   ] }))
@@ -239,7 +279,7 @@ test('clear erases all content/history, keeps tool availability and rejects stal
   const store = fixture(t)
   const initial = store.commit({ baseRevision: 0, summary: 'Project', changes: [
     { id: 'p', kind: 'project', fields: { title: 'Private project' } },
-    { id: 'e', kind: 'episode', fields: { title: 'Private archive', parentId: 'p', evidence: 'Private evidence' } },
+    { id: 'e', kind: 'episode', fields: { title: 'Private episode', parentId: 'p', evidence: 'Private evidence' } },
   ] }, 'human')
   store.setAgentTools(false)
   const cleared = store.clear(initial.revision)
@@ -247,7 +287,7 @@ test('clear erases all content/history, keeps tool availability and rejects stal
   assert.equal(cleared.agentTools, false)
   assert.deepEqual(cleared.history, [])
   assert.deepEqual(cleared.entries, [{ id: 'profile', kind: 'profile', fields: {}, protected: [] }])
-  assert.equal(readFileSync(store.path, 'utf8').includes('Private'), false)
+  assert.equal(readFileSync(store.path, 'latin1').includes('Private'), false)
   assert.throws(() => store.commit({ baseRevision: initial.revision, summary: 'Stale draft', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'Stale' } }] }, 'human'), /conflict/)
   assert.throws(() => store.commit({ baseRevision: cleared.revision, summary: 'Restore erased history', restore: 1 }, 'human'), /missing/)
   assert.throws(() => store.clear(initial.revision), /conflict/)

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { API, FIELDS, emptySnapshot, sortEntries, type Commit, type Entry, type Kind, type Snapshot, type State } from '../model.ts'
+import { API, FIELDS, sortEntries, type Commit, type Diff, type Entry, type Kind, type Snapshot, type State } from '../model.ts'
 import { DirectoryView, ResumeView, entryName } from './views.tsx'
 import { t, zh, type Key } from './locales.ts'
 
@@ -9,6 +9,12 @@ async function request(input?: Commit | { agentTools: boolean } | { clear: true;
   const body = await response.json()
   if (!response.ok) throw new Error(body.error || 'generic')
   return body as State
+}
+async function requestDiff(revision: number): Promise<Diff> {
+  const response = await fetch(`${API}?diff=${revision}`, { credentials: 'same-origin' })
+  const body = await response.json()
+  if (!response.ok) throw new Error(body.error || 'generic')
+  return body as Diff
 }
 function message(error: unknown): string {
   const key = `error.${error instanceof Error ? error.message : 'generic'}`
@@ -53,6 +59,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
   const [history, setHistory] = useState(false)
   const [order, setOrder] = useState<'newest' | 'oldest'>('newest')
   const [revision, setRevision] = useState<number>()
+  const [diffs, setDiffs] = useState<Record<number, Diff>>({})
   const [editor, setEditor] = useState<{ entry: Entry; base: number }>()
   const [confirm, setConfirm] = useState<{ title: Key; hint: Key; input: Commit | { clear: true; baseRevision: number } }>()
   const importer = useRef<HTMLInputElement>(null)
@@ -71,7 +78,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
     setBusy(true); setError('')
     try {
       setState(await request(input)); setEditor(undefined); setConfirm(undefined)
-      if ('clear' in input) { setSelected('profile'); setHistory(false); setRevision(undefined) }
+      if ('clear' in input) { setSelected('profile'); setHistory(false); setRevision(undefined); setDiffs({}) }
     } catch (e) { setError(message(e)) }
     finally { setBusy(false) }
   }
@@ -81,6 +88,14 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
   const entries = sortEntries(state?.entries ?? [], order)
   const open = (id: string) => { setSelected(id); setView('directory'); setHistory(false) }
   const selectedRevision = state?.history.find(h => h.revision === revision) ?? state?.history.at(-1)
+  const selectedDiff = selectedRevision && diffs[selectedRevision.revision]
+  useEffect(() => {
+    const target = history ? selectedRevision?.revision : undefined
+    if (target === undefined || diffs[target]) return
+    let cancelled = false
+    requestDiff(target).then(diff => { if (!cancelled) setDiffs(current => ({ ...current, [target]: diff })) }).catch(e => { if (!cancelled) setError(message(e)) })
+    return () => { cancelled = true }
+  }, [history, selectedRevision?.revision])
 
 
   return <div className="mem-app">
@@ -103,7 +118,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
       <main className={`mem-scroll${!history && view === 'directory' ? ' mem-scroll-directory' : ''}`}>
       {history ? <div className="mem-history"><aside><h2>{t('history')}</h2>{!state.history.length && <p className="mem-muted">{t('emptyHistory')}</p>}{[...state.history].reverse().map((h, index) => <button className={h.revision === selectedRevision?.revision ? 'mem-active' : ''} key={h.revision} onClick={() => setRevision(h.revision)}><span>v{state.history.length - index} <small>{t(h.actor)}</small></span><strong>{h.summary}</strong><time>{new Date(h.time).toLocaleString()}</time></button>)}</aside>
         {selectedRevision && <section className="mem-history-detail"><div className="mem-section-heading"><div><h2>{selectedRevision.summary}</h2><p className="mem-muted">{t(selectedRevision.actor)} · {selectedRevision.source}</p></div><button disabled={busy || selectedRevision.revision === state.revision} onClick={() => setConfirm({ title: 'restoreTitle', hint: 'restoreHint', input: { baseRevision: state.revision, summary: t('restoreSummary'), restore: selectedRevision.revision } })}>{t('restore')}</button></div>
-          {differences(state.history.find(h => h.revision === selectedRevision.revision - 1)?.snapshot ?? emptySnapshot(), selectedRevision.snapshot).map((d, i) => <article className="mem-diff" key={i}><h3>{d.label}</h3><div><section><small>{t('before')}</small><p>{d.before || '—'}</p></section><section><small>{t('after')}</small><p>{d.after || '—'}</p></section></div></article>)}
+          {!selectedDiff ? <p className="mem-muted">{t('loading')}</p> : differences(selectedDiff.before, selectedDiff.after).map((d, i) => <article className="mem-diff" key={i}><h3>{d.label}</h3><div><section><small>{t('before')}</small><p>{d.before || '—'}</p></section><section><small>{t('after')}</small><p>{d.after || '—'}</p></section></div></article>)}
         </section>}
       </div> : view === 'directory' ? <DirectoryView entries={entries} selected={selected} edit={edit} remove={remove} add={add} open={open}/> : <ResumeView entries={entries} edit={edit} remove={remove} add={add} open={open}/>}
 
