@@ -36,12 +36,10 @@ Start and end date pickers share one row and store complete calendar dates as `Y
 
 | Tool | Contract |
 |---|---|
-| `memory_resume` | Global profile and separately paginated work/project summaries; excludes episode bodies. Use `workOffset`, `projectOffset` and `limit`. |
-| `memory_search` | Keyword search with optional `kind` and work/project `scopeId`. Case-insensitive, space-separated terms must all match. Returns IDs and excerpts, including scoped descendants. |
-| `memory_get` | Supply `id` for complete node content, ancestor path and paginated child summaries. Use `profile` for the global profile. |
+| `memory_get` | Reads one node: complete content, ancestor path and a page of child summaries. Omit `id` to start at the root profile, whose children are work entries and independent projects; work holds projects and projects hold episodes. |
 | `memory_save` | Submit the latest `stateToken`, a factual `summary` and typed incremental `changes`. The batch succeeds or fails atomically and creates one version when content changes. |
 
-Reads return the displayed `version` and an opaque `stateToken` for concurrency checks. Discovery pages default to 10 entries and allow 1–20. Summaries truncate fields to 400 characters and identify them in `truncatedFields`; search excerpts contain at most 240 characters. Full fields require `memory_get`. Results follow the experience-date order described above. Search uses keywords, not semantic similarity.
+Reads return the displayed `version` and an opaque `stateToken` for concurrency checks. Child pages default to 10 entries, allow 1–20 and follow the experience-date order described above. Summaries truncate fields to 400 characters, identify them in `truncatedFields` and report the next level's size in `childCount`. Full fields come from the node's own `memory_get`. There is no keyword or semantic search; the Agent expands relevant branches level by level.
 
 Each save change has a `kind` (`profile`, `work`, `project`, `episode`) and its own `fields` schema; each kind's schema carries the definition from the table above. Omitted fields remain unchanged; empty strings clear fields. Existing `id` values update records; omitted IDs create records with server-assigned IDs. Profile changes always target the global profile. New records may declare a batch-local `ref`; `@ref` values in `workId` or `parentId` link records in the same batch, including forward references. The response returns resolved `refs` and record IDs. New work requires a company; new episodes require a project parent and evidence references.
 

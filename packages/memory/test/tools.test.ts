@@ -38,24 +38,34 @@ test('typed batch creates server ids, resolves forward references, and stores on
   const work = await run('memory_get', { id: result.refs.work })
   assert.equal(work.children.items[0].id, result.refs.project)
   assert.equal(work.children.items[0].fields.evidence, undefined)
+  const root = await run('memory_get')
+  assert.equal(root.entry.id, 'profile')
+  assert.deepEqual(root.children.items.map((e: { id: string }) => e.id), [result.refs.work])
+  assert.equal(root.children.items[0].childCount, 1)
 })
 
-test('resume and search are bounded; detail reads preserve full text', async t => {
+test('root and child pages are bounded; node reads preserve full text', async t => {
   const { run, save, seed } = fixture(t)
   const result = await seed()
   await save([{ kind: 'work', id: result.refs.work, fields: { highlights: 'x'.repeat(700) + 'special bridge lesson' } },
     { kind: 'project', fields: { title: 'Independent bridge project' } }])
-  const resume = await run('memory_resume', { limit: 1 })
-  assert.equal(resume.work.items[0].fields.highlights.length, 400)
-  assert.deepEqual(resume.work.items[0].truncatedFields, ['highlights'])
-  assert.equal(resume.projects.items.length, 1); assert.equal(resume.projects.total, 2); assert.equal(resume.projects.nextOffset, 1)
-  assert.equal(JSON.stringify(resume).includes('test:success'), false)
-  const search = await run('memory_search', { query: 'BRIDGE lesson', scopeId: result.refs.work, kind: 'episode' })
-  assert.equal(search.total, 1); assert.equal(search.items[0].id, result.refs.episode)
-  const scoped = await run('memory_search', { query: 'bridge', scopeId: result.refs.work })
-  assert.equal(scoped.total, 3)
-  assert.equal((await run('memory_get', { id: result.refs.work })).entry.fields.highlights.length, 721)
-  assert.equal((await run('memory_resume', { limit: 21 })).error.code, 'invalid')
+  const root = await run('memory_get', { limit: 1 })
+  assert.equal(root.children.total, 2); assert.equal(root.children.items.length, 1); assert.equal(root.children.nextOffset, 1)
+  assert.equal(root.children.items[0].id, result.refs.work)
+  assert.equal(root.children.items[0].fields.highlights.length, 400)
+  assert.deepEqual(root.children.items[0].truncatedFields, ['highlights'])
+  assert.equal(JSON.stringify(root).includes('test:success'), false)
+  const second = await run('memory_get', { offset: 1 })
+  assert.equal(second.children.items[0].kind, 'project'); assert.equal(second.children.items[0].fields.workId, undefined)
+  const work = await run('memory_get', { id: result.refs.work })
+  assert.equal(work.entry.fields.highlights.length, 721)
+  assert.deepEqual(work.children.items.map((e: { id: string }) => e.id), [result.refs.project])
+  const project = await run('memory_get', { id: result.refs.project })
+  assert.deepEqual(project.children.items.map((e: { id: string }) => e.id), [result.refs.episode])
+  assert.deepEqual(project.ancestors.map((e: { id: string }) => e.id), [result.refs.work])
+  assert.equal((await run('memory_get', { id: result.refs.episode })).children.total, 0)
+  assert.equal((await run('memory_get', { limit: 21 })).error.code, 'invalid')
+  assert.equal((await run('memory_get', { id: 'nope' })).error.code, 'missing')
 })
 
 test('global access permits Agent updates and removals of human-edited and legacy-protected records', async t => {
@@ -69,7 +79,7 @@ test('global access permits Agent updates and removals of human-edited and legac
   assert.equal(store.read().entries.find(e => e.id === result.refs.work)!.fields.jobTitle, 'Lead')
   assert.equal(store.read().entries.find(e => e.id === result.refs.project)!.fields.title, 'Updated')
   assert.equal('protected' in (await run('memory_get', { id: result.refs.project })).entry, false)
-  assert.equal('protected' in (await run('memory_resume')).projects.items[0], false)
+  assert.equal('protected' in (await run('memory_get', { id: result.refs.work })).children.items[0], false)
   store.setAgentTools(false)
   assert.equal((await save([{ kind: 'project', id: result.refs.project, fields: { title: 'Blocked' } }])).error.code, 'disabled')
   assert.equal((await run('memory_get', { id: result.refs.project })).error.code, 'disabled')
@@ -91,7 +101,7 @@ test('per-kind schema rejects misplaced fields; missing ids and references never
 test('clearing resets the visible version while tokens still reject stale writes', async t => {
   const { store, run, save, seed } = fixture(t), prior = await seed()
   store.clear(store.read().revision)
-  const empty = await run('memory_resume')
+  const empty = await run('memory_get')
   assert.equal(empty.version, 0); assert.notEqual(empty.stateToken, prior.stateToken)
   assert.equal((await save([{ kind: 'profile', fields: { name: 'Stale' } }], prior.stateToken)).error.code, 'conflict')
   const first = await save([{ kind: 'profile', fields: { abilities: 'Testing' } }], empty.stateToken)
@@ -118,7 +128,7 @@ test('new episodes require evidence and project parents; all validation failures
 
 test('English and Chinese dictionaries contain the same keys', () => assert.deepEqual(Object.keys(en).sort(), Object.keys(zh).sort()))
 
-test('Agent tools use project highlights and structured experience dates for all discovery', async t => {
+test('child pages use project highlights and structured experience dates', async t => {
   const { save, run } = fixture(t)
   const created = await save([
     { kind: 'project', ref: 'recent', fields: { title: 'Project recent', startDate: '2026-03-01', highlights: 'Delivered' } },
@@ -127,8 +137,7 @@ test('Agent tools use project highlights and structured experience dates for all
   assert.equal(created.ok, true)
   assert.equal((await save([{ kind: 'project', id: created.refs.old, fields: { endDate: 'present' } }])).ok, true)
   assert.equal((await run('memory_get', { id: created.refs.old })).entry.fields.endDate, 'present')
-  assert.deepEqual((await run('memory_resume')).projects.items.map((e: { id: string }) => e.id), [created.refs.recent, created.refs.old])
-  assert.deepEqual((await run('memory_search', { query: 'Project' })).items.map((e: { id: string }) => e.id), [created.refs.recent, created.refs.old])
+  assert.deepEqual((await run('memory_get')).children.items.map((e: { id: string }) => e.id), [created.refs.recent, created.refs.old])
   assert.equal((await save([{ kind: 'project', id: created.refs.old, fields: { endDate: '2019-01-01' } }])).error.code, 'dateRange')
   assert.equal((await save([{ kind: 'episode', fields: { title: 'Episode', parentId: created.refs.old, date: '2026-02-30', evidence: 'test:source' } }])).error.code, 'date')
   await assert.rejects(() => save([{ kind: 'project', id: created.refs.old, fields: { objective: 'Obsolete field' } }]))
