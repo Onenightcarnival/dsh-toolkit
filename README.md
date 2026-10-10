@@ -12,7 +12,7 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.md) | Browser bridge: `browser_*` tools driving the user's tabs through the Chrome / Firefox extension | Settings → General → Browser bridge address |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.md) | Codex, ChatGPT and Google Antigravity models, Codex search and image tools | Sidebar "AI subscriptions" |
 | [`@onenightcarnival/dsh-config-center`](packages/config-center/README.md) | MCP and skill management, dedicated uv / Python environment, common settings of built-in plugins | Sidebar → MCP / Skills; Settings → Environment dependencies / Plugins → Common settings |
-| [`@onenightcarnival/dsh-memory`](packages/memory/README.md) | Layered career records, episodes, human corrections, version history and `memory_*` tools | Sidebar "Memory" |
+| [`@onenightcarnival/dsh-memory`](packages/memory/README.md) | Layered career records, lessons, human corrections, version history and `memory_*` tools | Sidebar "Memory" |
 | [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.md) | Integrated package with all seven plugins | Each module's entry point |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.md) | Chrome / Firefox MV3 extension paired with the bridge | Browser side panel |
 

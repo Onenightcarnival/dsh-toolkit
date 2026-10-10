@@ -12,7 +12,7 @@
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.zh.md) | 浏览器桥：`browser_*` 工具经 Chrome / Firefox 扩展操作用户的标签页 | 设置 → 通用设置 → 浏览器桥地址 |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.zh.md) | Codex、ChatGPT、Google Antigravity 订阅模型及 Codex 搜索与生图工具 | 侧边栏「AI 订阅」 |
 | [`@onenightcarnival/dsh-config-center`](packages/config-center/README.zh.md) | MCP 与技能管理、专属 uv / Python 环境、内置插件常用设置 | 主侧栏 → MCP / 技能；设置 → 环境依赖 / 内置插件 → 常用设置 |
-| [`@onenightcarnival/dsh-memory`](packages/memory/README.zh.md) | 分层履历、经历档案、人工修正与版本历史，`memory_*` 工具 | 左侧栏「记忆」 |
+| [`@onenightcarnival/dsh-memory`](packages/memory/README.zh.md) | 分层履历、项目经验、人工修正与版本历史，`memory_*` 工具 | 左侧栏「记忆」 |
 | [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.zh.md) | 七个插件的集成包 | 各模块对应入口 |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.zh.md) | Chrome / Firefox MV3 扩展，与浏览器桥配对 | 浏览器侧边栏 |
 

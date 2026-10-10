@@ -69,8 +69,6 @@
 .mem-app .mem-primary:hover { background: var(--dsw-alias-button-info-hover, #3c5cee); }
 .mem-app .mem-danger { color: var(--mem-muted); border-color: transparent; }
 .mem-app .mem-danger:hover { color: var(--dsw-alias-state-error-primary, #ba4444); }
-.mem-episode { margin-top: 12px; padding: 14px; border: 1px solid var(--mem-border); border-radius: 8px; }
-.mem-episode dl, .mem-episode .mem-detail:last-child { margin-bottom: 0; }
 .mem-history { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100%; }
 .mem-history aside { border-right: 1px solid var(--mem-border); padding: 12px; }
 .mem-history aside h2 { margin-bottom: 10px; }
@@ -159,13 +157,13 @@
 .mem-directory-detail>.mem-section-heading p { margin-top: 5px; }
 .mem-directory-detail .mem-profile dl { grid-template-columns: 1fr; }
 @container (max-width: 1100px) {
-  .mem-directory[data-level=project] .mem-column-work, .mem-directory[data-level=episode] .mem-column-work { display: none; }
-  .mem-directory[data-level=profile] .mem-column-episode, .mem-directory[data-level=work] .mem-column-episode { display: none; }
+  .mem-directory[data-level=project] .mem-column-work, .mem-directory[data-level=lesson] .mem-column-work { display: none; }
+  .mem-directory[data-level=profile] .mem-column-lesson, .mem-directory[data-level=work] .mem-column-lesson { display: none; }
   .mem-column { width: 180px; }
   .mem-directory-detail { padding: 16px; }
 }
 @container (max-width: 760px) {
-  .mem-directory[data-level=profile] .mem-column-project, .mem-directory[data-level=work] .mem-column-work, .mem-directory[data-level=project] .mem-column-project, .mem-directory[data-level=episode] .mem-column-project { display: none; }
+  .mem-directory[data-level=profile] .mem-column-project, .mem-directory[data-level=work] .mem-column-work, .mem-directory[data-level=project] .mem-column-project, .mem-directory[data-level=lesson] .mem-column-project { display: none; }
   .mem-column { width: 170px; }
 }
 @container (max-width: 520px) {

@@ -1,7 +1,7 @@
 {
   "name": "@onenightcarnival/dsh-memory",
   "version": "0.7.2",
-  "description": "Layered career memory: resume, episodes, human corrections and version history.",
+  "description": "Layered career memory: resume, lessons, human corrections and version history.",
   "author": "onenightcarnival",
   "license": "MIT",
   "repository": {

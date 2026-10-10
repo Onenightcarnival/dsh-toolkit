@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { API, FIELDS, sortEntries, type Commit, type Diff, type Entry, type Kind, type Snapshot, type State } from '../model.ts'
+import { API, FIELDS, SCHEMA_VERSION, sortEntries, type Commit, type Diff, type Entry, type Kind, type Snapshot, type State } from '../model.ts'
 import { DirectoryView, ResumeView, entryName } from './views.tsx'
 import { t, zh, type Key } from './locales.ts'
 
@@ -21,14 +21,13 @@ function message(error: unknown): string {
   return t(key in zh ? key as Key : 'error.generic')
 }
 function download(state: State): void {
-  const url = URL.createObjectURL(new Blob([JSON.stringify({ schemaVersion: 4, exportedAt: new Date().toISOString(), entries: state.entries }, null, 2)], { type: 'application/json' }))
+  const url = URL.createObjectURL(new Blob([JSON.stringify({ schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), entries: state.entries }, null, 2)], { type: 'application/json' }))
   const a = document.createElement('a'); a.href = url; a.download = 'career-memory.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 function differences(before: Snapshot, after: Snapshot): { label: string; before: string; after: string }[] {
   const changes: { label: string; before: string; after: string }[] = []
   for (const id of new Set([...before.entries, ...after.entries].map(e => e.id))) {
     const a = before.entries.find(e => e.id === id), b = after.entries.find(e => e.id === id)
-    if (a?.legacyPeriod !== b?.legacyPeriod) changes.push({ label: `${entryName(b ?? a)} · ${t('legacyPeriod')}`, before: a?.legacyPeriod ?? '', after: b?.legacyPeriod ?? '' })
     for (const key of new Set([...Object.keys(a?.fields ?? {}), ...Object.keys(b?.fields ?? {})])) {
       const av = a?.fields[key] ?? '', bv = b?.fields[key] ?? ''
       const display = (value: string, snapshot: Snapshot) => key === 'endDate' && value === 'present' ? t('present') : ['parentId', 'workId'].includes(key) ? (value ? entryName(snapshot.entries.find(e => e.id === value)) : '') : value
@@ -83,7 +82,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
     finally { setBusy(false) }
   }
   function edit(entry: Entry): void { setError(''); setEditor({ entry: structuredClone(entry), base: state!.revision }) }
-  function add(kind: Kind, parentId?: string): void { edit({ id: crypto.randomUUID(), kind, fields: parentId ? { [kind === 'project' ? 'workId' : 'parentId']: parentId } : {}, protected: [] }) }
+  function add(kind: Kind, parentId?: string): void { edit({ id: crypto.randomUUID(), kind, fields: parentId ? { [kind === 'project' ? 'workId' : 'parentId']: parentId } : {} }) }
   function remove(entry: Entry): void { setConfirm({ title: 'removeTitle', hint: 'removeHint', input: { baseRevision: state!.revision, summary: t('deleteSummary'), changes: [{ id: entry.id, kind: entry.kind, remove: true }] } }) }
   const entries = sortEntries(state?.entries ?? [], order)
   const open = (id: string) => { setSelected(id); setView('directory'); setHistory(false) }
@@ -107,7 +106,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
       try {
         if (file.size > 2 * 1024 * 1024) throw new Error('invalid')
         const data = JSON.parse(await file.text())
-        if (![1, 2, 3, 4].includes(data.schemaVersion) || !Array.isArray(data.entries)) throw new Error('invalid')
+        if (data.schemaVersion !== SCHEMA_VERSION || !Array.isArray(data.entries)) throw new Error('invalid')
         setConfirm({ title: 'importTitle', hint: 'importHint', input: { baseRevision: state.revision, summary: t('importSummary'), imported: { schemaVersion: data.schemaVersion, entries: data.entries } } })
       } catch (e) { setError(message(e)) }
     }}/>
@@ -125,9 +124,8 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
       </main>
     </>}
     {editor && <div className="mem-overlay"><form role="dialog" aria-modal="true" aria-labelledby="mem-edit-title" className="mem-dialog" onSubmit={event => { event.preventDefault(); void commit({ baseRevision: editor.base, summary: `${t('edit')} · ${entryName(editor.entry)}`, changes: [{ id: editor.entry.id, kind: editor.entry.kind, fields: editor.entry.fields }] }) }}><header><h2 id="mem-edit-title">{t('edit')} · {t(editor.entry.kind === 'profile' ? 'personal' : editor.entry.kind)}</h2><button type="button" aria-label={t('close')} disabled={busy} onClick={() => setEditor(undefined)}>×</button></header><div className="mem-form-body">{error && <p className="mem-error" role="alert">{error}</p>}
-      {editor.entry.legacyPeriod && <p className="mem-muted">{t('legacyPeriod')}：{editor.entry.legacyPeriod}</p>}
       {FIELDS[editor.entry.kind].map((key, index) => key === 'endDate' ? null : key === 'startDate' ? <DateRange key={key} fields={editor.entry.fields} change={(field, value) => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [field]: value } } })}/> : <div className="mem-field" key={key}><label htmlFor={`mem-field-${key}`}>{t(key as Key)}</label>
-        {key === 'date' ? <input id={`mem-field-${key}`} type="date" min="0001-01-01" max="9999-12-31" value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/> : key === 'parentId' || key === 'workId' ? <select id={`mem-field-${key}`} value={editor.entry.fields[key] ?? ''} required={key === 'parentId'} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}><option value="">{t(key === 'workId' ? 'noWork' : 'none')}</option>{entries.filter(e => key === 'workId' ? e.kind === 'work' : e.kind === 'project' || e.id === editor.entry.fields.parentId).map(e => <option key={e.id} value={e.id}>{entryName(e)}</option>)}</select> : ['name', 'position', 'title', 'organization', 'jobTitle', 'role'].includes(key) ? <input id={`mem-field-${key}`} type="text" autoFocus={index === 0} maxLength={12000} required={key === 'title'} value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/> : <textarea id={`mem-field-${key}`} autoFocus={index === 0} rows={4} maxLength={key === 'highlights' ? 50000 : 12000} value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/>}
+        {key === 'parentId' || key === 'workId' ? <select id={`mem-field-${key}`} value={editor.entry.fields[key] ?? ''} required={key === 'parentId'} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}><option value="">{t(key === 'workId' ? 'noWork' : 'none')}</option>{entries.filter(e => key === 'workId' ? e.kind === 'work' : e.kind === 'project' || e.id === editor.entry.fields.parentId).map(e => <option key={e.id} value={e.id}>{entryName(e)}</option>)}</select> : ['name', 'position', 'title', 'organization', 'jobTitle', 'role'].includes(key) ? <input id={`mem-field-${key}`} type="text" autoFocus={index === 0} maxLength={12000} required={key === 'title'} value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/> : <textarea id={`mem-field-${key}`} autoFocus={index === 0} rows={4} required={key === 'lesson'} maxLength={key === 'highlights' ? 50000 : 12000} value={editor.entry.fields[key] ?? ''} onChange={e => setEditor({ ...editor, entry: { ...editor.entry, fields: { ...editor.entry.fields, [key]: e.target.value } } })}/>}
       </div>)}
       </div><footer><button type="button" disabled={busy} onClick={() => setEditor(undefined)}>{t('cancel')}</button><button className="mem-primary" disabled={busy}>{t('save')}</button></footer></form></div>}
     {confirm && <div className="mem-overlay"><div role={'clear' in confirm.input ? 'alertdialog' : 'dialog'} aria-modal="true" aria-labelledby="mem-confirm-title" aria-describedby="mem-confirm-hint" className="mem-dialog mem-confirm"><h2 id="mem-confirm-title">{t(confirm.title)}</h2><p id="mem-confirm-hint">{t(confirm.hint)}</p>{error && <p className="mem-error" role="alert">{error}</p>}<footer><button autoFocus disabled={busy} onClick={() => { setConfirm(undefined); setError('') }}>{t('cancel')}</button><button className={`mem-primary${'clear' in confirm.input ? ' mem-destructive' : ''}`} disabled={busy} onClick={() => void commit(confirm.input)}>{t('clear' in confirm.input ? 'confirmClear' : 'confirm')}</button></footer></div></div>}

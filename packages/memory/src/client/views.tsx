@@ -5,6 +5,7 @@ export function entryName(entry?: Entry): string {
   if (!entry) return t('none')
   if (entry.kind === 'profile') return t('personal')
   if (entry.kind === 'work') return [entry.fields.organization, entry.fields.jobTitle].filter(Boolean).join(' · ') || t('work')
+  if (entry.kind === 'lesson') return entry.fields.lesson?.trim().slice(0, 80) || t('lesson')
   return entry.fields.title || t(entry.kind)
 }
 interface ViewProps {
@@ -15,9 +16,10 @@ interface ViewProps {
   open: (id: string) => void
 }
 function Fields({ entry, keys }: { entry: Entry; keys: readonly string[] }): JSX.Element {
-  return <dl>{entry.legacyPeriod && keys.includes('startDate') && <div className="mem-detail"><dt>{t('legacyPeriod')}</dt><dd>{entry.legacyPeriod}</dd></div>}{keys.map(key => <div className="mem-detail" key={key}><dt>{t(key as Key)}</dt><dd>{key === 'endDate' && entry.fields[key] === 'present' ? t('present') : entry.fields[key] || '—'}</dd></div>)}</dl>
+  return <dl>{keys.map(key => <div className="mem-detail" key={key}><dt>{t(key as Key)}</dt><dd>{key === 'endDate' && entry.fields[key] === 'present' ? t('present') : entry.fields[key] || '—'}</dd></div>)}</dl>
 }
-const period = (entry: Entry) => entry.legacyPeriod || (entry.kind === 'episode' ? entry.fields.date : [entry.fields.startDate, entry.fields.endDate === 'present' ? t('present') : entry.fields.endDate].filter(Boolean).join(' — ')) || '—'
+/** Dated experiences show their range; lessons carry no date. */
+const period = (entry: Entry) => entry.kind === 'lesson' ? '' : [entry.fields.startDate, entry.fields.endDate === 'present' ? t('present') : entry.fields.endDate].filter(Boolean).join(' — ') || '—'
 function Actions({ entry, edit, remove }: Pick<ViewProps, 'edit' | 'remove'> & { entry: Entry }): JSX.Element {
   return <div className="mem-actions"><button onClick={() => edit(entry)}>{t('edit')}</button>{entry.kind !== 'profile' && <button className="mem-danger" onClick={() => remove(entry)}>{t('remove')}</button>}</div>
 }
@@ -32,7 +34,7 @@ export function ResumeView(props: ViewProps): JSX.Element {
       {entries.filter(e => e.kind === kind).map(entry => <article className="mem-experience" key={entry.id}>
         <div className="mem-section-heading"><div><time>{period(entry)}</time><h3>{kind === 'work' ? entry.fields.organization || t('none') : entry.fields.title}</h3><p className="mem-muted">{kind === 'work' ? entry.fields.jobTitle : entry.fields.role}</p></div><Actions entry={entry} edit={edit} remove={remove}/></div>
         <Fields entry={entry} keys={['highlights']}/>
-        <button className="mem-link" onClick={() => open(entry.id)}>{t(kind === 'work' ? 'viewProjects' : 'episodes')} <span>{entries.filter(e => kind === 'work' ? e.kind === 'project' && e.fields.workId === entry.id : e.kind === 'episode' && e.fields.parentId === entry.id).length}</span> →</button>
+        <button className="mem-link" onClick={() => open(entry.id)}>{t(kind === 'work' ? 'viewProjects' : 'lessons')} <span>{entries.filter(e => kind === 'work' ? e.kind === 'project' && e.fields.workId === entry.id : e.kind === 'lesson' && e.fields.parentId === entry.id).length}</span> →</button>
       </article>)}
     </section>)}
   </article></div>
@@ -44,20 +46,19 @@ export function DirectoryView(props: ViewProps & { selected: string }): JSX.Elem
   const profile = entries.find(e => e.kind === 'profile')!
   const independentGroup = selected === independentId
   const current = entries.find(e => e.id === selected) ?? profile
-  const parent = current.kind === 'episode' ? entries.find(e => e.id === current.fields.parentId) : current.kind === 'project' ? entries.find(e => e.id === current.fields.workId) : undefined
+  const parent = current.kind === 'lesson' ? entries.find(e => e.id === current.fields.parentId) : current.kind === 'project' ? entries.find(e => e.id === current.fields.workId) : undefined
   const project = current.kind === 'project' ? current : parent?.kind === 'project' ? parent : undefined
   const work = current.kind === 'work' ? current : parent?.kind === 'work' ? parent : project ? entries.find(e => e.id === project.fields.workId) : undefined
   const independent = independentGroup || !!project && !work
   const works = entries.filter(e => e.kind === 'work')
   const projects = entries.filter(e => e.kind === 'project' && (work ? e.fields.workId === work.id : independent && !e.fields.workId))
-  const episodeParent = project ?? work
-  const episodes = episodeParent ? entries.filter(e => e.kind === 'episode' && e.fields.parentId === episodeParent.id) : []
-  const path = [work, project, current.kind === 'episode' ? current : undefined].filter((e): e is Entry => !!e)
-  const column = (kind: 'work' | 'project' | 'episode', items: Entry[], activeId: string | undefined, empty: Key, onAdd?: () => void) => <section className={`mem-column mem-column-${kind}`} aria-label={t(kind)}>
-    <header><h2>{t(kind)}</h2><button aria-label={t(kind === 'work' ? 'addWork' : kind === 'project' ? 'addProject' : 'addEpisode')} disabled={!onAdd} onClick={onAdd}>+</button></header>
+  const lessons = project ? entries.filter(e => e.kind === 'lesson' && e.fields.parentId === project.id) : []
+  const path = [work, project, current.kind === 'lesson' ? current : undefined].filter((e): e is Entry => !!e)
+  const column = (kind: 'work' | 'project' | 'lesson', items: Entry[], activeId: string | undefined, empty: Key, onAdd?: () => void) => <section className={`mem-column mem-column-${kind}`} aria-label={t(kind)}>
+    <header><h2>{t(kind)}</h2><button aria-label={t(kind === 'work' ? 'addWork' : kind === 'project' ? 'addProject' : 'addLesson')} disabled={!onAdd} onClick={onAdd}>+</button></header>
     <nav className="mem-column-list" aria-label={t(kind)}>
       {items.map(entry => <button key={entry.id} className="mem-column-item" data-selected={entry.id === activeId || undefined} aria-current={entry.id === current.id && !independentGroup} onClick={() => open(entry.id)}>
-        <span><strong>{entryName(entry)}</strong><time>{period(entry)}</time></span><span className="mem-column-arrow" aria-hidden="true">{entry.kind === 'episode' ? '·' : '›'}</span>
+        <span><strong>{entryName(entry)}</strong>{period(entry) && <time>{period(entry)}</time>}</span><span className="mem-column-arrow" aria-hidden="true">{entry.kind === 'lesson' ? '·' : '›'}</span>
       </button>)}
       {!items.length && <p className="mem-empty">{t(empty)}</p>}
       {kind === 'work' && <button className="mem-column-item mem-independent" data-selected={independent || undefined} aria-current={independentGroup} onClick={() => open(independentId)}><span><strong>{t('noWork')}</strong><small>{entries.filter(e => e.kind === 'project' && !e.fields.workId).length}</small></span><span aria-hidden="true">›</span></button>}
@@ -70,13 +71,12 @@ export function DirectoryView(props: ViewProps & { selected: string }): JSX.Elem
     <div className="mem-columns">
       {column('work', works, work?.id, 'emptyWork', () => add('work'))}
       {column('project', projects, project?.id, work || independent ? 'emptyProject' : 'selectWork', work || independent ? () => add('project', work?.id) : undefined)}
-      {column('episode', episodes, current.kind === 'episode' ? current.id : undefined, project || episodes.length ? 'emptyEpisodes' : 'selectProject', project ? () => add('episode', project.id) : undefined)}
+      {column('lesson', lessons, current.kind === 'lesson' ? current.id : undefined, project ? 'emptyLessons' : 'selectProject', project ? () => add('lesson', project.id) : undefined)}
       <article className="mem-directory-detail" aria-label={t('content')}>
         {independentGroup ? <><div className="mem-section-heading"><h2>{t('noWork')}</h2><button onClick={() => add('project')}>+ {t('add')}</button></div><p className="mem-muted">{t('selectProject')}</p></> : <>
           <div className="mem-detail-type">{t(current.kind === 'profile' ? 'personal' : current.kind)}</div>
           <div className="mem-section-heading"><div><h2>{entryName(current)}</h2>{current.createdAt && <p className="mem-muted">{t('createdAt')} · {new Date(current.createdAt).toLocaleString()}</p>}</div><Actions entry={current} edit={edit} remove={remove}/></div>
           <div className={current.kind === 'profile' ? 'mem-profile' : ''}><Fields entry={current} keys={FIELDS[current.kind].filter(key => !['parentId', 'workId'].includes(key))}/></div>
-          {current.kind === 'work' && !!episodes.length && <button className="mem-link" onClick={() => open(episodes[0].id)}>{t('legacyEpisodes')} · {episodes.length} →</button>}
         </>}
       </article>
     </div>

@@ -9,14 +9,15 @@ import { en, zh } from '../src/client/locales.ts'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 
 function fixture(t: { after(fn: () => void): void }) {
-  const dir = mkdtempSync(join(tmpdir(), 'memory-tools-')); const store = new MemoryStore(join(dir, 'career.sqlite'))
+  const dir = mkdtempSync(join(tmpdir(), 'memory-tools-'))
+  const store = new MemoryStore(join(dir, 'career.sqlite'))
   t.after(() => { store.close(); rmSync(dir, { recursive: true, force: true }) })
   const tools = memoryTools(store)
   const context = { callId: 'call-test', agent: { session: { id: 'session-test' } } } as unknown as ToolRunContext
   const run = async (name: string, args: unknown = {}) => JSON.parse(await tools.find(tool => tool.name === name)!.execute(args as never, context) as string)
   const save = (changes: unknown[], stateToken = `r:${store.read().revision}`) => run('memory_save', { stateToken, summary: 'Verified outcome', changes })
   const seed = () => save([
-    { kind: 'episode', ref: 'episode', fields: { title: 'Bridge lesson', parentId: '@project', evidence: 'test:success', lesson: 'Verified bridge isolation' } },
+    { kind: 'lesson', ref: 'lesson', fields: { parentId: '@project', lesson: 'Verified bridge isolation before shipping' } },
     { kind: 'project', ref: 'project', fields: { title: 'Bridge project', workId: '@work', highlights: 'Browser bridge tested' } },
     { kind: 'work', ref: 'work', fields: { organization: 'Test company', jobTitle: 'Engineer', highlights: 'Bridge development' } },
   ])
@@ -28,16 +29,17 @@ test('typed batch creates server ids, resolves forward references, and stores on
   const result = await seed()
   assert.equal(result.ok, true); assert.equal(result.version, 1); assert.equal(result.stateToken, 'r:1')
   const entries = store.read().entries
-  assert.equal(entries.find(e => e.id === result.refs.episode)!.fields.parentId, result.refs.project)
+  assert.equal(entries.find(e => e.id === result.refs.lesson)!.fields.parentId, result.refs.project)
   assert.equal(entries.find(e => e.id === result.refs.project)!.fields.workId, result.refs.work)
   assert.equal(store.read().history.length, 1)
   assert.equal(store.read().history[0].source, 'session:session-test/call:call-test')
-  const detail = await run('memory_get', { id: result.refs.episode })
+  const detail = await run('memory_get', { id: result.refs.lesson })
   assert.deepEqual(detail.ancestors.map((e: { id: string }) => e.id), [result.refs.work, result.refs.project])
-  assert.equal(detail.entry.fields.evidence, 'test:success')
+  assert.equal(detail.entry.fields.lesson, 'Verified bridge isolation before shipping')
+  assert.equal(detail.children.total, 0)
   const work = await run('memory_get', { id: result.refs.work })
   assert.equal(work.children.items[0].id, result.refs.project)
-  assert.equal(work.children.items[0].fields.evidence, undefined)
+  assert.equal(work.children.items[0].childCount, 1)
   const root = await run('memory_get')
   assert.equal(root.entry.id, 'profile')
   assert.deepEqual(root.children.items.map((e: { id: string }) => e.id), [result.refs.work])
@@ -54,44 +56,40 @@ test('root and child pages are bounded; node reads preserve full text', async t 
   assert.equal(root.children.items[0].id, result.refs.work)
   assert.equal(root.children.items[0].fields.highlights.length, 400)
   assert.deepEqual(root.children.items[0].truncatedFields, ['highlights'])
-  assert.equal(JSON.stringify(root).includes('test:success'), false)
+  assert.equal(JSON.stringify(root).includes('Verified bridge isolation'), false)
   const second = await run('memory_get', { offset: 1 })
   assert.equal(second.children.items[0].kind, 'project'); assert.equal(second.children.items[0].fields.workId, undefined)
   const work = await run('memory_get', { id: result.refs.work })
   assert.equal(work.entry.fields.highlights.length, 721)
   assert.deepEqual(work.children.items.map((e: { id: string }) => e.id), [result.refs.project])
   const project = await run('memory_get', { id: result.refs.project })
-  assert.deepEqual(project.children.items.map((e: { id: string }) => e.id), [result.refs.episode])
+  assert.deepEqual(project.children.items.map((e: { id: string }) => e.id), [result.refs.lesson])
+  assert.equal(project.children.items[0].title, 'Verified bridge isolation before shipping')
   assert.deepEqual(project.ancestors.map((e: { id: string }) => e.id), [result.refs.work])
-  assert.equal((await run('memory_get', { id: result.refs.episode })).children.total, 0)
   assert.equal((await run('memory_get', { limit: 21 })).error.code, 'invalid')
   assert.equal((await run('memory_get', { id: 'nope' })).error.code, 'missing')
 })
 
-test('global access permits Agent updates and removals of human-edited and legacy-protected records', async t => {
+test('global access permits Agent updates and removals of human-edited records', async t => {
   const { store, seed, save, run } = fixture(t), result = await seed()
-  const human = store.commit({ baseRevision: 1, summary: 'Human correction', changes: [{ id: result.refs.project, kind: 'project', fields: { title: 'Confirmed' } }] }, 'human')
-  const legacy = structuredClone(human.entries)
-  legacy.find(e => e.id === result.refs.project)!.protected = ['title']
-  store.commit({ baseRevision: 2, summary: 'Legacy import', imported: { schemaVersion: 4, entries: legacy } }, 'human')
+  store.commit({ baseRevision: 1, summary: 'Human correction', changes: [{ id: result.refs.project, kind: 'project', fields: { title: 'Confirmed' } }] }, 'human')
   const saved = await save([{ kind: 'work', id: result.refs.work, fields: { jobTitle: 'Lead' } }, { kind: 'project', id: result.refs.project, fields: { title: 'Updated' } }])
-  assert.equal(saved.ok, true); assert.equal(saved.version, 4)
+  assert.equal(saved.ok, true); assert.equal(saved.version, 3)
   assert.equal(store.read().entries.find(e => e.id === result.refs.work)!.fields.jobTitle, 'Lead')
   assert.equal(store.read().entries.find(e => e.id === result.refs.project)!.fields.title, 'Updated')
-  assert.equal('protected' in (await run('memory_get', { id: result.refs.project })).entry, false)
-  assert.equal('protected' in (await run('memory_get', { id: result.refs.work })).children.items[0], false)
   store.setAgentTools(false)
   assert.equal((await save([{ kind: 'project', id: result.refs.project, fields: { title: 'Blocked' } }])).error.code, 'disabled')
   assert.equal((await run('memory_get', { id: result.refs.project })).error.code, 'disabled')
   store.setAgentTools(true)
-  assert.equal(store.read().history.length, 4)
-  const removed = await save([{ kind: 'remove', id: result.refs.episode }, { kind: 'remove', id: result.refs.project }])
+  assert.equal(store.read().history.length, 3)
+  const removed = await save([{ kind: 'remove', id: result.refs.lesson }, { kind: 'remove', id: result.refs.project }])
   assert.equal(removed.ok, true)
 })
 
 test('per-kind schema rejects misplaced fields; missing ids and references never create records', async t => {
   const { store, save } = fixture(t)
   await assert.rejects(() => save([{ kind: 'work', fields: { title: 'Not a work field' } }]))
+  await assert.rejects(() => save([{ kind: 'lesson', fields: { parentId: 'x', title: 'Not a lesson field' } }]))
   assert.equal((await save([{ kind: 'project', id: 'missing', fields: { title: 'Wrong update' } }])).error.code, 'missing')
   assert.equal((await save([{ kind: 'project', fields: { title: 'Broken', workId: '@missing' } }])).error.code, 'reference')
   assert.equal((await save([{ kind: 'work', ref: 'same', fields: { organization: 'A' } }, { kind: 'work', ref: 'same', fields: { organization: 'B' } }])).error.code, 'invalid')
@@ -118,12 +116,14 @@ test('no-op saves do not add versions; removal preserves reference constraints',
   assert.equal(removed.ok, true); assert.equal(removed.version, 2); assert.equal(store.read().entries.length, 1)
 })
 
-test('new episodes require evidence and project parents; all validation failures are atomic', async t => {
+test('new lessons require text and a project parent; all validation failures are atomic', async t => {
   const { store, save } = fixture(t)
-  const noEvidence = await save([{ kind: 'project', ref: 'p', fields: { title: 'Project' } }, { kind: 'episode', fields: { title: 'Episode', parentId: '@p' } }])
-  assert.equal(noEvidence.error.code, 'evidence')
-  const wrongParent = await save([{ kind: 'work', ref: 'w', fields: { organization: 'Company' } }, { kind: 'episode', fields: { title: 'Episode', parentId: '@w', evidence: 'source' } }])
+  const empty = await save([{ kind: 'project', ref: 'p', fields: { title: 'Project' } }, { kind: 'lesson', fields: { parentId: '@p', lesson: ' ' } }])
+  assert.equal(empty.error.code, 'content')
+  const wrongParent = await save([{ kind: 'work', ref: 'w', fields: { organization: 'Company' } }, { kind: 'lesson', fields: { parentId: '@w', lesson: 'Text' } }])
   assert.equal(wrongParent.error.code, 'reference'); assert.equal(store.read().revision, 0)
+  const noOrganization = await save([{ kind: 'work', fields: { jobTitle: 'Engineer' } }])
+  assert.equal(noOrganization.error.code, 'invalid'); assert.equal(store.read().revision, 0)
 })
 
 test('English and Chinese dictionaries contain the same keys', () => assert.deepEqual(Object.keys(en).sort(), Object.keys(zh).sort()))
@@ -139,9 +139,8 @@ test('child pages use project highlights and structured experience dates', async
   assert.equal((await run('memory_get', { id: created.refs.old })).entry.fields.endDate, 'present')
   assert.deepEqual((await run('memory_get')).children.items.map((e: { id: string }) => e.id), [created.refs.recent, created.refs.old])
   assert.equal((await save([{ kind: 'project', id: created.refs.old, fields: { endDate: '2019-01-01' } }])).error.code, 'dateRange')
-  assert.equal((await save([{ kind: 'episode', fields: { title: 'Episode', parentId: created.refs.old, date: '2026-02-30', evidence: 'test:source' } }])).error.code, 'date')
   await assert.rejects(() => save([{ kind: 'project', id: created.refs.old, fields: { objective: 'Obsolete field' } }]))
-  const episode = await save([{ kind: 'episode', fields: { title: 'Episode', parentId: created.refs.old, date: '2020-03-01', evidence: 'test:source' } }])
-  assert.equal(episode.ok, true)
-  assert.equal((await run('memory_get', { id: created.refs.old })).children.items[0].fields.date, '2020-03-01')
+  const lesson = await save([{ kind: 'lesson', fields: { parentId: created.refs.old, lesson: 'Keep OS work in the shell' } }])
+  assert.equal(lesson.ok, true)
+  assert.equal((await run('memory_get', { id: created.refs.old })).children.items[0].fields.lesson, 'Keep OS work in the shell')
 })
