@@ -6,7 +6,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { IconDatabaseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { RdbApi } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh } from './locales.ts'
-import { mountPanel, type LayoutLike, type PanelIconProps, type SlotsLike } from './mount.tsx'
+import { mountPanel, type LayoutLike, type PanelIconProps, type SidebarGate, type SlotsLike } from './mount.tsx'
 import { RdbPanel } from './panel/RdbPanel.tsx'
 import css from './styles.css'
 
@@ -32,7 +32,12 @@ function PanelIcon({ size }: PanelIconProps): JSX.Element {
   return <IconDatabaseOutlineRegular size={size} />
 }
 
-export function apply(ctx: ClientContext): void {
+/** Client config from an integrating plugin; `sidebar` gates the row. */
+export interface Config {
+  sidebar?: SidebarGate
+}
+
+export function apply(ctx: ClientContext, config: Config = {}): void {
   injectStyles()
   const services = ctx as unknown as {
     slots: SlotsLike
@@ -63,6 +68,7 @@ export function apply(ctx: ClientContext): void {
         icon: PanelIcon,
         panel: RdbPanel,
         props: () => ({ api }),
+        gate: config.sidebar,
       })
     } catch (error) {
       console.warn('[dsh-rdb] mount failed:', error)

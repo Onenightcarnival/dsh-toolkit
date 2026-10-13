@@ -1,8 +1,9 @@
 /**
- * Host: child plugin mounting and the module map endpoint.
+ * Host: child plugin mounting, the module map endpoint and the sidebar preferences endpoint.
  * Config: standalone module options; `false` disables the module.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-app-boot'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import * as memory from '../../memory/src/index.ts'
@@ -12,10 +13,12 @@ import * as subscriptions from '../../subscriptions/src/index.ts'
 import * as bridge from '../../browser-bridge/src/index.ts'
 import * as configCenter from '../../config-center/src/index.ts'
 import otel from '../../otel/src/index.js'
-import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
+import { errorMessage, isLoopbackRequest, readJsonBody, writeJson } from '../../config-center/src/http.ts'
+import { MODULES, MODULES_API, SIDEBAR_API, type Module, type ModuleMap } from './modules.ts'
+import { preferences } from './preferences.ts'
 
 export const name = 'toolkit'
-export const inject = ['webServer']
+export const inject = ['webServer', 'profileContext']
 
 export interface Config {
   memory?: memory.Config | false
@@ -43,4 +46,20 @@ export function apply(ctx: Context, config: Config = {}): void {
       res.end(req.method === 'GET' ? JSON.stringify(mounted) : '{}')
     },
   }), 'dsh-toolkit: module map')
+
+  const prefs = preferences(ctx.profileContext.dir)
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact',
+    path: SIDEBAR_API,
+    handler: async (req: IncomingMessage, res: ServerResponse) => {
+      if (req.method !== 'GET' && req.method !== 'PUT') return writeJson(res, 405, {})
+      if (req.method === 'PUT' && !isLoopbackRequest(req)) return writeJson(res, 403, {})
+      try {
+        if (req.method === 'GET') return writeJson(res, 200, { hidden: await prefs.hiddenSidebarPanels() })
+        const hidden = (await readJsonBody(req))?.hidden
+        if (!Array.isArray(hidden)) return writeJson(res, 400, { error: 'hidden must be an array' })
+        writeJson(res, 200, { hidden: await prefs.saveHiddenSidebarPanels(hidden) })
+      } catch (error) { writeJson(res, 400, { error: errorMessage(error) }) }
+    },
+  }), 'dsh-toolkit: sidebar preferences')
 }

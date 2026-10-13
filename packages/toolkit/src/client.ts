@@ -1,7 +1,9 @@
 /**
- * Client: module panels selected by the host's module map.
+ * Client: module panels selected by the host's module map, sidebar row
+ * visibility, and the Settings → Toolkit section.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import type { ComponentType } from 'react'
 import * as memory from '../../memory/src/client/index.tsx'
 import * as rdb from '../../rdb/src/client/index.tsx'
 import * as s3 from '../../s3/src/client/index.tsx'
@@ -9,9 +11,16 @@ import * as subscriptions from '../../subscriptions/src/client/index.tsx'
 import * as bridge from '../../browser-bridge/src/client/index.js'
 import * as configCenter from '../../config-center/src/client/index.tsx'
 import { clientFor as otelClient } from '../../otel/src/client/index.jsx'
-import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
+import { MODULES, MODULES_API, SIDEBAR_PANELS, type Module, type ModuleMap, type SidebarPanel } from './modules.ts'
+import { en, zh, type Key } from './client/locales.ts'
+import { createSidebarStore, loadSidebarPreferences } from './client/sidebar.ts'
+import { SidebarPage } from './client/SidebarPage.tsx'
 
 export const inject = ['slots', 'locale', 'remote', 'layout']
+
+const NS = 'dsh-toolkit'
+/** Settings section order: after side cards (100), before Observability (110). */
+const SECTION_ORDER = 105
 
 const PLUGINS: Record<Module, unknown> = {
   memory: { name: 'memory-client', ...memory },
@@ -23,6 +32,19 @@ const PLUGINS: Record<Module, unknown> = {
   configCenter: { name: 'config-center-client', ...configCenter },
 }
 
+/** Modules whose clients take the sidebar gate. */
+const GATED = new Set<Module>(SIDEBAR_PANELS.map(panel => panel.module))
+
+interface Slots {
+  inject(name: string, register: () => () => void): () => void
+  register(options: Record<string, unknown>, component: ComponentType<any>): () => void
+}
+
+interface Locale {
+  register(ns: string, dicts: unknown): () => void
+  bind(ns: string): (key: string, values?: Record<string, string>) => string
+}
+
 async function mountedModules(): Promise<ModuleMap> {
   const response = await fetch(MODULES_API, { credentials: 'same-origin' })
   if (!response.ok) throw new Error(`${MODULES_API}: HTTP ${String(response.status)}`)
@@ -30,8 +52,31 @@ async function mountedModules(): Promise<ModuleMap> {
 }
 
 export async function apply(ctx: Context): Promise<void> {
-  const mounted = await mountedModules()
+  const { slots, locale } = ctx as unknown as { slots: Slots; locale: Locale }
+  const [mounted, preferences] = await Promise.all([
+    mountedModules(),
+    loadSidebarPreferences().then(value => ({ hidden: value.hidden, error: undefined }), (error: unknown) => {
+      console.warn('[dsh-toolkit] sidebar preferences:', error)
+      return { hidden: [] as SidebarPanel[], error: error instanceof Error ? error.message : String(error) }
+    }),
+  ])
+  const store = createSidebarStore(preferences.hidden)
+
   for (const module of MODULES) {
-    if (mounted[module]) ctx.plugin(PLUGINS[module] as Parameters<Context['plugin']>[0])
+    if (!mounted[module]) continue
+    const config = GATED.has(module) ? { sidebar: store } : undefined
+    ctx.plugin(PLUGINS[module] as Parameters<Context['plugin']>[0], config)
   }
+
+  ctx.effect(() => locale.register(NS, { zh, en }), 'dsh-toolkit: dictionaries')
+  const t = locale.bind(NS) as (key: Key, values?: Record<string, string>) => string
+  const panels = SIDEBAR_PANELS.filter(panel => mounted[panel.module]).map(panel => panel.id)
+  ctx.effect(() => slots.inject('settings.section', () => slots.register({
+    name: 'settings.section',
+    id: 'dsh-toolkit',
+    order: SECTION_ORDER,
+    label: () => t('title'),
+    locale: NS,
+    inject: () => ({ store, panels, loadError: preferences.error, translate: t }),
+  }, SidebarPage)), 'dsh-toolkit: settings section')
 }

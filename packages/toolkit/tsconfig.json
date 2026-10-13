@@ -6,5 +6,5 @@
     "rootDir": "../..",
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "../rdb/src/types.d.ts", "../s3/src/types.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "../rdb/src/types.d.ts", "../s3/src/types.d.ts"]
 }

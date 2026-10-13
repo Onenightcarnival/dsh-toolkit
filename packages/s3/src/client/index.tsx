@@ -6,7 +6,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { IconArchiveOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { S3Api } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh } from './locales.ts'
-import { mountPanel, type LayoutLike, type PanelIconProps, type SlotsLike } from './mount.tsx'
+import { mountPanel, type LayoutLike, type PanelIconProps, type SidebarGate, type SlotsLike } from './mount.tsx'
 import { S3Panel } from './panel/S3Panel.tsx'
 import css from './styles.css'
 
@@ -32,7 +32,12 @@ function PanelIcon({ size }: PanelIconProps): JSX.Element {
   return <IconArchiveOutlineRegular size={size} />
 }
 
-export function apply(ctx: ClientContext): void {
+/** Client config from an integrating plugin; `sidebar` gates the row. */
+export interface Config {
+  sidebar?: SidebarGate
+}
+
+export function apply(ctx: ClientContext, config: Config = {}): void {
   injectStyles()
   const services = ctx as unknown as {
     slots: SlotsLike
@@ -63,6 +68,7 @@ export function apply(ctx: ClientContext): void {
         icon: PanelIcon,
         panel: S3Panel,
         props: () => ({ api }),
+        gate: config.sidebar,
       })
     } catch (error) {
       console.warn('[dsh-s3] mount failed:', error)

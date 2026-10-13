@@ -61,13 +61,44 @@ Mount order: `rdb → s3 → otel → browser → subscriptions → configCenter
 | `GET /api/dsh-toolkit/modules` | `200`, module boolean map, `Cache-Control: no-store` |
 | Other methods | `405`, empty JSON object |
 
+## Sidebar entries
+
+Settings → Toolkit lists the sidebar entries of enabled modules, one switch per entry. Switches apply immediately; an entry turned off leaves the left sidebar and its open panel closes, while features and data stay unchanged.
+
+| Entry | Module | Entry ID |
+|---|---|---|
+| Database | `rdb` | `rdb` |
+| S3 | `s3` | `s3` |
+| MCP | `configCenter` | `dsh-config-center-mcp` |
+| Memory | `memory` | `memory` |
+| Skills | `configCenter` | `dsh-config-center-skills` |
+| AI subscriptions | `subscriptions` | `subscriptions` |
+
+The setting is stored as `hiddenSidebarPanels` in `dsh-toolkit.json` in the active profile directory, for example `~/.dsh/profiles/web/dsh-toolkit.json`:
+
+```json
+{"hiddenSidebarPanels":["rdb","dsh-config-center-mcp"]}
+```
+
+| Request | Response |
+|---|---|
+| `GET /api/dsh-toolkit/sidebar` | `200`, `{"hidden":[entry ID…]}` |
+| `PUT /api/dsh-toolkit/sidebar` with body `{"hidden":[…]}` | `200`, the saved structure; unknown IDs return `400`; non-loopback or cross-site requests return `403` |
+| Other methods | `405`, empty JSON object |
+
+Module clients accept a `{ sidebar }` config as the entry visibility source; standalone plugins receive none and always show their entries.
+
 ## Structure
 
 | File | Responsibility |
 |---|---|
-| `src/index.ts` | Host module mounting and module map endpoint |
-| `src/client.ts` | Client plugin mounting from the host map |
-| `src/modules.ts` | Module order, map type and API path |
+| `src/index.ts` | Host module mounting, module map endpoint and sidebar preferences endpoint |
+| `src/client.ts` | Client plugin mounting from the host map, sidebar visibility, settings section |
+| `src/modules.ts` | Module order, map type, sidebar entry table and API paths |
+| `src/preferences.ts` | `dsh-toolkit.json` in the profile directory |
+| `src/client/sidebar.ts` | Sidebar visibility state and save requests |
+| `src/client/SidebarPage.tsx` | Settings → Toolkit page |
+| `src/client/locales.ts` | Chinese and English copy |
 | `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
 | `build.mjs` | Host and client builds from the seven modules' sources |
 

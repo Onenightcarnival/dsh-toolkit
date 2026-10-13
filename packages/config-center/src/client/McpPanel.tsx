@@ -1,4 +1,4 @@
-/** Native sidebar/main slots, matching the database, S3 and subscription panels. */
+/** Native sidebar/main slots, matching the database, S3 and subscription panels; an optional gate hides the row. */
 import type { ComponentType } from 'react'
 import type { ConfigCenterApi } from './api.ts'
 import { McpTab } from './McpTab.tsx'
@@ -12,6 +12,12 @@ export interface Slots {
   inject(name: string, register: () => () => void): () => void
   register(options: Record<string, unknown>, component: ComponentType<any>): () => void
   entries(name: string): Array<{ options: { id?: string; key?: string } }>
+}
+
+/** Sidebar row visibility supplied by an integrating plugin. */
+export interface SidebarGate {
+  visible(id: string): boolean
+  subscribe(listener: () => void): () => void
 }
 
 export interface Layout {
@@ -29,19 +35,35 @@ function McpPanel({ api, close }: { api: ConfigCenterApi; close: () => void }): 
   return <McpTab api={api} close={close} />
 }
 
-export function mountMcpPanel(slots: Slots, layout: Layout, api: ConfigCenterApi): () => void {
-  return mountMainPanel(slots, layout, api, { id: PANEL_ID, order: 55, label: () => tt('nav.mcp'), icon: McpIcon, component: McpPanel })
+export function mountMcpPanel(slots: Slots, layout: Layout, api: ConfigCenterApi, gate?: SidebarGate): () => void {
+  return mountMainPanel(slots, layout, api, { id: PANEL_ID, order: 55, label: () => tt('nav.mcp'), icon: McpIcon, component: McpPanel }, gate)
 }
 
-export function mountMainPanel(slots: Slots, layout: Layout, api: ConfigCenterApi, panel: { id: string; order: number; label: () => string; icon: ComponentType<{ size: number }>; component: ComponentType<{ api: ConfigCenterApi; close: () => void }> }): () => void {
+export function mountMainPanel(slots: Slots, layout: Layout, api: ConfigCenterApi, panel: { id: string; order: number; label: () => string; icon: ComponentType<{ size: number }>; component: ComponentType<{ api: ConfigCenterApi; close: () => void }> }, gate?: SidebarGate): () => void {
   const isOpen = (): boolean => layout.panelInfo.getSnapshot().activePanelId === panel.id
   const close = (): void => { if (isOpen()) layout.selectPanel(null) }
   let ownsPanel = false
-  const disposers = [
-    slots.inject('sidebar.panellist', () => {
+  let shown = false
+  let disposeRow = (): void => {}
+  const syncRow = (): void => {
+    const next = gate?.visible(panel.id) ?? true
+    if (next === shown) return
+    shown = next
+    if (!next) {
+      disposeRow()
+      disposeRow = () => {}
+      if (ownsPanel) close()
+      return
+    }
+    disposeRow = slots.inject('sidebar.panellist', () => {
       if (slots.entries('sidebar.panellist').some(entry => entry.options.id === panel.id)) return () => {}
       return slots.register({ name: 'sidebar.panellist', id: panel.id, order: panel.order, locale: 'dsh-config-center', label: panel.label }, panel.icon)
-    }),
+    })
+  }
+  syncRow()
+  const disposers = [
+    () => disposeRow(),
+    gate?.subscribe(syncRow) ?? (() => {}),
     slots.inject('main', () => {
       if (slots.entries('main').some(entry => entry.options.key === panel.id)) return () => {}
       ownsPanel = true

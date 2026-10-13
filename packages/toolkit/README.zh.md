@@ -61,13 +61,44 @@ config → 宿主挂载模块 → GET /api/dsh-toolkit/modules → 客户端挂�
 | `GET /api/dsh-toolkit/modules` | `200`，模块布尔值映射，`Cache-Control: no-store` |
 | 其他方法 | `405`，空 JSON 对象 |
 
+## 侧栏入口
+
+设置 → Toolkit 列出已启用模块的侧栏入口，每项一个开关。开关即时生效；关闭的入口从左侧边栏移除，已打开的对应面板随之关闭，功能与数据不受影响。
+
+| 入口 | 模块 | 入口 ID |
+|---|---|---|
+| 数据库 | `rdb` | `rdb` |
+| S3 | `s3` | `s3` |
+| MCP | `configCenter` | `dsh-config-center-mcp` |
+| 记忆 | `memory` | `memory` |
+| 技能 | `configCenter` | `dsh-config-center-skills` |
+| AI 订阅 | `subscriptions` | `subscriptions` |
+
+设置保存在当前 profile 目录的 `dsh-toolkit.json`（`hiddenSidebarPanels`），例如 `~/.dsh/profiles/web/dsh-toolkit.json`：
+
+```json
+{"hiddenSidebarPanels":["rdb","dsh-config-center-mcp"]}
+```
+
+| 请求 | 响应 |
+|---|---|
+| `GET /api/dsh-toolkit/sidebar` | `200`，`{"hidden":[入口 ID…]}` |
+| `PUT /api/dsh-toolkit/sidebar`，请求体 `{"hidden":[…]}` | `200`，保存后的同一结构；未知 ID 返回 `400`；非回环或跨站请求返回 `403` |
+| 其他方法 | `405`，空 JSON 对象 |
+
+模块客户端接受 `{ sidebar }` 配置作为入口可见性来源；独立安装的插件不传该配置，入口始终显示。
+
 ## 结构
 
 | 文件 | 职责 |
 |---|---|
-| `src/index.ts` | 宿主模块挂载与模块清单接口 |
-| `src/client.ts` | 按宿主清单挂载客户端插件 |
-| `src/modules.ts` | 模块顺序、清单类型与 API 路径 |
+| `src/index.ts` | 宿主模块挂载、模块清单接口与侧栏设置接口 |
+| `src/client.ts` | 按宿主清单挂载客户端插件、传入侧栏可见性、注册设置页 |
+| `src/modules.ts` | 模块顺序、清单类型、侧栏入口表与 API 路径 |
+| `src/preferences.ts` | profile 目录内的 `dsh-toolkit.json` 读写 |
+| `src/client/sidebar.ts` | 侧栏可见性状态与保存请求 |
+| `src/client/SidebarPage.tsx` | 设置 → Toolkit 页面 |
+| `src/client/locales.ts` | 中英文文案 |
 | `src/typert.ts` | 以集成包名注册 OTel typert 清单 |
 | `build.mjs` | 七个模块源码的宿主与客户端构建 |
 

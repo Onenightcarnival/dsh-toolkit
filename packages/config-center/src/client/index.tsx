@@ -8,7 +8,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ComponentType } from 'react'
 import { ConfigCenterApi } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh, type Key } from './locales.ts'
-import { mountMcpPanel, mountMainPanel, type Layout } from './McpPanel.tsx'
+import { mountMcpPanel, mountMainPanel, type Layout, type SidebarGate } from './McpPanel.tsx'
 import { SkillsPage, SkillsIcon } from './SkillsPage.tsx'
 import { SettingsTab } from './SettingsTab.tsx'
 import { EnvironmentPage } from './EnvironmentPage.tsx'
@@ -35,7 +35,12 @@ const TABS: Array<{ id: string; order: number; label: Key; component: ComponentT
   { id: 'dsh-config-center-settings', order: 45, label: 'tab.settings', component: SettingsTab },
 ]
 
-export function apply(ctx: ClientContext): void {
+/** Client config from an integrating plugin; `sidebar` gates the MCP and Skills rows. */
+export interface Config {
+  sidebar?: SidebarGate
+}
+
+export function apply(ctx: ClientContext, config: Config = {}): void {
   const { slots, locale, layout } = ctx as unknown as { slots: Slots; locale?: Locale; layout: Layout }
   ctx.effect(() => {
     try {
@@ -57,8 +62,8 @@ export function apply(ctx: ClientContext): void {
     if (slots.entries('settings.section').some(entry => entry.options.id === 'dsh-config-center-environment')) return () => {}
     return slots.register({ name: 'settings.section', id: 'dsh-config-center-environment', order: 120, label: () => tt('environment.title'), locale: NS, inject: () => ({ api }) }, EnvironmentPage)
   })
-  ctx.effect(() => mountMcpPanel(slots, layout, api), 'dsh-config-center: MCP panel')
-  ctx.effect(() => mountMainPanel(slots, layout, api, { id: 'dsh-config-center-skills', order: 56, label: () => tt('skills.title'), icon: SkillsIcon, component: SkillsPage }), 'dsh-config-center: skills panel')
+  ctx.effect(() => mountMcpPanel(slots, layout, api, config.sidebar), 'dsh-config-center: MCP panel')
+  ctx.effect(() => mountMainPanel(slots, layout, api, { id: 'dsh-config-center-skills', order: 56, label: () => tt('skills.title'), icon: SkillsIcon, component: SkillsPage }, config.sidebar), 'dsh-config-center: skills panel')
   slots.inject(SLOT, () => {
     const disposers: Array<() => void> = []
     try {
