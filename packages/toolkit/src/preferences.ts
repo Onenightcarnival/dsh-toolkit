@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
-import { isSidebarPanel, SIDEBAR_PANELS, type SidebarPanel } from './modules.ts'
+import { isPanelId, MAX_HIDDEN } from './modules.ts'
 
 export function preferences(profileDir: string) {
   const path = join(profileDir, 'dsh-toolkit.json')
@@ -11,15 +11,16 @@ export function preferences(profileDir: string) {
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}; throw error }
   }
   return {
-    /** Hidden sidebar rows; unknown ids are dropped. */
-    async hiddenSidebarPanels(): Promise<SidebarPanel[]> {
+    /** Hidden sidebar rows of any plugin; invalid ids are dropped. */
+    async hiddenSidebarPanels(): Promise<string[]> {
       const value = (await read()).hiddenSidebarPanels
-      return Array.isArray(value) ? SIDEBAR_PANELS.map(panel => panel.id).filter(id => value.includes(id)) : []
+      return Array.isArray(value) ? [...new Set(value.filter(isPanelId))].slice(0, MAX_HIDDEN) : []
     },
-    /** @throws when `hidden` contains an unknown row id. */
-    async saveHiddenSidebarPanels(hidden: readonly unknown[]): Promise<SidebarPanel[]> {
-      if (!hidden.every(isSidebarPanel)) throw new Error('unknown sidebar panel')
-      const next = SIDEBAR_PANELS.map(panel => panel.id).filter(id => hidden.includes(id))
+    /** @throws when `hidden` holds an invalid id or more than {@link MAX_HIDDEN} ids. */
+    async saveHiddenSidebarPanels(hidden: readonly unknown[]): Promise<string[]> {
+      if (!hidden.every(isPanelId)) throw new Error('invalid sidebar panel id')
+      const next = [...new Set(hidden)]
+      if (next.length > MAX_HIDDEN) throw new Error(`at most ${String(MAX_HIDDEN)} hidden sidebar panels`)
       await withFileLock(path, async () => {
         await writeFileAtomic(path, JSON.stringify({ ...await read(), hiddenSidebarPanels: next }, null, 2) + '\n', { mode: 0o600 })
       })

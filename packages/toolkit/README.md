@@ -63,7 +63,14 @@ Mount order: `rdb → s3 → otel → browser → subscriptions → configCenter
 
 ## Sidebar entries
 
-Settings → Toolkit lists the sidebar entries of enabled modules, one switch per entry. Switches apply immediately; an entry turned off leaves the left sidebar and its open panel closes, while features and data stay unchanged.
+Settings → Left sidebar lists the sidebar entries of all plugins, including third-party plugins such as SSH and the task board, one switch per entry; Hide all and Show all act on every listed entry. Switches and buttons apply immediately; an entry turned off leaves the left sidebar, while features and data stay unchanged.
+
+| Entry source | Hiding |
+|---|---|
+| Toolkit modules | The module client unregisters the sidebar row; its open panel closes |
+| Other plugins | A style rule hides the sidebar row by the entry's current display name; its open panel closes |
+
+Toolkit module entries:
 
 | Entry | Module | Entry ID |
 |---|---|---|
@@ -74,16 +81,21 @@ Settings → Toolkit lists the sidebar entries of enabled modules, one switch pe
 | Skills | `configCenter` | `dsh-config-center-skills` |
 | AI subscriptions | `subscriptions` | `subscriptions` |
 
+Constraints:
+
+- An entry of another plugin that shares its display name with another entry hides both rows.
+- Entry IDs of uninstalled plugins stay in the setting; a reinstalled plugin stays hidden.
+
 The setting is stored as `hiddenSidebarPanels` in `dsh-toolkit.json` in the active profile directory, for example `~/.dsh/profiles/web/dsh-toolkit.json`:
 
 ```json
-{"hiddenSidebarPanels":["rdb","dsh-config-center-mcp"]}
+{"hiddenSidebarPanels":["rdb","task-board"]}
 ```
 
 | Request | Response |
 |---|---|
 | `GET /api/dsh-toolkit/sidebar` | `200`, `{"hidden":[entry ID…]}` |
-| `PUT /api/dsh-toolkit/sidebar` with body `{"hidden":[…]}` | `200`, the saved structure; unknown IDs return `400`; non-loopback or cross-site requests return `403` |
+| `PUT /api/dsh-toolkit/sidebar` with body `{"hidden":[…]}` | `200`, the saved structure; IDs must be 1–128 printable characters, at most 200, otherwise `400`; non-loopback or cross-site requests return `403` |
 | Other methods | `405`, empty JSON object |
 
 Module clients accept a `{ sidebar }` config as the entry visibility source; standalone plugins receive none and always show their entries.
@@ -97,7 +109,9 @@ Module clients accept a `{ sidebar }` config as the entry visibility source; sta
 | `src/modules.ts` | Module order, map type, sidebar entry table and API paths |
 | `src/preferences.ts` | `dsh-toolkit.json` in the profile directory |
 | `src/client/sidebar.ts` | Sidebar visibility state and save requests |
-| `src/client/SidebarPage.tsx` | Settings → Toolkit page |
+| `src/client/rows.ts` | Sidebar entry list of all plugins and style hiding of other plugins' entries |
+| `src/client/SidebarPage.tsx` | Settings → Left sidebar page |
+| `src/client/nav-icon.ts` | Settings nav icons of Left sidebar, Observability, Environment dependencies and Local logs |
 | `src/client/locales.ts` | Chinese and English copy |
 | `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
 | `build.mjs` | Host and client builds from the seven modules' sources |

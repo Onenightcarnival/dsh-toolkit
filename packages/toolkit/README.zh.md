@@ -63,7 +63,14 @@ config → 宿主挂载模块 → GET /api/dsh-toolkit/modules → 客户端挂�
 
 ## 侧栏入口
 
-设置 → Toolkit 列出已启用模块的侧栏入口，每项一个开关。开关即时生效；关闭的入口从左侧边栏移除，已打开的对应面板随之关闭，功能与数据不受影响。
+设置 → 左侧边栏列出全部插件的侧栏入口（含 SSH、任务看板等第三方插件），每项一个开关；「全部关闭」「全部展示」作用于列表中的全部入口。开关与按钮即时生效，关闭的入口从左侧边栏移除，功能与数据不受影响。
+
+| 入口来源 | 隐藏方式 |
+|---|---|
+| toolkit 模块 | 模块客户端撤销侧栏注册，已打开的对应面板关闭 |
+| 其他插件 | 按入口当前显示名称的样式规则隐藏侧栏行，已打开的对应面板关闭 |
+
+toolkit 模块入口：
 
 | 入口 | 模块 | 入口 ID |
 |---|---|---|
@@ -74,16 +81,21 @@ config → 宿主挂载模块 → GET /api/dsh-toolkit/modules → 客户端挂�
 | 技能 | `configCenter` | `dsh-config-center-skills` |
 | AI 订阅 | `subscriptions` | `subscriptions` |
 
+约束：
+
+- 其他插件的入口与另一入口显示名称相同时，两行一起隐藏。
+- 已卸载插件的入口 ID 保留在设置中，重新安装后保持隐藏。
+
 设置保存在当前 profile 目录的 `dsh-toolkit.json`（`hiddenSidebarPanels`），例如 `~/.dsh/profiles/web/dsh-toolkit.json`：
 
 ```json
-{"hiddenSidebarPanels":["rdb","dsh-config-center-mcp"]}
+{"hiddenSidebarPanels":["rdb","task-board"]}
 ```
 
 | 请求 | 响应 |
 |---|---|
 | `GET /api/dsh-toolkit/sidebar` | `200`，`{"hidden":[入口 ID…]}` |
-| `PUT /api/dsh-toolkit/sidebar`，请求体 `{"hidden":[…]}` | `200`，保存后的同一结构；未知 ID 返回 `400`；非回环或跨站请求返回 `403` |
+| `PUT /api/dsh-toolkit/sidebar`，请求体 `{"hidden":[…]}` | `200`，保存后的同一结构；ID 须为 1–128 个可打印字符，最多 200 个，否则返回 `400`；非回环或跨站请求返回 `403` |
 | 其他方法 | `405`，空 JSON 对象 |
 
 模块客户端接受 `{ sidebar }` 配置作为入口可见性来源；独立安装的插件不传该配置，入口始终显示。
@@ -97,7 +109,9 @@ config → 宿主挂载模块 → GET /api/dsh-toolkit/modules → 客户端挂�
 | `src/modules.ts` | 模块顺序、清单类型、侧栏入口表与 API 路径 |
 | `src/preferences.ts` | profile 目录内的 `dsh-toolkit.json` 读写 |
 | `src/client/sidebar.ts` | 侧栏可见性状态与保存请求 |
-| `src/client/SidebarPage.tsx` | 设置 → Toolkit 页面 |
+| `src/client/rows.ts` | 全部插件的侧栏入口列表与其他插件入口的样式隐藏 |
+| `src/client/SidebarPage.tsx` | 设置 → 左侧边栏页面 |
+| `src/client/nav-icon.ts` | 设置导航中左侧边栏、可观测、环境依赖、本机日志的图标 |
 | `src/client/locales.ts` | 中英文文案 |
 | `src/typert.ts` | 以集成包名注册 OTel typert 清单 |
 | `build.mjs` | 七个模块源码的宿主与客户端构建 |

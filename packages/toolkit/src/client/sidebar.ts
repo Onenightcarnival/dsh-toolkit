@@ -1,13 +1,13 @@
 /** Sidebar row visibility: the gate handed to module clients and its persistence calls. */
-import { SIDEBAR_API, type SidebarPanel, type SidebarPreferences } from '../modules.ts'
+import { SIDEBAR_API, type SidebarPreferences } from '../modules.ts'
 
 export interface SidebarStore {
   /** Gate face read by module mount helpers. */
   visible(id: string): boolean
   subscribe(listener: () => void): () => void
-  hidden(): readonly SidebarPanel[]
+  hidden(): readonly string[]
   /** Applies `hidden` at once and persists it; a failed latest write restores the previous set. */
-  save(hidden: readonly SidebarPanel[]): Promise<void>
+  save(hidden: readonly string[]): Promise<void>
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -20,18 +20,18 @@ export async function loadSidebarPreferences(): Promise<SidebarPreferences> {
   return readJson(await fetch(SIDEBAR_API, { credentials: 'same-origin', cache: 'no-store' }))
 }
 
-export function createSidebarStore(initial: readonly SidebarPanel[]): SidebarStore {
-  let hidden: readonly SidebarPanel[] = initial
+export function createSidebarStore(initial: readonly string[]): SidebarStore {
+  let hidden: readonly string[] = initial
   const listeners = new Set<() => void>()
   /** Writes run in call order; only the latest call settles the visible set. */
   let queue: Promise<void> = Promise.resolve()
   let latest = 0
-  const set = (next: readonly SidebarPanel[]): void => {
+  const set = (next: readonly string[]): void => {
     hidden = next
     for (const listener of [...listeners]) listener()
   }
   return {
-    visible: id => !hidden.includes(id as SidebarPanel),
+    visible: id => !hidden.includes(id),
     subscribe(listener) {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
