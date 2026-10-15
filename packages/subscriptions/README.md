@@ -61,8 +61,8 @@ Select **ChatGPT · OpenAI**, then **Continue with ChatGPT**. Eligible Plus and 
 - Antigravity search uses Gemini 3 Flash with Google Search grounding and requires source citations.
 - The image tool uses Gemini 3.1 Flash Image; omitted reasoning effort inherits the model setting.
 - Image references use DSH attachments; read workspace images with `read_image` first.
-- Tool requests refresh once on 401 and permit endpoint fallback on 403/404.
-- Network errors, rate limits and server failures do not automatically resend image requests.
+- Tool requests refresh once on 401 and use the same origin fallback as conversation requests: a 403, 404, 429 or 5xx from the default Cloud Code origin retries on the fallback origin; a 429 naming an individual quota is final.
+- Network failures do not automatically resend image requests.
 - X search runs on `grok-4` through xAI's hosted `x_search` tool and returns source URLs.
 - Grok images use `grok-imagine-image-2.0`; `size` maps onto the aspect ratio and `quality` onto low/medium. Edits send one reference as `image` and several as `images`.
 - Grok videos use `grok-imagine-video-1.5`: the request is submitted, polled until completion (ten-minute deadline) and the temporary MP4 downloaded to `plugins/subscriptions/videos/` in the DSH home. The `video` RPC endpoint serves saved clips by bare file name.

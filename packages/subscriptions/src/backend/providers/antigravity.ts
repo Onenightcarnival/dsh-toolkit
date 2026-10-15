@@ -96,7 +96,13 @@ export function antigravityBaseURL(value?: string): string {
 }
 
 /** Endpoint failover for transport failures and unavailable endpoints. */
-async function fetchAntigravity(
+/**
+ * Send one `v1internal` request, trying the default and fallback Cloud Code
+ * origins in order. A 403, 404, 429 or 5xx from an earlier origin moves on to
+ * the next one; a 429 naming an individual quota is final. A configured
+ * `baseURL` and `onboardUser` use one origin only.
+ */
+export async function fetchAntigravity(
   method: string,
   init: RequestInit,
   runtime: AntigravityRuntimeConfig,

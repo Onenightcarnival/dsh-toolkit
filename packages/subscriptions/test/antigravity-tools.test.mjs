@@ -47,7 +47,7 @@ test('Google search uses subscription grounding and preserves citation cards', a
   assert.throws(() => parseAntigravitySearch({ candidates: [{ content: { parts: [{ text: 'Ungrounded answer' }] } }] }), /no grounded web sources/)
 })
 
-test('Google tool requests refresh one account once and only fail over endpoint rejection', async () => {
+test('Google tool requests refresh one account once and fall back between origins like conversation requests', async () => {
   const calls = [], refreshes = []
   const client = new AntigravityToolClient({ tokens: { ...tokens, session: async (account, force) => { refreshes.push([account, force]); return { ...session, accessToken: force ? 'fresh' : 'old' } } }, fetchFn: async (url, init) => {
     calls.push([url, init.headers.authorization])
@@ -59,12 +59,31 @@ test('Google tool requests refresh one account once and only fail over endpoint 
   assert.deepEqual(refreshes, [['fixture', undefined], ['fixture', true]])
   assert.equal(calls[2][1], 'Bearer fresh')
   assert.match(calls[2][0], /daily-cloudcode-pa/)
+  // A generic 429 or 5xx on the default origin moves to the fallback origin; the second answer is final.
   for (const status of [429, 500, 503]) {
+    const urls = []
+    const recovered = new AntigravityToolClient({ tokens, fetchFn: async url => {
+      urls.push(url)
+      return urls.length === 1 ? new Response('{"error":{"status":"RESOURCE_EXHAUSTED"}}', { status }) : Response.json(imagePayload)
+    } })
+    assert.equal((await recovered.images({ prompt: 'fixture' }, undefined, signal)).length, 1)
+    assert.match(urls[0], /^https:\/\/cloudcode-pa/)
+    assert.match(urls[1], /daily-cloudcode-pa/)
     let count = 0
     const failed = new AntigravityToolClient({ tokens, fetchFn: async () => { count++; return new Response('', { status }) } })
     await assert.rejects(failed.images({ prompt: 'fixture' }, undefined, signal), new RegExp(`HTTP ${status}`))
-    assert.equal(count, 1)
+    assert.equal(count, 2, 'both origins answered before the failure surfaced')
   }
+  // An individual-quota 429 is final on the first origin.
+  let quotaCalls = 0
+  const quota = new AntigravityToolClient({ tokens, fetchFn: async () => { quotaCalls++; return new Response('Individual quota reached for this model', { status: 429 }) } })
+  await assert.rejects(quota.images({ prompt: 'fixture' }, undefined, signal), /HTTP 429/)
+  assert.equal(quotaCalls, 1)
+  // A configured base URL never falls back.
+  let pinnedCalls = 0
+  const pinned = new AntigravityToolClient({ tokens, runtime: { baseURL: 'https://pinned.test' }, fetchFn: async url => { pinnedCalls++; assert.match(url, /^https:\/\/pinned\.test\//); return new Response('', { status: 429 }) } })
+  await assert.rejects(pinned.images({ prompt: 'fixture' }, undefined, signal), /HTTP 429/)
+  assert.equal(pinnedCalls, 1)
   let sent = false
   const disabled = new AntigravityToolClient({ tokens, enabled: () => false, fetchFn: async () => { sent = true } })
   await assert.rejects(disabled.search({ query: 'fixture' }, signal), /disabled/)

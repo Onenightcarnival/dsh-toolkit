@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { AntigravitySession } from '../auth/store.js'
 import type { AccountTokenManager } from './accounts.js'
-import { antigravityBaseURL, antigravityHeaders, ANTIGRAVITY_DEFAULT_BASE_URL, ANTIGRAVITY_FALLBACK_BASE_URL, type AntigravityRuntimeConfig } from './antigravity.js'
+import { antigravityHeaders, fetchAntigravity, type AntigravityRuntimeConfig } from './antigravity.js'
 import { httpLlmError, type FetchFn } from './common.js'
 import { proxiedFetch } from '../http.js'
 import type { GeneratedImage, ImageGenerateArgs } from '../tools/image-generate.js'
@@ -43,40 +43,29 @@ export class AntigravityToolClient {
 
   available(): boolean { return this.options.enabled?.() ?? true }
 
+  /** One request through the same origin fallback as conversation requests; a 401 refreshes the token once. */
   private async generate(model: string, request: RecordValue, signal?: AbortSignal, image = false): Promise<unknown> {
     if (!this.available()) throw new Error('Antigravity tool is disabled')
     const runtime = this.options.runtime ?? {}
-    const endpoints = runtime.baseURL?.trim() ? [antigravityBaseURL(runtime.baseURL)] : [ANTIGRAVITY_DEFAULT_BASE_URL, ANTIGRAVITY_FALLBACK_BASE_URL]
     const fetchFn = this.options.fetchFn ?? proxiedFetch
     const boundedSignal = AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(image ? 180_000 : 60_000)])
     const account = await this.options.tokens.defaultAccount()
     let session = await this.options.tokens.session(account)
-    let refreshed = false
-    for (const [index, endpoint] of endpoints.entries()) {
-      while (true) {
-        boundedSignal.throwIfAborted()
-        const response = await fetchFn(`${endpoint}/v1internal:generateContent`, {
-          method: 'POST', headers: antigravityHeaders(session.accessToken, runtime.userAgent), signal: boundedSignal,
-          body: JSON.stringify({
-            project: runtime.projectId ?? session.projectId, model, requestId: randomUUID(),
-            userAgent: 'antigravity', requestType: 'agent', request: { ...request, sessionId: randomUUID() },
-          }),
-        })
-        if (response.status === 401 && !refreshed) {
-          await response.body?.cancel()
-          session = await this.options.tokens.session(account, true)
-          refreshed = true
-          continue
-        }
-        if ([403, 404].includes(response.status) && index < endpoints.length - 1) {
-          await response.body?.cancel()
-          break
-        }
-        if (!response.ok) throw await httpLlmError(response, 'Antigravity tool')
-        return readJson(response, image ? 48 * 1024 * 1024 : 2 * 1024 * 1024)
-      }
+    const send = (): Promise<Response> => fetchAntigravity('generateContent', {
+      method: 'POST', headers: antigravityHeaders(session.accessToken, runtime.userAgent), signal: boundedSignal,
+      body: JSON.stringify({
+        project: runtime.projectId ?? session.projectId, model, requestId: randomUUID(),
+        userAgent: 'antigravity', requestType: 'agent', request: { ...request, sessionId: randomUUID() },
+      }),
+    }, runtime, fetchFn)
+    let response = await send()
+    if (response.status === 401) {
+      await response.body?.cancel()
+      session = await this.options.tokens.session(account, true)
+      response = await send()
     }
-    throw new Error('Antigravity endpoints are unavailable')
+    if (!response.ok) throw await httpLlmError(response, 'Antigravity tool')
+    return readJson(response, image ? 48 * 1024 * 1024 : 2 * 1024 * 1024)
   }
 
   async search(request: { query: string }, signal?: AbortSignal): Promise<WebSearchResult> {

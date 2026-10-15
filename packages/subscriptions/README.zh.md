@@ -61,7 +61,7 @@ Codex Web Search 独立于 DSH 的联网搜索提供方设置。生成图片保�
 - Antigravity 搜索使用 Gemini 3 Flash 的 Google Search grounding；无来源引用时返回不可用错误。
 - 图片工具使用 Gemini 3.1 Flash Image，省略思考强度时读取模型默认设置。
 - 图片引用由 DSH 附件服务解析；工作区图片先通过 `read_image` 读取。
-- 工具请求只在 401 时刷新一次令牌、在 403/404 时切换地址，网络失败、限流和服务端错误不自动重发生图。
+- 工具请求只在 401 时刷新一次令牌，并与对话请求使用相同的地址回退：默认 Cloud Code 地址返回 403、404、429 或 5xx 时改走备用地址，提示个人额度耗尽的 429 不再重试；网络失败不自动重发生图。
 - X 搜索通过 xAI 托管的 `x_search` 工具在 `grok-4` 上执行，结果附带来源链接。
 - Grok 生图使用 `grok-imagine-image-2.0`；`size` 映射为宽高比，`quality` 映射为 low/medium。编辑时单张参考图以 `image` 发送，多张以 `images` 发送。
 - Grok 视频使用 `grok-imagine-video-1.5`：提交请求后轮询直至完成（十分钟上限），临时 MP4 下载到 DSH home 的 `plugins/subscriptions/videos/`。`video` RPC 接口按文件名提供已保存的视频。
