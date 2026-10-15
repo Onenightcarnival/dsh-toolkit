@@ -1,7 +1,7 @@
 {
   "name": "@onenightcarnival/dsh-subscriptions",
   "version": "0.7.2",
-  "description": "Codex, ChatGPT and Google Antigravity subscriptions, Codex web search and image generation for DeepSeek Harness",
+  "description": "Codex, ChatGPT, Google Antigravity and Grok subscriptions, Codex web search, Grok X search, image and video generation for DeepSeek Harness",
   "author": "onenightcarnival",
   "license": "MIT",
   "repository": {

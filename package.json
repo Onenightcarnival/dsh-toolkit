@@ -1,7 +1,7 @@
 {
   "name": "dsh-toolkit",
   "version": "0.7.2",
-  "description": "Plugins for DeepSeek Harness (dsh) by Onenightcarnival: relational databases, S3 storage, OpenTelemetry export, browser control, configuration center (MCP servers, built-in plugin settings); one workspace, one version, one release; Codex, ChatGPT and Google Antigravity subscriptions, Codex web search and image generation",
+  "description": "Plugins for DeepSeek Harness (dsh) by Onenightcarnival: relational databases, S3 storage, OpenTelemetry export, browser control, configuration center (MCP servers, built-in plugin settings); one workspace, one version, one release; Codex, ChatGPT, Google Antigravity and Grok subscriptions, Codex web search, Grok X search, image and video generation",
   "author": "onenightcarnival",
   "license": "MIT",
   "private": true,

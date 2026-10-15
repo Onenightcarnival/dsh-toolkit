@@ -8,10 +8,11 @@ import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attac
 import type { ContentBlock, LlmRuntime } from '@deepseek-ai/dsh-llm'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
-import type { CodexSession } from '../auth/store.js'
+import type { CodexSession, GrokSession } from '../auth/store.js'
 import { AccountTokenManager } from '../providers/accounts.js'
 import { ImageAccountPool } from '../providers/image-pool.js'
 import { codexRateLimitReset } from '../providers/codex.js'
+import { grokRateLimitReset } from '../providers/grok.js'
 import type { FetchFn } from '../providers/common.js'
 import { proxiedFetch } from '../http.js'
 import { resolveNativeImageReferences } from './image-references.js'
@@ -21,13 +22,22 @@ export const IMAGE_GENERATE_URL = 'https://chatgpt.com/backend-api/codex/images/
 export const IMAGE_EDIT_URL = 'https://chatgpt.com/backend-api/codex/images/edits'
 /** The image model the codex subscription endpoint serves. */
 export const IMAGE_GENERATE_MODEL = 'gpt-image-2'
-/** Dependencies of the `codex_image_generate` tool. */
+/** Endpoints the Grok generation and edit requests are posted to. */
+export const GROK_IMAGE_GENERATE_URL = 'https://api.x.ai/v1/images/generations'
+export const GROK_IMAGE_EDIT_URL = 'https://api.x.ai/v1/images/edits'
+/** The image model the Grok subscription endpoint serves. */
+export const GROK_IMAGE_GENERATE_MODEL = 'grok-imagine-image-2.0'
+/** Image providers served by {@link createImageGenerateTool}; the option present selects the tool. */
+export type ImageToolProvider = 'codex' | 'antigravity' | 'grok'
+/** Dependencies of one `<provider>_image_generate` tool. */
 export interface ImageGenerateToolOptions {
   antigravity?: { generate: (args: ImageGenerateArgs, references: string[] | undefined, signal: AbortSignal) => Promise<GeneratedImage[]> }
+  /** Grok session source; selects the `grok_image_generate` tool. */
+  grok?: { tokens: AccountTokenManager<GrokSession> }
   /** Shared generation/edit account scheduling; standalone tools get a private pool. */
   imagePool?: ImageAccountPool
   /** Creation-time provider policy; existing sessions retain their original tools. */
-  providerEnabled?: (provider: 'codex' | 'antigravity', createdAt: number | undefined) => boolean
+  providerEnabled?: (provider: ImageToolProvider, createdAt: number | undefined) => boolean
   /** Codex session source; used for generation and editing. */
   codexTokens?: AccountTokenManager<CodexSession>
   /** Fetch implementation (injectable for tests). */
@@ -115,6 +125,43 @@ export function buildImageGenerateBody(args: ImageGenerateArgs): ImageGenerateRe
   }
 }
 
+/** The codex `size` values mapped onto Grok aspect ratios. */
+const GROK_ASPECT_RATIOS: Record<NonNullable<ImageGenerateArgs['size']>, string> = {
+  '1024x1024': '1:1',
+  '1024x1536': '2:3',
+  '1536x1024': '3:2',
+  'auto': 'auto',
+}
+
+/** The wire request body for one Grok generation call. */
+export interface GrokImageGenerateRequestBody {
+  prompt: string
+  model: string
+  response_format: 'b64_json'
+  aspect_ratio?: string
+  quality?: 'low' | 'medium'
+}
+
+/**
+ * Assemble the Grok request body from the shared tool arguments: `size` maps
+ * onto the nearest `aspect_ratio`; `quality` folds into Grok's low/medium pair
+ * (`high` → `medium`, `auto` → provider default).
+ */
+export function buildGrokImageGenerateBody(args: ImageGenerateArgs): GrokImageGenerateRequestBody {
+  const prompt = args.prompt.trim()
+  if (prompt.length === 0) throw new Error('grok_image_generate: prompt must be a non-empty string')
+  const quality = args.quality === 'low' ? 'low'
+    : args.quality === 'medium' || args.quality === 'high' ? 'medium'
+      : undefined
+  return {
+    prompt,
+    model: GROK_IMAGE_GENERATE_MODEL,
+    response_format: 'b64_json',
+    ...args.size === undefined ? {} : { aspect_ratio: GROK_ASPECT_RATIOS[args.size] },
+    ...quality === undefined ? {} : { quality },
+  }
+}
+
 /** One generated image decoded from the response. */
 export interface GeneratedImage {
   /** PNG bytes. */
@@ -127,7 +174,7 @@ export interface GeneratedImage {
  * Parse the generations response into decodable images. Throws when the
  * payload carries no usable `b64_json` entries.
  */
-export function parseImageGenerateResponse(payload: unknown): GeneratedImage[] {
+export function parseImageGenerateResponse(payload: unknown, toolName = 'codex_image_generate'): GeneratedImage[] {
   const body = typeof payload === 'object' && payload !== null ? payload as Record<string, unknown> : {}
   const entries = Array.isArray(body.data) ? body.data : []
   const images: GeneratedImage[] = []
@@ -142,7 +189,7 @@ export function parseImageGenerateResponse(payload: unknown): GeneratedImage[] {
         : {},
     })
   }
-  if (images.length === 0) throw new Error('codex_image_generate: the response carried no image data')
+  if (images.length === 0) throw new Error(`${toolName}: the response carried no image data`)
   return images
 }
 
@@ -250,13 +297,29 @@ function imageGenerateText(value: ImageGenerateValue, toolName: string): Content
 }
 
 export function createImageGenerateTool(options: ImageGenerateToolOptions): ToolDefinition {
-  const provider = options.antigravity ? 'antigravity' : 'codex'
+  const provider: ImageToolProvider = options.antigravity ? 'antigravity' : options.grok ? 'grok' : 'codex'
   const toolName = `${provider}_image_generate`
   const imagePool = options.imagePool ?? new ImageAccountPool()
+  const sizeParameter = {
+    type: 'string' as const,
+    enum: ['1024x1024', '1024x1536', '1536x1024', 'auto'],
+    description: 'Compatibility override for image dimensions; defaults to auto.',
+  }
+  const qualityParameter = {
+    type: 'string' as const,
+    enum: ['low', 'medium', 'high', 'auto'],
+    description: 'Compatibility override for rendering quality; defaults to auto.',
+  }
   return defineTool({
     name: toolName,
     description: options.antigravity
       ? 'Generate or edit images through the Google Antigravity subscription using Gemini 3.1 Flash Image. Returns local paths and image attachments. For edits, pass complete referenceImages from read_image or prior image tool results. Never omit failed references to substitute a new image.'
+      : options.grok
+        ? 'Generate or edit images with the Grok subscription (grok-imagine-image-2.0) and save them locally. '
+        + 'Image requests use available Grok accounts; quota or authentication rejection can switch accounts. '
+        + 'Returns the saved file paths; on image-capable models the image itself is attached. '
+        + 'For edits, pass complete referenceImages from read_image or prior image tool results; omit them only for a new image. '
+        + 'Never omit failed edit references to substitute a new generation. size maps onto the aspect ratio and quality onto low/medium.'
       : 'Generate or edit images with the ChatGPT subscription (gpt-image-2) and save them locally. '
       + 'Image requests use available ChatGPT accounts; quota or authentication rejection can switch accounts. '
       + 'Returns the saved file paths; on image-capable models the image itself is attached. '
@@ -293,7 +356,7 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
       prompt: { type: 'string', required: true, description: 'What the image should show.' },
       ...(options.antigravity ? {
         reasoningEffort: { type: 'string' as const, enum: ['minimal', 'high'], description: 'Image reasoning effort; omit to use the configured model default.' },
-      } : {
+      } : options.grok ? { size: sizeParameter, quality: qualityParameter } : {
         transparent_background: { type: 'boolean', description: 'Transparent output background; defaults to false.' },
         referenced_image_paths: {
           oneOf: [{ type: 'array', items: { type: 'string' } }, { type: 'null' }],
@@ -303,16 +366,8 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
           oneOf: [{ type: 'integer' }, { type: 'null' }],
           description: 'Smallest number of recent conversation images containing every intended reference, from 1 to 5.',
         },
-        size: {
-          type: 'string',
-          enum: ['1024x1024', '1024x1536', '1536x1024', 'auto'],
-          description: 'Compatibility override for image dimensions; defaults to auto.',
-        },
-        quality: {
-          type: 'string',
-          enum: ['low', 'medium', 'high', 'auto'],
-          description: 'Compatibility override for rendering quality; defaults to auto.',
-        },
+        size: sizeParameter,
+        quality: qualityParameter,
       }),
     },
     output: {
@@ -356,7 +411,7 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
       if (!args.prompt.trim()) throw new Error(`${toolName}: prompt must not be empty`)
       const createdAt = exec.agent?.session.header?.createdAt
       if (options.providerEnabled?.(provider, createdAt) === false) throw new Error(`${toolName}: disabled for this session`)
-      const selected = options.antigravity ? args.referenceImages : await resolveNativeImageReferences({
+      const selected = options.antigravity || options.grok ? args.referenceImages : await resolveNativeImageReferences({
         ...args,
         referenceImages: args.referenceImages?.map(imageRefFromValue),
       }, exec)
@@ -364,6 +419,27 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
       let images: GeneratedImage[]
       if (options.antigravity) {
         images = await options.antigravity.generate(args as ImageGenerateArgs, references, exec.signal)
+      } else if (options.grok) {
+        const response = await imagePool.request({
+          provider: 'grok', tokens: options.grok.tokens, signal: exec.signal,
+          owner: exec.agent?.session, rateLimitReset: grokRateLimitReset,
+          send: session => fetchFn(references === undefined ? GROK_IMAGE_GENERATE_URL : GROK_IMAGE_EDIT_URL, {
+            method: 'POST',
+            headers: {
+              'authorization': `Bearer ${session.accessToken}`,
+              'content-type': 'application/json',
+              'accept': 'application/json',
+            },
+            body: JSON.stringify({
+              ...buildGrokImageGenerateBody(args),
+              ...references === undefined ? {} : references.length === 1
+                ? { image: { type: 'image_url', url: references[0] } }
+                : { images: references.map(url => ({ type: 'image_url', url })) },
+            }),
+            signal: exec.signal,
+          }),
+        })
+        images = parseImageGenerateResponse(await response.json(), toolName)
       } else {
         if (options.codexTokens === undefined) throw new Error('codex_image_generate: ChatGPT is not configured')
         const response = await imagePool.request({

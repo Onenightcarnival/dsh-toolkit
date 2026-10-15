@@ -8,8 +8,9 @@ export const PROVIDER_TOOLS = {
   chatgpt: [],
   codex: ['image_generate', 'web_search'],
   antigravity: ['image_generate', 'web_search'],
+  grok: ['image_generate', 'video_generate', 'x_search'],
 } as const
-export type SubscriptionTool = 'image_generate' | 'web_search'
+export type SubscriptionTool = 'image_generate' | 'web_search' | 'x_search' | 'video_generate'
 export interface AccountPreferences {
   alias?: string
   /** Absent means included. */

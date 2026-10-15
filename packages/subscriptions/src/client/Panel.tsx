@@ -13,11 +13,16 @@ const TOOL_CARDS = { codex: [
 ], chatgpt: [], antigravity: [
   { setting: 'web_search', name: 'antigravity_web_search', title: 'googleSearchTitle', hint: 'googleSearchHint' },
   { setting: 'image_generate', name: 'antigravity_image_generate', title: 'googleImageTitle', hint: 'googleImageHint' },
+], grok: [
+  { setting: 'image_generate', name: 'grok_image_generate', title: 'grokImageTitle', hint: 'grokImageHint' },
+  { setting: 'video_generate', name: 'grok_video_generate', title: 'grokVideoTitle', hint: 'grokVideoHint' },
+  { setting: 'x_search', name: 'grok_x_search', title: 'xSearchTitle', hint: 'xSearchHint' },
 ] } as const
 const PROVIDERS = {
   codex: { name: 'Codex', vendor: 'OpenAI', connect: 'connect', empty: 'emptyTitle', intro: 'intro', callback: 'http://localhost:1455/auth/callback?…' },
   chatgpt: { name: 'ChatGPT', vendor: 'OpenAI', connect: 'connectChatGpt', empty: 'emptyChatGpt', intro: 'introChatGpt', callback: 'http://127.0.0.1:1455/auth/callback?…' },
   antigravity: { name: 'Antigravity', vendor: 'Google', connect: 'connectGoogle', empty: 'emptyGoogle', intro: 'introGoogle', callback: 'http://localhost:51121/oauth-callback?…' },
+  grok: { name: 'Grok', vendor: 'xAI', connect: 'connectGrok', empty: 'emptyGrok', intro: 'introGrok', callback: 'http://127.0.0.1:56121/callback?…' },
 } as const
 const messageOf = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error)

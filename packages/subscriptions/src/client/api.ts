@@ -1,5 +1,8 @@
 import type { Catalog, Login, Preferences, ProviderId, Rpc, Status, Usage } from '../protocol.ts'
 
+/** Authorization server named in URL validation errors. */
+const AUTHORIZATION_LABEL: Record<ProviderId, string> = { codex: 'ChatGPT', chatgpt: 'ChatGPT', antigravity: 'Antigravity', grok: 'Grok' }
+
 export class SubscriptionsApi {
   constructor(private readonly rpc: Rpc, readonly provider: ProviderId = 'codex') {}
   forProvider(provider: ProviderId): SubscriptionsApi { return new SubscriptionsApi(this.rpc, provider) }
@@ -18,8 +21,9 @@ export class SubscriptionsApi {
     const valid = this.provider === 'codex'
       ? url.origin === 'https://auth.openai.com' && url.pathname === '/oauth/authorize'
       : this.provider === 'chatgpt' ? url.origin === 'https://auth.openai.com' && url.pathname === '/api/accounts/authorize'
+      : this.provider === 'grok' ? url.protocol === 'https:' && (url.hostname === 'x.ai' || url.hostname.endsWith('.x.ai'))
       : url.origin === 'https://accounts.google.com' && url.pathname === '/o/oauth2/v2/auth'
-    if (!valid || url.username || url.password) throw new Error(`Invalid ${this.provider === 'codex' ? 'ChatGPT' : 'Antigravity'} authorization URL`)
+    if (!valid || url.username || url.password) throw new Error(`Invalid ${AUTHORIZATION_LABEL[this.provider]} authorization URL`)
     return { authorizeUrl: url.href, manualOnly: value.manualOnly === true }
   }
   cancel(): Promise<unknown> { return this.call('cancel', { provider: this.provider }) }

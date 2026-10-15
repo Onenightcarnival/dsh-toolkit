@@ -29,7 +29,7 @@ export const SUBSCRIPTIONS_AUTH_PREFIX = 'subscriptions-auth.'
 export const SUBSCRIPTIONS_AUTH_ENDPOINTS = [
   'providerSettings', 'setProviderSettings',
   'status', 'login', 'manual', 'cancel', 'logout', 'setDefault', 'usage',
-  'image',
+  'image', 'video',
   'speed', 'setSpeed',
   'proxyGet', 'proxySet', 'proxyTest',
   'modelDefaults', 'setModelDefault',
@@ -43,6 +43,15 @@ export interface ImageBytesResult {
   mediaType: string
   dataBase64: string
 }
+
+/** Decoded video bytes returned by the `video` endpoint. */
+export interface VideoBytesResult {
+  mediaType: string
+  dataBase64: string
+}
+
+/** Bare MP4 file names the `video` endpoint accepts (no path separators). */
+const VIDEO_NAME_PATTERN = /^[\w.-]+\.mp4$/
 
 /** One session's speed choice: standard routing or the fast (priority) tier. */
 export type SpeedTier = 'standard' | 'fast'
@@ -183,6 +192,14 @@ export interface AuthController {
    * @throws when no attachment service is mounted or the read fails.
    */
   readImage(ref: ImageAttachmentRef, signal: AbortSignal): Promise<ImageBytesResult>
+  /**
+   * Read one generated video's bytes for inline playback.
+   * @param name - bare MP4 file name inside the plugin's videos directory.
+   * @param signal - caller cancellation from the RPC transport.
+   * @returns the media type and base64-encoded bytes.
+   * @throws when the file is absent.
+   */
+  readVideo(name: string, signal: AbortSignal): Promise<VideoBytesResult>
 }
 
 /** Invalid request payload or unavailable endpoint; answered with code `bad-request`. */
@@ -320,6 +337,16 @@ function readSpeedTier(payload: unknown): SpeedTier {
     throw new BadRequest('payload.tier must be "standard" or "fast"')
   }
   return tier
+}
+
+/** Validate the `video` endpoint's payload into a bare file name (never a path). */
+function readVideoName(payload: unknown): string {
+  if (typeof payload !== 'object' || payload === null) throw new BadRequest('payload must be an object')
+  const name = (payload as Record<string, unknown>).name
+  if (typeof name !== 'string' || !VIDEO_NAME_PATTERN.test(name) || name.includes('..')) {
+    throw new BadRequest('payload.name must be a bare .mp4 file name')
+  }
+  return name
 }
 
 /** Validate the `image` endpoint's payload into a full attachment reference. */
@@ -506,6 +533,8 @@ async function dispatch(
     }
     case 'image':
       return ok(await controller.readImage(readImageRef(payload), signal))
+    case 'video':
+      return ok(await controller.readVideo(readVideoName(payload), signal))
     case 'speed':
       return ok(await speed.speed(readSessionId(payload)))
     case 'setSpeed':

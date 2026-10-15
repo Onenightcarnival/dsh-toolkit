@@ -26,6 +26,7 @@ undici
 Subscription backend source (src/backend)
 Derived from https://github.com/V1ki/dsh-plugin-subscriptions
 Base revision: d8ab13e91fd6747e419a1f5e965bce42bdfc3ad8
+Grok provider, X search, image and video generation: revision 9930c5ee5e3fa239db9031f47a0f6f30f7ffc443
 Maintained and modified in this repository by onenightcarnival.
 
 MIT License

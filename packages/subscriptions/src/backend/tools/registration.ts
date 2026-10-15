@@ -6,6 +6,9 @@ export const TOOL_ALIASES = {
   antigravity_image_generate: 'dsh_subscriptions_antigravity_image_generate',
   codex_web_search: 'dsh_subscriptions_codex_web_search',
   codex_image_generate: 'dsh_subscriptions_codex_image_generate',
+  grok_x_search: 'dsh_subscriptions_grok_x_search',
+  grok_image_generate: 'dsh_subscriptions_grok_image_generate',
+  grok_video_generate: 'dsh_subscriptions_grok_video_generate',
 } as const
 
 export interface ToolRegistry {

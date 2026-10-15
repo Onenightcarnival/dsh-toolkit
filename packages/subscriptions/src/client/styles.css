@@ -100,5 +100,6 @@
 .dsh-sub-imageResult pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .dsh-sub-images { display: flex; gap: 8px; flex-wrap: wrap; }
 .dsh-sub-images img { display: block; max-width: 100%; width: 320px; max-height: 360px; object-fit: contain; border-radius: 10px; }
+.dsh-sub-images video { display: block; max-width: 100%; width: 480px; border-radius: 10px; background: var(--dsw-alias-bg-layer-2); }
 @media (max-width: 760px) { .dsh-sub-accounts { width: 170px; } .dsh-sub-toolbar { flex-wrap: wrap; } .dsh-sub-panel { padding: 12px; } }
 @media (max-width: 540px) { .dsh-sub-body { flex-direction: column; overflow: auto; } .dsh-sub-accounts { width: 100%; max-height: 210px; border-right: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); padding: 0 0 10px; } .dsh-sub-asideFooter { display: none; } .dsh-sub-main { overflow: visible; flex: none; } }

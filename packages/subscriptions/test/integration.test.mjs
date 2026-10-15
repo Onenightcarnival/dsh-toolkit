@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 const output = await build({ entryPoints: [new URL('../src/client/api.ts', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')], bundle: true, write: false, platform: 'node', format: 'esm' })
 const { SubscriptionsApi } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`)
 
-test('subscription host registers three providers and independent subscription tools', { timeout: 20000 }, async () => {
+test('subscription host registers four providers and independent subscription tools', { timeout: 20000 }, async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-subscriptions-test-'))
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = home
@@ -34,6 +34,7 @@ test('subscription host registers three providers and independent subscription t
   const runtime = ctx.plugin({ name: 'subscriptions-under-test', inject: ['llm'], apply }, {
     codexClientVersion: '0.153.4', models: [{ id: 'gpt-5.4', name: 'Fixture model' }],
     antigravity: { models: [{ id: 'gemini-fixture', name: 'Google fixture', contextWindow: 1048576 }] },
+    grok: { models: [{ id: 'grok-fixture', name: 'Grok fixture', contextWindow: 256000 }] },
   })
   const api = new SubscriptionsApi({ async call(channel, method, payload) {
     assert.equal(channel, '/api')
@@ -61,15 +62,18 @@ test('subscription host registers three providers and independent subscription t
     assert.deepEqual(await adapters.get('chatgpt').listModels('chatgpt'), [])
     assert.ok(adapters.has('antigravity'))
     assert.deepEqual(await adapters.get('antigravity').listModels('antigravity'), [])
-    for (const provider of ['claude', 'grok', 'copilot']) {
+    assert.ok(adapters.has('grok'))
+    assert.equal(adapters.get('grok').providerInfo('grok').name, 'Grok')
+    assert.deepEqual(await adapters.get('grok').listModels('grok'), [])
+    for (const provider of ['claude', 'copilot']) {
       assert.ok(!adapters.has(provider))
       for (const method of ['login', 'manual', 'cancel', 'logout', 'setDefault', 'usage', 'providerSettings', 'setProviderSettings', 'setModelDefault']) {
         await assert.rejects(api.call(method, { provider }), /payload.provider must be one of codex/)
       }
     }
-    assert.deepEqual(Object.keys((await api.call('status')).providers), ['codex', 'chatgpt', 'antigravity'])
-    assert.ok(!routes.has('/api/subscriptions-auth.video'))
-    assert.deepEqual([...tools.keys()], ['codex_web_search', 'codex_image_generate', 'antigravity_web_search', 'antigravity_image_generate'])
+    assert.deepEqual(Object.keys((await api.call('status')).providers), ['codex', 'chatgpt', 'antigravity', 'grok'])
+    assert.ok(routes.has('/api/subscriptions-auth.video'))
+    assert.deepEqual([...tools.keys()], ['codex_web_search', 'codex_image_generate', 'antigravity_web_search', 'antigravity_image_generate', 'grok_x_search', 'grok_image_generate', 'grok_video_generate'])
     assert.doesNotMatch(JSON.stringify(tools.get('codex_image_generate')), /grok|x_search|video_generate/i)
     assert.ok(!tools.has('web_search'))
     assert.ok(!tools.has('image_generate'))
@@ -147,6 +151,34 @@ test('subscription host registers three providers and independent subscription t
     await google.cancel()
     await google.logout(googleStatus.accounts[0].key)
     assert.deepEqual((await google.status()).accounts, [])
+
+    // Grok: the tier comes from the access token's claim; the fixture token is unsigned and never leaves the host.
+    await google.save({})
+    const grok = api.forProvider('grok')
+    const tierToken = `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: 'grok-user', tier: 3 })).toString('base64url')}.`
+    const withGrok = JSON.parse(await readFile(join(dir, 'auth.json'), 'utf8'))
+    withGrok.grok = { default: 'grok@example.test', accounts: { 'grok@example.test': { accessToken: tierToken, refreshToken: 'grok-fixture-refresh', expiresAt: Date.now() + 3600000, tokenEndpoint: 'https://auth.x.ai/oauth2/token', account: 'grok@example.test' } } }
+    await writeFile(join(dir, 'auth.json'), JSON.stringify(withGrok))
+    const grokStatus = await grok.status()
+    assert.equal(grokStatus.accounts[0].account, 'grok@example.test')
+    assert.equal(grokStatus.accounts[0].plan, 'X Premium')
+    assert.doesNotMatch(JSON.stringify(grokStatus), /grok-fixture-refresh/)
+    assert.deepEqual((await grok.catalog()).models.map(model => model.id), ['grok-fixture'])
+    assert.deepEqual((await grok.catalog()).tools, ['image_generate', 'video_generate', 'x_search'])
+    await grok.save({ contextWindows: { 'grok-fixture': 128000 } })
+    assert.equal((await adapters.get('grok').resolveModel('grok', 'grok-fixture')).context.contextWindow, 128000)
+    await grok.save({ tools: { x_search: false, image_generate: false, video_generate: false } })
+    await assert.rejects(tools.get('grok_x_search').execute({ query: 'fixture' }, { signal: new AbortController().signal }), /grok_x_search: disabled/)
+    await assert.rejects(tools.get('grok_video_generate').execute({ prompt: 'fixture' }, { signal: new AbortController().signal }), /grok_video_generate: disabled/)
+    await assert.rejects(tools.get('grok_image_generate').execute({ prompt: 'fixture' }, { signal: new AbortController().signal }), /grok_image_generate: disabled/)
+    const grokDenied = []
+    ctx.emit('agent/created', { agent: { session: { header: { createdAt: Date.now() + 1000 } }, ctx: { tools: { restrict({ deny }) { grokDenied.push(...deny) } } } } })
+    assert.deepEqual(grokDenied, ['grok_x_search', 'grok_image_generate', 'grok_video_generate'])
+    await assert.rejects(api.call('video', { name: '../auth.json' }), /bare \.mp4 file name/)
+    await assert.rejects(api.call('video', { name: 'missing.mp4' }), /ENOENT/)
+    await assert.rejects(grok.save({ tools: { web_search: false } }), /unsupported tool/)
+    await grok.logout(grokStatus.accounts[0].key)
+    assert.deepEqual((await grok.status()).accounts, [])
   } finally {
     await runtime.dispose()
     if (previous === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = previous

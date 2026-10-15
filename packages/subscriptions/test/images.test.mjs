@@ -58,6 +58,56 @@ test('image generation and edits use only ChatGPT with account credentials', asy
   } finally { await rm(directory, { recursive: true, force: true }) }
 })
 
+test('Grok image generation maps size and quality and edits through the xAI edits endpoint', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'dsh-grok-images-test-'))
+  const data = Buffer.from([0xff, 0xd8, 0xff, 0xe0])
+  const ref = { attachmentId: `sha256:${'b'.repeat(64)}`, mediaType: 'image/png', bytes: data.length, width: 1, height: 1 }
+  const other = { ...ref, attachmentId: `sha256:${'c'.repeat(64)}` }
+  const requests = []
+  const session = { accessToken: 'grok-token', refreshToken: 'grok-refresh', expiresAt: Date.now() + 3600000, tokenEndpoint: 'https://auth.x.ai/oauth2/token' }
+  let enabled = true
+  const tool = createImageGenerateTool({
+    grok: { tokens: { list: async () => [{ key: 'grok@example.test', session }], session: async () => session } },
+    imagesDir: directory,
+    providerEnabled: provider => { assert.equal(provider, 'grok'); return enabled },
+    resolveAttachments: () => ({ imageLimits: { maxImagesPerMessage: 5, maxImageBytes: 100, maxMessageImageBytes: 500 }, readImage: async () => ({ ref, data }) }),
+    fetchFn: async (url, init) => {
+      requests.push({ url, headers: init.headers, body: JSON.parse(init.body) })
+      return Response.json({ data: [{ b64_json: data.toString('base64'), revised_prompt: 'A sharper square' }] })
+    },
+  })
+  const exec = { signal: new AbortController().signal }
+  try {
+    assert.equal(tool.name, 'grok_image_generate')
+    assert.deepEqual(Object.keys(tool.parameters.properties).sort(), ['prompt', 'quality', 'referenceImages', 'size'])
+    const generated = await tool.execute({ prompt: 'Draw a square', size: '1536x1024', quality: 'high' }, exec)
+    assert.deepEqual(await readFile(generated.paths[0]), data)
+    assert.match(generated.paths[0], /\.jpg$/, 'the media type is sniffed from the bytes')
+    assert.equal(generated.revisedPrompt, 'A sharper square')
+    await tool.execute({ prompt: 'Make it blue', referenceImages: [ref] }, exec)
+    await tool.execute({ prompt: 'Blend them', referenceImages: [ref, other] }, exec)
+    assert.deepEqual(requests.map(request => request.url), [
+      'https://api.x.ai/v1/images/generations',
+      'https://api.x.ai/v1/images/edits',
+      'https://api.x.ai/v1/images/edits',
+    ])
+    for (const request of requests) {
+      assert.equal(request.headers.authorization, 'Bearer grok-token')
+      assert.equal(request.body.model, 'grok-imagine-image-2.0')
+      assert.equal(request.body.response_format, 'b64_json')
+    }
+    assert.equal(requests[0].body.aspect_ratio, '3:2')
+    assert.equal(requests[0].body.quality, 'medium')
+    assert.deepEqual(requests[1].body.image, { type: 'image_url', url: `data:image/png;base64,${data.toString('base64')}` })
+    assert.equal(requests[1].body.images, undefined)
+    assert.equal(requests[2].body.images.length, 2)
+    assert.equal(requests[2].body.images[0].type, 'image_url')
+    enabled = false
+    await assert.rejects(tool.execute({ prompt: 'Disabled' }, exec), /grok_image_generate: disabled for this session/)
+    assert.equal(requests.length, 3)
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
+
 test('native image defaults and transparent backgrounds match Codex requests', () => {
   assert.deepEqual(buildImageGenerateBody({ prompt: '  A cutout  ' }), {
     prompt: 'A cutout', model: 'gpt-image-2', size: 'auto', quality: 'auto', background: 'opaque',

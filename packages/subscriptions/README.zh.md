@@ -2,7 +2,7 @@
 
 [English](README.md) | **中文**
 
-DeepSeek Harness 的 AI 订阅插件，支持 Codex、ChatGPT 与 Google Antigravity。入口：侧边栏「AI 订阅」，包含提供方、账号、模型、工具和用量，支持宿主主题及中英文。
+DeepSeek Harness 的 AI 订阅插件，支持 Codex、ChatGPT、Google Antigravity 与 Grok。入口：侧边栏「AI 订阅」，包含提供方、账号、模型、工具和用量，支持宿主主题及中英文。
 
 ## 安装
 
@@ -54,13 +54,19 @@ Codex Web Search 独立于 DSH 的联网搜索提供方设置。生成图片保�
 | `antigravity_image_generate` | `prompt`；可选 `referenceImages`、`reasoningEffort`（`minimal` / `high`） | 本地路径和图片附件 |
 | `codex_web_search` | 原生 `web.run` 命令；兼容简写 `query` | 页面正文、行号、链接编号、引用 ID、完整来源与结构化结果 |
 | `codex_image_generate` | `prompt`；可选 `transparent_background`、`referenced_image_paths`、`num_last_images_to_include` | 本地路径和图片附件 |
+| `grok_x_search` | `query`；可选 `allowed_x_handles` / `excluded_x_handles`（最多 10 个，二者互斥）、`from_date`、`to_date`、`enable_image_understanding`、`enable_video_understanding` | 回答文本与来源链接 |
+| `grok_image_generate` | `prompt`；可选 `referenceImages`、`size`、`quality` | 本地路径和图片附件 |
+| `grok_video_generate` | `prompt`；可选 `duration`（1–15 秒）、`aspect_ratio`、`resolution`、`image_url` | 保存的 MP4 路径；视频在对话中内联播放 |
 
 - Antigravity 搜索使用 Gemini 3 Flash 的 Google Search grounding；无来源引用时返回不可用错误。
 - 图片工具使用 Gemini 3.1 Flash Image，省略思考强度时读取模型默认设置。
 - 图片引用由 DSH 附件服务解析；工作区图片先通过 `read_image` 读取。
 - 工具请求只在 401 时刷新一次令牌、在 403/404 时切换地址，网络失败、限流和服务端错误不自动重发生图。
+- X 搜索通过 xAI 托管的 `x_search` 工具在 `grok-4` 上执行，结果附带来源链接。
+- Grok 生图使用 `grok-imagine-image-2.0`；`size` 映射为宽高比，`quality` 映射为 low/medium。编辑时单张参考图以 `image` 发送，多张以 `images` 发送。
+- Grok 视频使用 `grok-imagine-video-1.5`：提交请求后轮询直至完成（十分钟上限），临时 MP4 下载到 DSH home 的 `plugins/subscriptions/videos/`。`video` RPC 接口按文件名提供已保存的视频。
 
-工具列表按会话创建时的开关设置生成；搜索关闭后也会立即阻止已有会话调用。持久化开关使用能力键 `web_search` 和 `image_generate`。
+工具列表按会话创建时的开关设置生成；搜索关闭后也会立即阻止已有会话调用。持久化开关使用能力键 `web_search`、`image_generate`、`video_generate` 和 `x_search`。
 
 模型、搜索和生图的实际可用性取决于账号权限及额度。接入使用 ChatGPT 订阅的 Codex 后端，无需 OpenAI API key。
 
@@ -138,6 +144,22 @@ OAuth 客户端配置按以下顺序读取：
 
 可用性取决于账号权限与额度；离线测试不代表账号可实际访问。
 
+## Grok
+
+侧栏选择 **Grok · xAI**，点击「连接 Grok」。xAI OAuth 通过 `auth.x.ai` 的 OIDC 发现获取端点，使用 PKCE，回调地址为 `http://127.0.0.1:56121/callback`；端口被占用时支持手动提交完整回调 URL。账号凭证保存在主机。X 套餐不含 API OAuth 权限时，令牌交换返回 403。
+
+| 能力 | 行为 |
+| --- | --- |
+| 模型 | `api.x.ai/v1/models` 实时对话模型目录；排除图片、视频与嵌入模型。显示名称、上下文和推理强度来自 Grok CLI 目录（`cli-chat-proxy.grok.com/v1/models`）；CLI 目录获取失败时保留上次已知的元数据 |
+| 配置 | 按提供方保存显示筛选、推理强度和上下文；CLI 目录未提供推理强度的模型不显示强度选择 |
+| 用量 | 来自 Grok CLI 计费代理（`cli-chat-proxy.grok.com/v1/billing`）的额度窗口与重置时间；方案名称取计费响应或访问令牌中的档位声明 |
+| 请求 | `api.x.ai/v1/responses` 流式调用，支持本地 DSH 函数工具、对话模型的图片输入，并以会话 ID 作为 `prompt_cache_key` |
+| 工具 | 独立工具 `grok_image_generate`、`grok_video_generate`、`grok_x_search`，开关位于 Grok 的「工具」页签；生图与视频请求在已登录的 Grok 账号间调度 |
+
+- 账号状态显示从访问令牌解码的订阅档位（Free、SuperGrok、X Premium 等）。
+- 限流等待读取响应体中的 `retry_after` / `resets_at` 字段。
+- 可用性取决于账号权限与额度。
+
 ## 配置
 
 集成包默认挂载本模块，`subscriptions: false` 同时关闭主机与界面：
@@ -156,6 +178,7 @@ OAuth 客户端配置按以下顺序读取：
 | Codex 模型 | `models` |
 | ChatGPT 模型元数据覆盖 | `chatgpt.models`；模型可用性以账号实时目录为准 |
 | Antigravity 模型 | `antigravity.models` |
+| Grok 模型 | `grok.models` |
 | 模型条目 | `id`；可选 `name`、`contextWindow`、`inputModalities` |
 | Antigravity 连接 | `clientId`、`clientSecret`、`baseURL`、`userAgent`、`projectId`、`onboard`（默认关闭），均位于 `antigravity` 下 |
 
@@ -163,7 +186,7 @@ OAuth 客户端配置按以下顺序读取：
 
 ## 源码维护
 
-`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理，提供方为 `codex`、`chatgpt` 与 `antigravity`。后端从本地源码构建。Antigravity 协议参考：[LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6)。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
+`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理，提供方为 `codex`、`chatgpt`、`antigravity` 与 `grok`。后端从本地源码构建。Antigravity 协议参考：[LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6)。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
 
 `THIRD_PARTY_LICENSES.txt` 随独立包和集成包发布。修改协议后端时需重新验证 OAuth、RPC、工具策略和模型目录测试。
 

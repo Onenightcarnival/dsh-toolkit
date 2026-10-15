@@ -1,5 +1,5 @@
 /** Credential-free views of the subscription RPC. */
-export type ProviderId = 'codex' | 'chatgpt' | 'antigravity'
+export type ProviderId = 'codex' | 'chatgpt' | 'antigravity' | 'grok'
 export interface Rpc {
   call(channel: string, method: string, payload: unknown): Promise<
     { ok: true; value: unknown } | { ok: false; error: { message: string } }
@@ -19,7 +19,7 @@ export interface Login { authorizeUrl: string; manualOnly?: boolean }
 export interface Preferences {
   visibleModels?: string[]
   contextWindows?: Record<string, number>
-  tools?: { web_search?: boolean; image_generate?: boolean }
+  tools?: { web_search?: boolean; image_generate?: boolean; x_search?: boolean; video_generate?: boolean }
   accounts?: Record<string, { alias?: string; poolEnabled?: boolean; independentEntry?: boolean; poolModels?: string[] }>
 }
 export interface Model {

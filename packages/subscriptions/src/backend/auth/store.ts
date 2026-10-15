@@ -9,15 +9,16 @@
  */
 
 import { decodeJwtPayload } from './jwt.js'
+import { createHash } from 'node:crypto'
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 
 /** Provider routes this plugin can serve. */
-export type ProviderId = 'codex' | 'chatgpt' | 'antigravity'
+export type ProviderId = 'codex' | 'chatgpt' | 'antigravity' | 'grok'
 
 /** Every provider route, in display order. */
-export const PROVIDER_IDS: readonly ProviderId[] = ['codex', 'chatgpt', 'antigravity']
+export const PROVIDER_IDS: readonly ProviderId[] = ['codex', 'chatgpt', 'antigravity', 'grok']
 
 /** Sign in with ChatGPT credentials bound to one issued OAuth client. */
 export interface ChatGptSession {
@@ -40,6 +41,19 @@ export interface AntigravitySession {
   account?: string
   plan?: string
   scopes?: string
+}
+
+/** Stored Grok (xAI) subscription session. */
+export interface GrokSession {
+  accessToken: string
+  refreshToken: string
+  /** Epoch milliseconds at which the access token expires. */
+  expiresAt: number
+  /** Token endpoint from OIDC discovery; retained for refreshes. */
+  tokenEndpoint: string
+  scopes?: string
+  /** Display account: email, username, or subject claim from the id token. */
+  account?: string
 }
 
 /** Stored ChatGPT/Codex subscription session. */
@@ -73,13 +87,17 @@ export interface SessionMap {
   chatgpt?: ProviderAccounts<ChatGptSession>
   codex?: ProviderAccounts<CodexSession>
   antigravity?: ProviderAccounts<AntigravitySession>
+  grok?: ProviderAccounts<GrokSession>
 }
 
 /** Any stored session, for provider-agnostic plumbing. */
-export type StoredSession = CodexSession | AntigravitySession | ChatGptSession
+export type StoredSession = CodexSession | AntigravitySession | ChatGptSession | GrokSession
 
 /** The session type one provider stores. */
-export type SessionOf<K extends ProviderId> = K extends 'codex' ? CodexSession : K extends 'chatgpt' ? ChatGptSession : AntigravitySession
+export type SessionOf<K extends ProviderId> = K extends 'codex' ? CodexSession
+  : K extends 'chatgpt' ? ChatGptSession
+    : K extends 'grok' ? GrokSession
+      : AntigravitySession
 
 /** One account entry as returned by {@link listAccounts} (default first). */
 export interface AccountEntry<S> {
@@ -89,7 +107,8 @@ export interface AccountEntry<S> {
 
 /**
  * The stable identity of one session's account: Codex keys on workspace AND
- * user (email fallback, workspace-only for unidentified legacy sessions).
+ * user (email fallback, workspace-only for unidentified legacy sessions);
+ * Grok keys on the id-token account, falling back to a refresh-token hash.
  * Logging the same account in again updates its existing entry.
  * @param provider - the provider route.
  * @param session - the session to key.
@@ -101,6 +120,10 @@ export function accountKeyOf(provider: ProviderId, session: StoredSession): stri
     case 'antigravity': {
       const google = session as AntigravitySession
       return google.account?.trim().toLowerCase() || google.projectId
+    }
+    case 'grok': {
+      const grok = session as GrokSession
+      return grok.account?.trim().toLowerCase() || tokenHash(grok.refreshToken)
     }
     case 'codex': {
       const codex = session as CodexSession
@@ -114,6 +137,11 @@ export function accountKeyOf(provider: ProviderId, session: StoredSession): stri
       return JSON.stringify([codex.accountId, user === undefined ? 'email' : 'user', user ?? email!.toLowerCase()])
     }
   }
+}
+
+/** Stable key for a session whose id token named no account. */
+function tokenHash(refreshToken: string): string {
+  return `token-${createHash('sha256').update(refreshToken).digest('hex').slice(0, 16)}`
 }
 
 function nonEmpty(value: unknown): string | undefined {

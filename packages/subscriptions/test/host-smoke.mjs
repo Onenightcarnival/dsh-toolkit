@@ -75,6 +75,8 @@ try {
         assert.deepEqual((await rpc('status')).providers.codex.accounts, [])
         assert.deepEqual((await rpc('status')).providers.antigravity.accounts, [])
         assert.deepEqual((await rpc('status')).providers.chatgpt.accounts, [])
+        assert.deepEqual((await rpc('status')).providers.grok.accounts, [])
+        assert.deepEqual((await rpc('providerSettings', { provider: 'grok' })).tools, ['image_generate', 'video_generate', 'x_search'])
         assert.deepEqual((await rpc('providerSettings', { provider: 'chatgpt' })).tools, [])
         const login = await rpc('login', { provider: 'chatgpt' })
         assert.equal(new URL(login.authorizeUrl).searchParams.get('client_id'), 'dynamic_agent_client')

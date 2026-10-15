@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh.md)
 
-Codex, ChatGPT and Google Antigravity subscriptions for DeepSeek Harness. Entry: **AI subscriptions** in the sidebar, with providers, accounts, models, tools and usage. The panel supports the host theme and English / Chinese.
+Codex, ChatGPT, Google Antigravity and Grok subscriptions for DeepSeek Harness. Entry: **AI subscriptions** in the sidebar, with providers, accounts, models, tools and usage. The panel supports the host theme and English / Chinese.
 
 ## Installation
 
@@ -54,14 +54,20 @@ Select **ChatGPT · OpenAI**, then **Continue with ChatGPT**. Eligible Plus and 
 | `antigravity_image_generate` | `prompt`; optional `referenceImages`, `reasoningEffort` (`minimal` / `high`) | Local paths and image attachments |
 | `codex_web_search` | Native `web.run` commands; compatibility shorthand `query` | Page text, line/link/reference IDs, complete sources and structured results |
 | `codex_image_generate` | `prompt`; optional `transparent_background`, `referenced_image_paths`, `num_last_images_to_include` | Local paths and image attachments |
+| `grok_x_search` | `query`; optional `allowed_x_handles` / `excluded_x_handles` (at most 10, mutually exclusive), `from_date`, `to_date`, `enable_image_understanding`, `enable_video_understanding` | Answer text and citation URLs |
+| `grok_image_generate` | `prompt`; optional `referenceImages`, `size`, `quality` | Local paths and image attachments |
+| `grok_video_generate` | `prompt`; optional `duration` (1–15 s), `aspect_ratio`, `resolution`, `image_url` | Saved MP4 path; the clip plays inline in the conversation |
 
 - Antigravity search uses Gemini 3 Flash with Google Search grounding and requires source citations.
 - The image tool uses Gemini 3.1 Flash Image; omitted reasoning effort inherits the model setting.
 - Image references use DSH attachments; read workspace images with `read_image` first.
 - Tool requests refresh once on 401 and permit endpoint fallback on 403/404.
 - Network errors, rate limits and server failures do not automatically resend image requests.
+- X search runs on `grok-4` through xAI's hosted `x_search` tool and returns source URLs.
+- Grok images use `grok-imagine-image-2.0`; `size` maps onto the aspect ratio and `quality` onto low/medium. Edits send one reference as `image` and several as `images`.
+- Grok videos use `grok-imagine-video-1.5`: the request is submitted, polled until completion (ten-minute deadline) and the temporary MP4 downloaded to `plugins/subscriptions/videos/` in the DSH home. The `video` RPC endpoint serves saved clips by bare file name.
 
-Tool lists use the settings at conversation creation. Disabling search also blocks calls in existing conversations immediately. Persisted switches use the capability keys `web_search` and `image_generate`.
+Tool lists use the settings at conversation creation. Disabling search also blocks calls in existing conversations immediately. Persisted switches use the capability keys `web_search`, `image_generate`, `video_generate` and `x_search`.
 
 Model, search and image availability depends on account entitlements and quota. The integration uses the Codex backend of the ChatGPT subscription; no OpenAI API key is required.
 
@@ -141,6 +147,22 @@ Resolved OAuth client configuration is stored locally for subsequent token refre
 
 Access depends on account entitlements and quota. Offline tests do not establish live account access.
 
+## Grok
+
+Select **Grok · xAI** in the sidebar, then **Connect Grok**. xAI OAuth uses OIDC discovery on `auth.x.ai`, PKCE and `http://127.0.0.1:56121/callback`; an occupied port supports the same manual callback flow. Account credentials remain on the host. The token exchange answers 403 when the X plan lacks the API OAuth entitlement.
+
+| Capability | Behavior |
+| --- | --- |
+| Models | Live `api.x.ai/v1/models` chat catalog; image, video and embedding models are excluded. Display names, context windows and reasoning efforts come from the Grok CLI catalog (`cli-chat-proxy.grok.com/v1/models`); a failed CLI lookup keeps the last-known metadata |
+| Configuration | Visibility, reasoning effort and context windows per provider; a model without CLI effort metadata offers no effort selector |
+| Usage | Credit usage window and reset time from the Grok CLI billing proxy (`cli-chat-proxy.grok.com/v1/billing`); the plan name comes from the billing response or the access token's tier claim |
+| Requests | `api.x.ai/v1/responses` streaming with local DSH function tools, images on chat models and the session ID as `prompt_cache_key` |
+| Tools | Independent `grok_image_generate`, `grok_video_generate` and `grok_x_search` tools, with switches in the Grok Tools tab; image and video requests schedule across logged-in Grok accounts |
+
+- Account status shows the subscription tier decoded from the access token (Free, SuperGrok, X Premium, …).
+- Rate-limit waits read `retry_after` / `resets_at` fields from the response body.
+- Access depends on account entitlements and quota.
+
 ## Configuration
 
 The toolkit enables this module by default; `subscriptions: false` disables host and UI:
@@ -159,6 +181,7 @@ Standalone plugin ID: `subscriptions`.
 | Codex models | `models` |
 | ChatGPT model metadata overrides | `chatgpt.models`; live account availability remains authoritative |
 | Antigravity models | `antigravity.models` |
+| Grok models | `grok.models` |
 | Model entry | `id`; optional `name`, `contextWindow`, `inputModalities` |
 | Antigravity connection | `clientId`, `clientSecret`, `baseURL`, `userAgent`, `projectId`, `onboard` (off by default), under `antigravity` |
 
@@ -166,7 +189,7 @@ Auth and preferences use `plugins/subscriptions/` in the DSH home. The UI reads 
 
 ## Source and license
 
-`src/backend` contains OAuth PKCE, token refresh, streaming model adapters, Codex search and image attachment handling. Providers: `codex`, `chatgpt`, `antigravity`. The backend builds from local source. Antigravity protocol reference: [LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6). Source provenance and MIT license notices reside in `THIRD_PARTY_LICENSES.txt`.
+`src/backend` contains OAuth PKCE, token refresh, streaming model adapters, Codex search and image attachment handling. Providers: `codex`, `chatgpt`, `antigravity`, `grok`. The backend builds from local source. Antigravity protocol reference: [LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6). Source provenance and MIT license notices reside in `THIRD_PARTY_LICENSES.txt`.
 
 Third-party notices are included in both standalone and toolkit artifacts. Backend changes require rerunning the OAuth, RPC, model and tool-policy integration tests.
 

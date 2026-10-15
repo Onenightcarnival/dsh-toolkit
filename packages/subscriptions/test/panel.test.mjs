@@ -235,7 +235,7 @@ test('ChatGPT shows shared usage and reconnects saved registrations without show
   const root = createRoot(document.getElementById('root'))
   try {
     await act(async () => root.render(React.createElement(SubscriptionsPanel, { api, close() {} })))
-    assert.deepEqual([...document.querySelectorAll('.dsh-sub-provider strong')].map(el => el.textContent), ['Codex', 'ChatGPT', 'Antigravity'])
+    assert.deepEqual([...document.querySelectorAll('.dsh-sub-provider strong')].map(el => el.textContent), ['Codex', 'ChatGPT', 'Antigravity', 'Grok'])
     assert.equal([...document.querySelectorAll('[role=tab]')].some(el => el.textContent === 'Tools'), false)
     await click(button('Usage'))
     assert.match(document.body.textContent, /Shares plan usage/)

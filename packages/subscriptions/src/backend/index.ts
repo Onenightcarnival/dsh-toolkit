@@ -1,5 +1,7 @@
-/** Codex, ChatGPT and Antigravity subscription providers. */
+/** Codex, ChatGPT, Antigravity and Grok subscription providers. */
 
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { withChatGptLock } from './auth/chatgpt-lock.js'
 import { ChatGptTokenManager } from './providers/chatgpt-tokens.js'
 import { ChatGptAdapter } from './providers/chatgpt.js'
@@ -29,6 +31,7 @@ import type {
   ProviderStatus,
   SpeedController,
   SpeedTier,
+  VideoBytesResult,
 } from './auth/rpc.js'
 import {
   defaultEffortOf,
@@ -83,7 +86,10 @@ import { createCodexWebSearchTool, createWebSearchTool } from './tools/web-searc
 import { AntigravityAdapter, antigravityFlow, exchangeAntigravityCode, refreshAntigravity, isAntigravityPermanentRefreshError, fetchAntigravityUsage, ANTIGRAVITY_PREEMPT_MS } from './providers/antigravity.js'
 import type { AntigravityRuntimeConfig } from './providers/antigravity.js'
 import { resolveAntigravityOAuthConfig, preserveAntigravityClient, type AntigravityOAuthConfig } from './auth/antigravity-client.js'
-import type { AntigravitySession } from './auth/store.js'
+import type { AntigravitySession, GrokSession } from './auth/store.js'
+import { GrokAdapter, grokFlow, GROK_PREEMPT_MS, grokTierName, exchangeGrokCode, fetchGrokUsage, isGrokPermanentRefreshError, refreshGrok } from './providers/grok.js'
+import { createXSearchTool } from './tools/x-search.js'
+import { createVideoGenerateTool, videosDirectory } from './tools/video-generate.js'
 import { ensureConnectAttemptTimeout, proxiedFetch, proxyGetConfig, proxySetConfig, proxyTestConnection, restoreConnectAttemptTimeout } from './http.js'
 import { ProviderSettingsStore, PROVIDER_TOOLS, validatePreferences } from './provider-settings.js'
 
@@ -118,6 +124,7 @@ export interface Config {
     chatgpt?: ModelEntry[]
     codex?: ModelEntry[]
     antigravity?: ModelEntry[]
+    grok?: ModelEntry[]
   }
   /** Same-subscription account pools (and optional extra tier models). */
   pool?: {
@@ -138,7 +145,7 @@ export interface Config {
   }
 }
 
-const providerIdSchema = z.union(['codex', 'chatgpt', 'antigravity'])
+const providerIdSchema = z.union(['codex', 'chatgpt', 'antigravity', 'grok'])
 const modelEntrySchema: z<ModelEntry> = z.object({
   id: z.string().required(),
   name: z.string(),
@@ -154,7 +161,7 @@ const poolMemberSchema: z<PoolMemberRef> = z.object({
 })
 
 export const Config: z<Config> = z.object({
-  providers: z.array(providerIdSchema).default(['codex', 'chatgpt', 'antigravity']),
+  providers: z.array(providerIdSchema).default(['codex', 'chatgpt', 'antigravity', 'grok']),
   antigravity: z.object({ clientId: z.string(), clientSecret: z.string(), baseURL: z.string(), userAgent: z.string(), projectId: z.string(), onboard: z.boolean() }),
   codexClientVersion: z.string(),
   streamIdleTimeoutMs: z.number().min(1).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
@@ -166,6 +173,7 @@ export const Config: z<Config> = z.object({
     chatgpt: z.array(modelEntrySchema),
     codex: z.array(modelEntrySchema),
     antigravity: z.array(modelEntrySchema),
+    grok: z.array(modelEntrySchema),
   }),
   pool: z.object({
     enabled: z.boolean().default(true),
@@ -187,6 +195,11 @@ const DEFAULT_MODELS: Record<ProviderId, ModelEntry[]> = {
     { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini' },
     { id: 'gpt-5.1', name: 'GPT-5.1' },
   ],
+  grok: [
+    { id: 'grok-4', name: 'Grok 4' },
+    { id: 'grok-4-fast-reasoning', name: 'Grok 4 Fast Reasoning' },
+    { id: 'grok-code-fast-1', name: 'Grok Code Fast 1' },
+  ],
 }
 
 /** Validate and detach the model catalog for every provider. */
@@ -200,6 +213,7 @@ function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry
     chatgpt: resolve('chatgpt'),
     codex: resolve('codex'),
     antigravity: resolve('antigravity'),
+    grok: resolve('grok'),
   }
 }
 
@@ -209,6 +223,7 @@ function accountOf(provider: ProviderId, session: StoredSession | undefined): st
   switch (provider) {
     case 'chatgpt': return (session as ChatGptSession).emailAddress ?? (session as ChatGptSession).subject
     case 'antigravity': return (session as AntigravitySession).account ?? (session as AntigravitySession).projectId
+    case 'grok': return (session as GrokSession).account
     case 'codex': {
       const codex = session as CodexSession
       // Sessions without persisted identity claims decode the email from the id token.
@@ -222,6 +237,7 @@ function planOf(provider: ProviderId, session: StoredSession): string | undefine
   switch (provider) {
     case 'antigravity': return (session as AntigravitySession).plan
     case 'codex': return (session as CodexSession).planType
+    case 'grok': return grokTierName((session as GrokSession).accessToken)
   }
 }
 
@@ -293,6 +309,12 @@ export class SubscriptionsAuthController implements AuthController {
     return { mediaType: stored.ref.mediaType, dataBase64: Buffer.from(stored.data).toString('base64') }
   }
 
+  async readVideo(name: string, signal: AbortSignal): Promise<VideoBytesResult> {
+    // The RPC layer admits bare .mp4 names only; the file lives in the plugin's videos directory.
+    const data = await readFile(join(videosDirectory(), name), { signal })
+    return { mediaType: 'video/mp4', dataBase64: data.toString('base64') }
+  }
+
   async status(provider: ProviderId): Promise<ProviderStatus> {
     const entries = await listAccounts(provider)
     // `detail` carries only errors.
@@ -327,7 +349,11 @@ export class SubscriptionsAuthController implements AuthController {
     const registration = provider === 'chatgpt' ? await prepareChatGptRegistration(account) : undefined
     const previous = registration && account ? await getAccountSession('chatgpt', account) : undefined
     if (registration && previous && !chatGptPlanEnabled(previous)) registration.planEnabled = false
-    const attempt = await this.flows.start(provider, registration ? chatGptFlow(registration, previous?.idToken) : oauth ? antigravityFlow(oauth) : codexFlow)
+    const spec = registration ? chatGptFlow(registration, previous?.idToken)
+      : oauth ? antigravityFlow(oauth)
+        : provider === 'grok' ? await grokFlow()
+          : codexFlow
+    const attempt = await this.flows.start(provider, spec)
     if (registration) this.registrations.set(attempt, registration)
     // The claim is taken after `start()` succeeds; a rejected start leaves the running attempt's claim intact.
     this.beginFinalizing(provider)
@@ -390,6 +416,7 @@ export class SubscriptionsAuthController implements AuthController {
     switch (provider) {
       case 'antigravity': return exchangeAntigravityCode(code, attempt.pkce.verifier, attempt.redirectUri, resolveAntigravityOAuthConfig(this.antigravityConfig), this.antigravityConfig)
       case 'chatgpt': return exchangeChatGptCode(code, attempt, this.registrations.get(attempt)!)
+      case 'grok': return exchangeGrokCode(code, attempt.pkce.verifier, attempt.redirectUri, attempt.pkce.challenge)
       case 'codex':
         return exchangeCodexCode(code, attempt.pkce.verifier, attempt.redirectUri)
     }
@@ -514,7 +541,7 @@ export function apply(ctx: Context, config: Config): void {
     onWarn,
   })
   const authChanged = (provider: ProviderId, account?: string): void => {
-    if (provider === 'codex') imagePool.clear(provider, account)
+    if (provider === 'codex' || provider === 'grok') imagePool.clear(provider, account)
     adapters.get(provider)?.clearAccountCatalog(account)
     poolHealth?.clear(provider, account)
     poolUsage?.invalidate(provider, account)
@@ -527,6 +554,7 @@ export function apply(ctx: Context, config: Config): void {
   // Token managers are also the tools' credential source.
   let codexTokens: AccountTokenManager<CodexSession> | undefined
   let antigravityTokens: AccountTokenManager<AntigravitySession> | undefined
+  let grokTokens: AccountTokenManager<GrokSession> | undefined
   // Usage lookups resolve the session through the refresh-aware path.
   const usageFetchers: UsageFetchers = {}
   // Speed toggle state: per session, in memory; each request checks the model's discovered fast-tier support.
@@ -534,6 +562,7 @@ export function apply(ctx: Context, config: Config): void {
   let codexAdapter: CodexAdapter | undefined
   let antigravityAdapter: AntigravityAdapter | undefined
   let chatgptAdapter: ChatGptAdapter | undefined
+  let grokAdapter: GrokAdapter | undefined
   const memberAdapters = new Map<ProviderId, AccountAwareAdapter>()
   const register = (provider: ProviderId, adapter: AccountAwareAdapter): AdapterRegistrationHandle => {
     const route = new AccountPreferencesAdapter({
@@ -631,6 +660,29 @@ export function apply(ctx: Context, config: Config): void {
         handles.set('codex', register('codex', adapter))
         break
       }
+      case 'grok': {
+        const tokens = new AccountTokenManager<GrokSession>({
+          provider, displayName: 'Grok',
+          makeOptions: () => ({ preemptMs: GROK_PREEMPT_MS, refresh: refreshGrok, isPermanent: isGrokPermanentRefreshError }),
+          onAccountRemoved: account => authChanged(provider, account),
+        })
+        grokTokens = tokens
+        accountTokens.set(provider, tokens as AccountTokenManager<StoredSession>)
+        usageFetchers.grok = async (account, signal) => fetchGrokUsage(await tokens.session(account), proxiedFetch, signal)
+        const adapter = new GrokAdapter({
+          models: catalog.grok, streamIdleTimeoutMs, rateLimit, tokens,
+          discovery: !overridden.has(provider), onWarn, resolveAttachments,
+          catalogStore: catalogStore(provider),
+          accountCatalogStore: account => accountCatalogStore(provider, account),
+          defaultEffortOf: model => defaultEffortOf(provider, model),
+          contextWindowOf: model => preferences.contextWindow(model, provider),
+          pool: () => poolAdapter,
+        })
+        grokAdapter = adapter
+        adapters.set(provider, adapter)
+        handles.set(provider, register(provider, adapter))
+        break
+      }
     }
   }
 
@@ -643,6 +695,11 @@ export function apply(ctx: Context, config: Config): void {
     const fetcherFor = (provider: ProviderId, account: string): (() => Promise<ProviderUsage>) | undefined => {
       switch (provider) {
         case 'antigravity': return () => usageFetchers.antigravity!(account, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
+        case 'grok': {
+          const tokens = grokTokens
+          return tokens === undefined ? undefined : async () =>
+            fetchGrokUsage(await tokens.session(account), proxiedFetch, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
+        }
         case 'codex': {
           const tokens = codexTokens
           return tokens === undefined ? undefined : async () =>
@@ -834,7 +891,7 @@ export function apply(ctx: Context, config: Config): void {
       const tierIds = new Set((await poolAdapter?.modelsForProvider(provider).catch(() => []) ?? []).map(model => model.id))
       const rows = await Promise.all(models.map(async model => {
         const contexts: { default: number; max?: number }[] = []
-        const contextAdapter = provider === 'codex' ? codexAdapter : provider === 'chatgpt' ? chatgptAdapter : antigravityAdapter
+        const contextAdapter = provider === 'codex' ? codexAdapter : provider === 'chatgpt' ? chatgptAdapter : provider === 'grok' ? grokAdapter : antigravityAdapter
         if (contextAdapter) {
           for (const account of accountCatalogs) {
             if (account.models?.some(entry => entry.id === model.id)) {
@@ -902,12 +959,27 @@ export function apply(ctx: Context, config: Config): void {
       resolveAttachments, resolveLlm: () => ctx.get('llm'),
       providerEnabled: (provider, createdAt) => preferences.toolEnabled(provider, 'image_generate', createdAt),
     })) : undefined
+    const xSearch = grokTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createXSearchTool({
+      tokens: grokTokens, fetchFn: proxiedFetch,
+      enabled: () => preferences.toolEnabled('grok', 'x_search'),
+    }))
+    const grokImage = grokTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createImageGenerateTool({
+      grok: { tokens: grokTokens }, imagePool, resolveAttachments, resolveLlm: () => ctx.get('llm'),
+      providerEnabled: (provider, createdAt) => preferences.toolEnabled(provider, 'image_generate', createdAt),
+    }))
+    const grokVideo = grokTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createVideoGenerateTool({
+      tokens: grokTokens, fetchFn: proxiedFetch,
+      enabled: createdAt => preferences.toolEnabled('grok', 'video_generate', createdAt),
+    }))
     toolsCtx.on('agent/created', ({ agent }) => {
       const deny: string[] = []
       if (search && !preferences.toolEnabled('codex', 'web_search')) deny.push(search.name)
       if (image && !preferences.toolEnabled('codex', 'image_generate', agent.session.header.createdAt)) deny.push(image.name)
       if (googleSearch && !preferences.toolEnabled('antigravity', 'web_search')) deny.push(googleSearch.name)
       if (googleImage && !preferences.toolEnabled('antigravity', 'image_generate', agent.session.header.createdAt)) deny.push(googleImage.name)
+      if (xSearch && !preferences.toolEnabled('grok', 'x_search')) deny.push(xSearch.name)
+      if (grokImage && !preferences.toolEnabled('grok', 'image_generate', agent.session.header.createdAt)) deny.push(grokImage.name)
+      if (grokVideo && !preferences.toolEnabled('grok', 'video_generate', agent.session.header.createdAt)) deny.push(grokVideo.name)
       if (deny.length) agent.ctx.tools.restrict({ deny })
       return undefined
     })

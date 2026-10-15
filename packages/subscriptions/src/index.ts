@@ -15,16 +15,17 @@ export interface Config {
   models?: backend.ModelEntry[]
   chatgpt?: { models?: backend.ModelEntry[] }
   antigravity?: backend.Config['antigravity'] & { models?: backend.ModelEntry[] }
+  grok?: { models?: backend.ModelEntry[] }
 }
 
 export function backendConfig(config: Config = {}): backend.Config {
   return {
-    providers: ['codex', 'chatgpt', 'antigravity'],
+    providers: ['codex', 'chatgpt', 'antigravity', 'grok'],
     antigravity: config.antigravity,
     codexClientVersion: config.codexClientVersion,
     streamIdleTimeoutMs: config.streamIdleTimeoutMs,
     rateLimit: config.rateLimit,
-    models: { chatgpt: config.chatgpt?.models, codex: config.models, antigravity: config.antigravity?.models },
+    models: { chatgpt: config.chatgpt?.models, codex: config.models, antigravity: config.antigravity?.models, grok: config.grok?.models },
   }
 }
 

@@ -9,14 +9,14 @@ const result = await build({ absWorkingDir: dir, stdin: { resolveDir: dir, loade
 import React from 'react'; import {createRoot} from 'react-dom/client';
 import {SubscriptionsPanel} from './src/client/Panel.tsx';
 function fixture(provider) {
-let accounts = location.search.includes('empty') ? [] : [{key:'sample',account:provider==='antigravity'?'google@example.test':'demo@example.test',plan:provider==='antigravity'?'Google AI Pro':'plus',isDefault:true}];
+let accounts = location.search.includes('empty') ? [] : [{key:'sample',account:provider==='antigravity'?'google@example.test':provider==='grok'?'grok@example.test':'demo@example.test',plan:provider==='antigravity'?'Google AI Pro':provider==='grok'?'X Premium':'plus',isDefault:true}];
 let settings = {};
-const name = {codex:'Codex',chatgpt:'ChatGPT',antigravity:'Antigravity'}[provider];
+const name = {codex:'Codex',chatgpt:'ChatGPT',antigravity:'Antigravity',grok:'Grok'}[provider];
 const models = [{id:'sample-model-a',name:name+' · Model A',contextWindow:provider==='codex'?272000:1048576,efforts:[{id:'low',name:'Low'},{id:'high',name:'High'}]}, {id:'sample-model-b',name:name+' · Model B',contextWindow:200000,efforts:[]}];
 return {provider,forProvider:p=>fixtures[p],status:async()=>({accounts,busy:false}),catalog:async()=>({provider,settings,models:models.map(m=>({...m,defaultContextWindow:m.contextWindow,contextWindow:settings.contextWindows?.[m.id]??m.contextWindow})),accounts:[{key:'sample',models}]}),save:async s=>{settings=s},effort:async()=>{},logout:async()=>{accounts=[]},usage:async()=>provider==='chatgpt'?({supported:false}):({supported:true,plan:accounts[0]?.plan,windows:[{kind:'session',scope:name,usedPercent:38,resetsAt:Date.now()+3600000},{kind:'weekly',scope:name,usedPercent:62,resetsAt:Date.now()+86400000}]}),login:async()=>{throw new Error('Visual fixture: login disabled')}};
 }
-const fixtures={codex:fixture('codex'),chatgpt:fixture('chatgpt'),antigravity:fixture('antigravity')};
-const api=fixtures[location.search.includes('google')?'antigravity':location.search.includes('chatgpt')?'chatgpt':'codex'];
+const fixtures={codex:fixture('codex'),chatgpt:fixture('chatgpt'),antigravity:fixture('antigravity'),grok:fixture('grok')};
+const api=fixtures[location.search.includes('google')?'antigravity':location.search.includes('chatgpt')?'chatgpt':location.search.includes('grok')?'grok':'codex'];
 createRoot(document.getElementById('root')).render(<SubscriptionsPanel api={api} close={()=>{}}/>);
 ` }, bundle: true, write: false, platform: 'browser', jsx: 'automatic', format: 'iife' })
 const css = await readFile(new URL('../src/client/styles.css', import.meta.url), 'utf8')

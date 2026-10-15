@@ -5,8 +5,8 @@ import { httpLlmError } from './common.js'
 import type { RateLimitResetReader } from './rate-limit.js'
 import { AUTH_COOLDOWN_MS, DEFAULT_QUOTA_COOLDOWN_MS, TRANSIENT_COOLDOWN_MS, PoolHealthRegistry, memberKey } from './pool-health.js'
 
-type ImageProvider = 'codex'
-type ImageSession = import('../auth/store.js').CodexSession
+type ImageProvider = 'codex' | 'grok'
+type ImageSession = import('../auth/store.js').CodexSession | import('../auth/store.js').GrokSession
 
 export interface ImageAccountRequest<S extends ImageSession> {
   provider: ImageProvider
@@ -37,7 +37,7 @@ export class ImageAccountPool {
     const accounts = await tokens.list()
     if (accounts.length === 0) {
       await tokens.session() // throws the provider-specific login error
-      throw new LlmError('codex_image_generate: no image account is logged in', 'MISSING_CREDENTIAL')
+      throw new LlmError(`${provider}_image_generate: no image account is logged in`, 'MISSING_CREDENTIAL')
     }
     const pooling = this.options.enabled !== false
     const members = (pooling ? accounts : accounts.slice(0, 1)).map(entry => entry.key)
@@ -71,7 +71,7 @@ export class ImageAccountPool {
           return response
         }
         // Switch accounts only on auth, quota or entitlement rejection; transport and 5xx failures propagate.
-        failure = await httpLlmError(response, 'codex_image_generate', { rateLimitReset })
+        failure = await httpLlmError(response, `${provider}_image_generate`, { rateLimitReset })
         if (![401, 402, 403, 404, 429].includes(response.status)) throw failure
       } catch (error) {
         signal.throwIfAborted()
@@ -88,7 +88,7 @@ export class ImageAccountPool {
     }
     if (lastError !== undefined) throw lastError
     const recovery = this.health.earliestRecovery(new Set(members.map(account => memberKey(provider, account, 'images'))))
-    throw new LlmError(`codex_image_generate: all ${provider} image accounts are cooling down`, 'RATE_LIMIT', {
+    throw new LlmError(`${provider}_image_generate: all ${provider} image accounts are cooling down`, 'RATE_LIMIT', {
       ...recovery === undefined ? {} : { providerRetryAfterMs: Math.max(0, recovery - Date.now()) },
     })
   }
