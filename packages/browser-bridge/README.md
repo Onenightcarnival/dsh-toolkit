@@ -7,7 +7,7 @@ Browser control bridge between dsh and the Chrome / Firefox extension.
 | Boundary | Contract |
 |---|---|
 | Transport | `/ext/bridge` WebSocket; authenticated handshake, one active connection |
-| Host | dsh 0.2.0 Typert Remotes, Session and Remote Event streams |
+| Host | dsh 0.2.1 Typert Remotes, Session and Remote Event streams |
 | Tools | `browser_*` reads and operates the controlled tab with login state preserved |
 | Page | Structured text, stable element numbers and annotated screenshots |
 | Attachments | Image prompts and durable reads; limits advertised by the host attachment service |

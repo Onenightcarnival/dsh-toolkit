@@ -56,7 +56,7 @@ const RemoteApiHost = {
   apply(ctx: Context, config: { cwd: string }): void {
     const gateway = {
       wireStream: {
-        async open(endpoint: string, _payload: unknown, _uplink: AsyncIterable<unknown>, _peer: undefined, signal: AbortSignal): Promise<AsyncIterable<unknown>> {
+        async open(endpoint: string, _payload: unknown, _uplink: AsyncIterable<unknown>, _peer: unknown, signal: AbortSignal): Promise<AsyncIterable<unknown>> {
           if (endpoint === '$events') {
             return {
               async *[Symbol.asyncIterator]() {
@@ -99,6 +99,7 @@ const RemoteApiHost = {
       },
     }
     const connection = {
+      createPeer: () => ({ dispose: async () => {} }),
       createSharedFetchHandler: () => ({
         fetch: async (request: Request) => {
           const envelope = await request.json() as { rpcId: string }

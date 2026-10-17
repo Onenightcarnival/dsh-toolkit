@@ -7,7 +7,7 @@ dsh 浏览器操作桥，连接宿主与 Chrome / Firefox 扩展。
 | 边界 | 契约 |
 |---|---|
 | 传输 | `/ext/bridge` WebSocket；握手认证、单活动连接 |
-| 宿主 | dsh 0.2.0 Typert Remotes、Session 与 Remote Event 流 |
+| 宿主 | dsh 0.2.1 Typert Remotes、Session 与 Remote Event 流 |
 | 工具 | `browser_*` 读取和操作受控标签页，保留登录态 |
 | 页面 | 结构化文本、稳定编号与带编号截图 |
 | 附件 | 图片消息与持久附件读取；图片限制由宿主附件服务声明 |

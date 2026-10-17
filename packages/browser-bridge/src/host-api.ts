@@ -1,7 +1,7 @@
 /**
  * Bridge-owned Host API consumed by the WebSocket carrier.
  *
- * dsh 0.2.0 implements it with Typert Remotes and Connection.
+ * dsh 0.2.1 implements it with Typert Remotes and Connection.
  *
  * @module
  */

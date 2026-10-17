@@ -78,7 +78,7 @@ HTTP 接口：`GET` 返回当前状态与版本元数据；`GET ?diff=<revision>
 
 ## 开发
 
-Node.js 22.19+ 或 24+，pnpm 11；dsh `0.2.0-rc.2`。
+Node.js 22.19+ 或 24+，pnpm 11；dsh `0.2.1-rc.2`。
 
 ```sh
 pnpm --filter @onenightcarnival/dsh-memory build

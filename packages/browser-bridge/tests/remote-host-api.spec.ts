@@ -15,6 +15,9 @@ function abortWait(signal: AbortSignal): Promise<void> {
   return new Promise<void>((resolve) => { signal.addEventListener('abort', () => { resolve() }, { once: true }) })
 }
 
+/** Owner Peer the Host hands the bridge for every stream. */
+const PEER = { dispose: async () => {} }
+
 function harness(options: {
   invoke?: TypertGatewayLike['invoke']
   open?: TypertGatewayLike['wireStream']['open']
@@ -44,6 +47,7 @@ function harness(options: {
   }
   const connection: HostConnectionLike = {
     createSharedFetchHandler: () => ({ fetch }),
+    createPeer: vi.fn(() => PEER),
   }
   return { api: createRemoteHostApi(gateway, connection), invoke, open, fetch }
 }
@@ -188,7 +192,7 @@ describe('dsh 0.2.0 Remote Host adapter', () => {
     const abort = new AbortController()
     const events = api.events(abort.signal)[Symbol.asyncIterator]()
     const live = events.next()
-    await vi.waitFor(() => { expect(open).toHaveBeenCalledWith('$events', { args: {} }, expect.anything(), undefined, expect.any(AbortSignal)) })
+    await vi.waitFor(() => { expect(open).toHaveBeenCalledWith('$events', { args: {} }, expect.anything(), PEER, expect.any(AbortSignal)) })
 
     await expect(api.call(call('session.history', {
       sessionId: 'session-1',
@@ -240,7 +244,7 @@ describe('dsh 0.2.0 Remote Host adapter', () => {
           assistantStream: true,
         },
       },
-    }, expect.anything(), undefined, expect.any(AbortSignal))
+    }, expect.anything(), PEER, expect.any(AbortSignal))
     abort.abort()
     await events.return?.()
   })
@@ -272,7 +276,7 @@ describe('dsh 0.2.0 Remote Host adapter', () => {
           assistantStream: true,
         },
       },
-    }, expect.anything(), undefined, expect.any(AbortSignal))
+    }, expect.anything(), PEER, expect.any(AbortSignal))
   })
 
   it('rejects invalid history pagination before calling the Host', async () => {
@@ -338,7 +342,7 @@ describe('dsh 0.2.0 Remote Host adapter', () => {
     })
     expect(open).toHaveBeenCalledWith('session/follow', {
       args: { request: { address: { kind: 'session', sessionId: 'session-1' }, assistantStream: true } },
-    }, expect.anything(), undefined, expect.any(AbortSignal))
+    }, expect.anything(), PEER, expect.any(AbortSignal))
     expect(invoke).toHaveBeenCalledOnce()
     const pageArgs = invoke.mock.calls[0]?.[0]?.args as { request: { throughSeq: number } }
     expect(pageArgs.request.throughSeq).toBe(42)
@@ -496,7 +500,7 @@ describe('dsh 0.2.0 Remote Host adapter', () => {
       ok: true,
       value: { items: [{ workspaceId: 'w1' }], archivedSessionIds: ['s1'] },
     })
-    expect(open).toHaveBeenCalledWith('workspace/follow', { args: {} }, expect.anything(), undefined, expect.any(AbortSignal))
+    expect(open).toHaveBeenCalledWith('workspace/follow', { args: {} }, expect.anything(), PEER, expect.any(AbortSignal))
   })
 
   it('bridges user questions through $events/result and unwraps the extension answer', async () => {

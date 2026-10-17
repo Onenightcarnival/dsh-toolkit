@@ -5,7 +5,7 @@
  * The bridge mounts the `/ext/bridge` upgrade route on the host webserver,
  * outside the /api trust fence, with its own bearer-token authentication
  * (first frame `hello` within HELLO_TIMEOUT_MS). Extension calls, Session
- * streams and Host waterfalls use dsh 0.2.0's Typert Gateway and Connection
+ * streams and Host waterfalls use dsh 0.2.1's Typert Gateway and Connection
  * services. Tools dispatch `tool.call` frames to the connected extension,
  * which performs the action in the tab the user controls.
  *
@@ -154,7 +154,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   const gateway = ctx.get('typertGateway') as unknown as GatewayCandidate | undefined
   const connection = ctx.get('connection') as unknown as HostConnectionLike | undefined
   if (gateway === undefined || !hasRemoteWireStream(gateway)) {
-    throw new Error('bridge-browser: dsh 0.2.0-rc.2 or a compatible newer runtime is required (Gateway wireStream unavailable)')
+    throw new Error('bridge-browser: dsh 0.2.1-rc.2 or a compatible newer runtime is required (Gateway wireStream unavailable)')
   }
   if (connection === undefined) throw new Error('bridge-browser: dsh connection service is required')
   const tokenRes = await resolveToken(resolved.token)
@@ -267,6 +267,13 @@ function mountBridge(
   // Async disposer: unload waits for the bridge to close fully (sockets, pumps, acceptor).
   ctx.effect(() => () => server.close(), 'bridge-browser: bridge server')
 
+  /** Loopback WebSocket URL of the bridge on the bound host port. */
+  const bridgeWsUrl = (): string => {
+    const port = ctx.webServer.port
+    if (port === undefined) throw new Error('bridge-browser: host web server is not listening')
+    return `ws://127.0.0.1:${port}${BRIDGE_PATH}`
+  }
+
   // /ext/bridge-config on the host port: the extension's zero-config discovery route.
   // The URL carries no secret; remote clients still present the token on the WS itself.
   const configRoute: WebRoute = {
@@ -274,7 +281,7 @@ function mountBridge(
     path: BRIDGE_CONFIG_PATH,
     handler: (_req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ wsUrl: `ws://127.0.0.1:${ctx.webServer.port}${BRIDGE_PATH}` }))
+      res.end(JSON.stringify({ wsUrl: bridgeWsUrl() }))
     },
   }
   ctx.effect(() => ctx.webServer.register(configRoute), 'bridge-browser: /ext/bridge-config route')
@@ -285,8 +292,8 @@ function mountBridge(
     ctx.effect(() => {
       const beacon = startDiscoveryBeacon({
         port: resolved.discoveryPort,
-        skipPorts: [ctx.webServer.port],
-        resolveWsUrl: () => `ws://127.0.0.1:${ctx.webServer.port}${BRIDGE_PATH}`,
+        skipPorts: ctx.webServer.port === undefined ? [] : [ctx.webServer.port],
+        resolveWsUrl: bridgeWsUrl,
         log: { info: (m) => { ctx.logger.info(m) }, warn: (m) => { ctx.logger.warn(m) } },
       }).catch((error: unknown) => {
         ctx.logger.warn(`browser bridge: discovery beacon failed to start: ${String(error)}`)

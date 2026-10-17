@@ -78,7 +78,7 @@ Standalone plugin ID: `memory`; config `{ enabled: false }` disables the host. T
 
 ## Development
 
-Node.js 22.19+ or 24+, pnpm 11; dsh `0.2.0-rc.2`.
+Node.js 22.19+ or 24+, pnpm 11; dsh `0.2.1-rc.2`.
 
 ```sh
 pnpm --filter @onenightcarnival/dsh-memory build
