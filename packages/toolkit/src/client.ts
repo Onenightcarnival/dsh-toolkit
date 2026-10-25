@@ -1,6 +1,7 @@
 /**
  * Client: module panels selected by the host's module map, sidebar row
- * visibility for every plugin, and the Settings → Left sidebar section.
+ * visibility for every plugin through the sidebar's More menu, and the
+ * settings nav icons of toolkit sections.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { ComponentType } from 'react'
@@ -16,13 +17,14 @@ import { en, zh, type Key } from './client/locales.ts'
 import { createSidebarStore, loadSidebarPreferences } from './client/sidebar.ts'
 import { GLYPHS, mountNavIcons, type NavIcon } from './client/nav-icon.ts'
 import { trackSidebarRows, type RowSources } from './client/rows.ts'
-import { SidebarPage } from './client/SidebarPage.tsx'
+import { SidebarMenuRows } from './client/SidebarMenuRows.tsx'
 
 export const inject = ['slots', 'locale', 'remote', 'layout']
 
 const NS = 'dsh-toolkit'
-/** Settings section order: after side cards (100), before Observability (110). */
-const SECTION_ORDER = 105
+/** More menu slot of the shell sidebar; the toolkit rows follow the shell's own rows. */
+const MENU_SLOT = 'sidebar.panellist.actions'
+const MENU_ORDER = 10
 
 const PLUGINS: Record<Module, unknown> = {
   memory: { name: 'memory-client', ...memory },
@@ -56,14 +58,14 @@ async function mountedModules(): Promise<ModuleMap> {
 
 export async function apply(ctx: Context): Promise<void> {
   const { slots, locale, layout } = ctx as unknown as { slots: Slots; locale: Locale; layout: RowSources['layout'] }
-  const [mounted, preferences] = await Promise.all([
+  const [mounted, hidden] = await Promise.all([
     mountedModules(),
-    loadSidebarPreferences().then(value => ({ hidden: value.hidden, error: undefined }), (error: unknown) => {
+    loadSidebarPreferences().then(value => value.hidden, (error: unknown) => {
       console.warn('[dsh-toolkit] sidebar preferences:', error)
-      return { hidden: [] as string[], error: error instanceof Error ? error.message : String(error) }
+      return [] as string[]
     }),
   ])
-  const store = createSidebarStore(preferences.hidden)
+  const store = createSidebarStore(hidden)
 
   for (const module of MODULES) {
     if (!mounted[module]) continue
@@ -75,23 +77,21 @@ export async function apply(ctx: Context): Promise<void> {
   const t = locale.bind(NS) as (key: Key, values?: Record<string, string>) => string
   const tracked = trackSidebarRows({ slots, locale, layout, store, mounted, label: id => t(`panel.${id}` as Key) })
   ctx.effect(() => tracked.dispose, 'dsh-toolkit: sidebar rows')
-  ctx.effect(() => slots.inject('settings.section', () => slots.register({
-    name: 'settings.section',
+  ctx.effect(() => slots.inject(MENU_SLOT, () => slots.register({
+    name: MENU_SLOT,
     id: 'dsh-toolkit',
-    order: SECTION_ORDER,
-    label: () => t('title'),
+    order: MENU_ORDER,
     locale: NS,
-    inject: () => ({ store, rows: tracked.rows, loadError: preferences.error, translate: t }),
-  }, SidebarPage)), 'dsh-toolkit: settings section')
+    inject: () => ({ store, rows: tracked.rows }),
+  }, SidebarMenuRows)), 'dsh-toolkit: sidebar menu rows')
   const otel = locale.bind('dsh-otel')
   const configCenter = locale.bind('dsh-config-center')
   const icons: NavIcon[] = [
-    { key: 'sidebar', label: () => t('title'), svg: GLYPHS.panelLeft },
     ...(mounted.otel ? [{ key: 'observability', label: () => otel('settingsTab'), svg: GLYPHS.gauge }] : []),
     ...(mounted.configCenter ? [
       { key: 'environment', label: () => configCenter('environment.title'), svg: GLYPHS.terminal },
       { key: 'logs', label: () => configCenter('logs.title'), svg: GLYPHS.lines },
     ] : []),
   ]
-  ctx.effect(() => mountNavIcons(icons), 'dsh-toolkit: settings nav icons')
+  if (icons.length > 0) ctx.effect(() => mountNavIcons(icons), 'dsh-toolkit: settings nav icons')
 }

@@ -63,9 +63,9 @@ Mount order: `rdb → s3 → otel → browser → subscriptions → configCenter
 
 ## Sidebar entries
 
-Settings → Left sidebar lists the sidebar entries of all plugins, including third-party plugins such as SSH and the task board, one switch per entry; Hide all and Show all act on every listed entry. Switches and buttons apply immediately; an entry turned off leaves the left sidebar, while features and data stay unchanged.
+The sidebar's **More** menu lists the sidebar entries of all plugins, including third-party plugins such as SSH and the task board, after the shell's own rows; a check mark marks a shown entry. Selecting a row toggles the entry at once: the choice is stored and applied at every start, and the shell's pin callback hides or shows the row for the current page. Features and data of a hidden entry stay unchanged. The Plugins entry is never listed. While the rows are mounted, the menu card takes the width of the More row.
 
-| Entry source | Hiding |
+| Entry source | Hiding at start |
 |---|---|
 | Toolkit modules | The module client unregisters the sidebar row; its open panel closes |
 | Other plugins | A style rule hides the sidebar row by the entry's current display name; its open panel closes |
@@ -105,14 +105,14 @@ Module clients accept a `{ sidebar }` config as the entry visibility source; sta
 | File | Responsibility |
 |---|---|
 | `src/index.ts` | Host module mounting, module map endpoint and sidebar preferences endpoint |
-| `src/client.ts` | Client plugin mounting from the host map, sidebar visibility, settings section |
+| `src/client.ts` | Client plugin mounting from the host map, sidebar visibility, More menu rows |
 | `src/modules.ts` | Module order, map type, sidebar entry table and API paths |
 | `src/preferences.ts` | `dsh-toolkit.json` in the profile directory |
 | `src/client/sidebar.ts` | Sidebar visibility state and save requests |
 | `src/client/rows.ts` | Sidebar entry list of all plugins and style hiding of other plugins' entries |
-| `src/client/SidebarPage.tsx` | Settings → Left sidebar page |
-| `src/client/nav-icon.ts` | Settings nav icons of Left sidebar, Observability, Environment dependencies and Local logs |
-| `src/client/locales.ts` | Chinese and English copy |
+| `src/client/SidebarMenuRows.tsx` | Entry rows of the sidebar's More menu |
+| `src/client/nav-icon.ts` | Settings nav icons of Observability, Environment dependencies and Local logs |
+| `src/client/locales.ts` | Chinese and English labels of module entries |
 | `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
 | `build.mjs` | Host and client builds from the seven modules' sources |
 

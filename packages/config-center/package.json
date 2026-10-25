@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-config-center",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Configuration center for DeepSeek Harness (dsh): MCP server management with connection tests, and common settings of built-in plugins, edited in the profile patch and applied through the Loader.",
   "author": "onenightcarnival",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "configuration"
   ],
   "engines": {
-    "dsh": ">=0.2.1-rc.2"
+    "dsh": ">=0.2.1-rc.3"
   },
   "dsh": {
     "bundle": {
@@ -65,12 +65,12 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.5",
     "@deepseek-ai/cordis-plugin-loader": "1.0.6",
-    "@deepseek-ai/dsh-app-boot": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-atomic-write": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-hmr": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-subprocess": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-app-boot": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-atomic-write": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-hmr": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-subprocess": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.3",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
     "@types/react-dom": "^18.3.5",
