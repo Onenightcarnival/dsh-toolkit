@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-subscriptions",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Codex, ChatGPT, Google Antigravity and Grok subscriptions, Codex web search, Grok X search, image and video generation for DeepSeek Harness",
   "author": "onenightcarnival",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "subscriptions"
   ],
   "engines": {
-    "dsh": ">=0.2.1-rc.3"
+    "dsh": ">=0.2.1-rc.5"
   },
   "dsh": {
     "bundle": {
@@ -62,13 +62,13 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.5",
-    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-attachment": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-home-paths": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-llm": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-session-query": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-web": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-attachment": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-home-paths": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-session-query": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-web": "0.2.1-rc.5",
     "@deepseek-ai/schemastery": "^3.18.5",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",

@@ -20,7 +20,8 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 
 | Toolkit version | dsh runtime |
 |---|---|
-| 0.8.1+ | `0.2.1-rc.3` (workspace pin) |
+| 0.8.2+ | `0.2.1-rc.5` (workspace pin) |
+| 0.8.1 | `0.2.1-rc.3` |
 | 0.8.0 | `0.2.1-rc.2` |
 | 0.7.x | `0.2.0-rc.2` |
 | 0.6.x | `0.1.7-rc.2` |
