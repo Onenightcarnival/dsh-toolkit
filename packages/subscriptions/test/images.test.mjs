@@ -139,10 +139,12 @@ test('native image paths use scoped tool policy; recent images use only the curr
   const exec = {
     signal: new AbortController().signal, callId: 'image-call', token: Symbol('image-call'), rootCallId: 'root-call',
     agent: { session: { id: 'chat-a', header: {}, requestHeader: () => undefined }, options: {}, ctx: {
-      tools: { execute: async call => {
-        reads.push(call)
-        if (denied) return { isError: true, content: [{ type: 'text', text: 'permission denied' }] }
-        return { isError: false, content: [{ type: 'image', attachment: refs[0] }] }
+      tools: { execute: async batch => {
+        reads.push(batch)
+        const result = denied
+          ? { isError: true, content: [{ type: 'text', text: 'permission denied' }] }
+          : { isError: false, content: [{ type: 'image', attachment: refs[0] }] }
+        return { results: batch.calls.map(call => ({ callId: call.id, result })), additionalContexts: [], concluded: false }
       } },
       get: name => name === 'sessionQuery' ? { readSurface: async id => {
         queriedSessions.push(id)
@@ -159,12 +161,14 @@ test('native image paths use scoped tool policy; recent images use only the curr
   const path = join(directory, 'source.png')
   try {
     await tool.execute({ prompt: 'Remove background', referenced_image_paths: [path], transparent_background: true }, exec)
-    assert.equal(reads[0].name, 'read_image')
+    assert.equal(reads[0].calls.length, 1)
+    assert.equal(reads[0].calls[0].type, 'tool-call')
+    assert.equal(reads[0].calls[0].name, 'read_image')
+    assert.equal(reads[0].calls[0].id, 'image-call:reference:0')
+    assert.deepEqual(JSON.parse(reads[0].calls[0].arguments), { file_path: path })
     assert.equal(reads[0].agent, exec.agent)
-    assert.equal(reads[0].parent, exec.token)
-    assert.equal(reads[0].rootCallId, exec.rootCallId)
     assert.equal(reads[0].signal, exec.signal)
-    assert.deepEqual(reads[0].arguments, { file_path: path })
+    assert.equal(reads[0].toolSet, undefined)
     assert.match(requests[0].url, /\/edits$/)
     assert.equal(requests[0].body.background, 'transparent')
     imageReads.length = 0

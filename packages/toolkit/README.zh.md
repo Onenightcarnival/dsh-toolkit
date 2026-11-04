@@ -111,7 +111,7 @@ toolkit 模块入口：
 | `src/client/sidebar.ts` | 侧栏可见性状态与保存请求 |
 | `src/client/rows.ts` | 全部插件的侧栏入口列表与其他插件入口的样式隐藏 |
 | `src/client/SidebarMenuRows.tsx` | 侧栏「更多」菜单中的入口行 |
-| `src/client/nav-icon.ts` | 设置导航中可观测、环境依赖、本机日志的图标 |
+| `src/client/section-icons.tsx` | 可观测、环境依赖、本机日志设置页的导航图标（`settings.section.icon` 槽位，按设置页 id 注册） |
 | `src/client/locales.ts` | 模块入口的中英文名称 |
 | `src/typert.ts` | 以集成包名注册 OTel typert 清单 |
 | `build.mjs` | 七个模块源码的宿主与客户端构建 |

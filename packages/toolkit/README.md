@@ -111,7 +111,7 @@ Module clients accept a `{ sidebar }` config as the entry visibility source; sta
 | `src/client/sidebar.ts` | Sidebar visibility state and save requests |
 | `src/client/rows.ts` | Sidebar entry list of all plugins and style hiding of other plugins' entries |
 | `src/client/SidebarMenuRows.tsx` | Entry rows of the sidebar's More menu |
-| `src/client/nav-icon.ts` | Settings nav icons of Observability, Environment dependencies and Local logs |
+| `src/client/section-icons.tsx` | Settings nav icons of Observability, Environment dependencies and Local logs (`settings.section.icon` slot, registered by section id) |
 | `src/client/locales.ts` | Chinese and English labels of module entries |
 | `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
 | `build.mjs` | Host and client builds from the seven modules' sources |

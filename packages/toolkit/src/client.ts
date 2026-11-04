@@ -1,7 +1,8 @@
 /**
  * Client: module panels selected by the host's module map, sidebar row
  * visibility for every plugin through the sidebar's More menu, and the
- * settings nav icons of toolkit sections.
+ * settings nav icons of toolkit sections (`settings.section.icon`, keyed by
+ * section id).
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { ComponentType } from 'react'
@@ -15,7 +16,7 @@ import { clientFor as otelClient } from '../../otel/src/client/index.jsx'
 import { MODULES, MODULES_API, SIDEBAR_PANELS, type Module, type ModuleMap } from './modules.ts'
 import { en, zh, type Key } from './client/locales.ts'
 import { createSidebarStore, loadSidebarPreferences } from './client/sidebar.ts'
-import { GLYPHS, mountNavIcons, type NavIcon } from './client/nav-icon.ts'
+import { SECTION_ICONS } from './client/section-icons.tsx'
 import { trackSidebarRows, type RowSources } from './client/rows.ts'
 import { SidebarMenuRows } from './client/SidebarMenuRows.tsx'
 
@@ -84,14 +85,10 @@ export async function apply(ctx: Context): Promise<void> {
     locale: NS,
     inject: () => ({ store, rows: tracked.rows }),
   }, SidebarMenuRows)), 'dsh-toolkit: sidebar menu rows')
-  const otel = locale.bind('dsh-otel')
-  const configCenter = locale.bind('dsh-config-center')
-  const icons: NavIcon[] = [
-    ...(mounted.otel ? [{ key: 'observability', label: () => otel('settingsTab'), svg: GLYPHS.gauge }] : []),
-    ...(mounted.configCenter ? [
-      { key: 'environment', label: () => configCenter('environment.title'), svg: GLYPHS.terminal },
-      { key: 'logs', label: () => configCenter('logs.title'), svg: GLYPHS.lines },
-    ] : []),
-  ]
-  if (icons.length > 0) ctx.effect(() => mountNavIcons(icons), 'dsh-toolkit: settings nav icons')
+  for (const module of ['otel', 'configCenter'] as const) {
+    if (!mounted[module]) continue
+    for (const { id, icon } of SECTION_ICONS[module]) {
+      ctx.effect(() => slots.inject('settings.section.icon', () => slots.register({ name: 'settings.section.icon', id, locale: NS }, icon)), `dsh-toolkit: settings icon ${id}`)
+    }
+  }
 }

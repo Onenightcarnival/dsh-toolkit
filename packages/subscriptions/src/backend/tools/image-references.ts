@@ -26,11 +26,12 @@ export async function resolveNativeImageReferences(args: NativeImageReferences, 
     const refs: ImageAttachmentRef[] = []
     for (const [index, path] of paths.entries()) {
       exec.signal.throwIfAborted()
-      const result = await agent.ctx.tools.execute({
-        name: 'read_image', arguments: { file_path: path }, agent, signal: exec.signal,
-        callId: ToolCallId(`${exec.callId}:reference:${index}`),
-        parent: exec.token, rootCallId: exec.rootCallId,
+      const batch = await agent.ctx.tools.execute({
+        calls: [{ type: 'tool-call', id: ToolCallId(`${exec.callId}:reference:${index}`), name: 'read_image', arguments: JSON.stringify({ file_path: path }) }],
+        agent, signal: exec.signal, ...(exec.toolSet === undefined ? {} : { toolSet: exec.toolSet }),
       })
+      const result = batch.results[0]?.result
+      if (result === undefined) throw new Error(`codex_image_generate: read_image returned no result for ${path}`)
       if (result.isError) throw new Error(`codex_image_generate: cannot read reference ${path}: ${result.content.filter(block => block.type === 'text').map(block => block.text).join('\n')}`)
       const image = result.content.find(block => block.type === 'image')
       if (!image || image.type !== 'image') throw new Error(`codex_image_generate: read_image returned no image for ${path}`)
