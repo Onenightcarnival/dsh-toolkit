@@ -1,5 +1,5 @@
 /** Shared host and client mount order. */
-export const MODULES = ['rdb', 's3', 'otel', 'browser', 'subscriptions', 'configCenter', 'memory'] as const
+export const MODULES = ['rdb', 's3', 'otel', 'browser', 'subscriptions', 'configCenter', 'memory', 'gateway'] as const
 export type Module = typeof MODULES[number]
 
 export const MODULES_API = '/api/dsh-toolkit/modules'
@@ -16,6 +16,7 @@ export const SIDEBAR_PANELS = [
   { id: 'memory', module: 'memory', order: 55 },
   { id: 'dsh-config-center-skills', module: 'configCenter', order: 56 },
   { id: 'subscriptions', module: 'subscriptions', order: 60 },
+  { id: 'gateway', module: 'gateway', order: 62 },
 ] as const satisfies ReadonlyArray<{ id: string; module: Module; order: number }>
 export type SidebarPanel = typeof SIDEBAR_PANELS[number]['id']
 

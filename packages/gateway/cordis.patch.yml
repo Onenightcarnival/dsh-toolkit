@@ -1,0 +1,3 @@
+- insert:
+    - id: gateway
+      name: '@onenightcarnival/dsh-gateway'

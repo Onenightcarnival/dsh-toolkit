@@ -12,6 +12,7 @@ import * as s3 from '../../s3/src/index.ts'
 import * as subscriptions from '../../subscriptions/src/index.ts'
 import * as bridge from '../../browser-bridge/src/index.ts'
 import * as configCenter from '../../config-center/src/index.ts'
+import * as gateway from '../../gateway/src/index.ts'
 import otel from '../../otel/src/index.js'
 import { errorMessage, isLoopbackRequest, readJsonBody, writeJson } from '../../config-center/src/http.ts'
 import { MODULES, MODULES_API, SIDEBAR_API, type Module, type ModuleMap } from './modules.ts'
@@ -28,9 +29,10 @@ export interface Config {
   browser?: bridge.Config | false
   subscriptions?: subscriptions.Config | false
   configCenter?: configCenter.Config | false
+  gateway?: gateway.Config | false
 }
 
-const PLUGINS: Record<Module, unknown> = { memory, rdb, s3, otel, browser: bridge, subscriptions, configCenter }
+const PLUGINS: Record<Module, unknown> = { memory, rdb, s3, otel, browser: bridge, subscriptions, configCenter, gateway }
 
 export function apply(ctx: Context, config: Config = {}): void {
   const mounted = Object.fromEntries(MODULES.map(m => [m, config[m] !== false])) as ModuleMap

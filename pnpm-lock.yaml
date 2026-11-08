@@ -663,6 +663,45 @@ importers:
         specifier: ^2.8.1
         version: 2.9.1
 
+  packages/gateway:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: 4.1.0
+        version: 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
+      '@deepseek-ai/dsh-attachment':
+        specifier: 0.2.2-rc.1
+        version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-brand@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))
+      '@deepseek-ai/dsh-home-paths':
+        specifier: 0.2.2-rc.1
+        version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
+      '@deepseek-ai/dsh-host-webserver':
+        specifier: 0.2.2-rc.1
+        version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
+      '@deepseek-ai/dsh-llm':
+        specifier: 0.2.2-rc.1
+        version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.4
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.5
+        version: 18.3.7(@types/react@18.3.31)
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+
   packages/memory:
     devDependencies:
       '@deepseek-ai/cordis':
@@ -946,6 +985,9 @@ importers:
       '@onenightcarnival/dsh-config-center':
         specifier: workspace:*
         version: link:../config-center
+      '@onenightcarnival/dsh-gateway':
+        specifier: workspace:*
+        version: link:../gateway
       '@onenightcarnival/dsh-memory':
         specifier: workspace:*
         version: link:../memory

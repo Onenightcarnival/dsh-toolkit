@@ -6,6 +6,7 @@ export const zh = {
   'panel.memory': '记忆',
   'panel.dsh-config-center-skills': '技能',
   'panel.subscriptions': 'AI 订阅',
+  'panel.gateway': 'API 网关',
 }
 
 export const en: Record<Key, string> = {
@@ -15,6 +16,7 @@ export const en: Record<Key, string> = {
   'panel.memory': 'Memory',
   'panel.dsh-config-center-skills': 'Skills',
   'panel.subscriptions': 'AI subscriptions',
+  'panel.gateway': 'API gateway',
 }
 
 export type Key = keyof typeof zh

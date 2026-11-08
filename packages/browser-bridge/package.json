@@ -1,7 +1,7 @@
 {
   "name": "@onenightcarnival/dsh-bridge-browser",
   "description": "Bridge plugin: token-authenticated WebSocket carrier for the browser extension and browser_* tools for page text, screenshots and actions in Chrome and Firefox",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "author": "onenightcarnival",
   "license": "MIT",
   "publishConfig": {

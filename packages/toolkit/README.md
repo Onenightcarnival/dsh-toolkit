@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh.md)
 
-Integrated plugin package for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), containing seven modules. Each module retains its standalone panels, tools, settings, data files and API paths.
+Integrated plugin package for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), containing eight modules. Each module retains its standalone panels, tools, settings, data files and API paths.
 
 ## Installation
 
@@ -25,6 +25,7 @@ The integrated package and standalone plugins are mutually exclusive. Runtime co
 | `subscriptions` | AI subscriptions | [Subscriptions](../subscriptions/README.md) |
 | `memory` | Career memory | [Memory](../memory/README.md) |
 | `configCenter` | Configuration center | [Config center](../config-center/README.md#config) |
+| `gateway` | API gateway | [API gateway](../gateway/README.md#panel) |
 
 Web profile plugin ID: `toolkit`. Configuration file: `~/.dsh/profiles/web/cordis.patch.yml`.
 
@@ -50,10 +51,10 @@ An override replaces the entire `config` object; retained custom values must be 
 config → host modules → GET /api/dsh-toolkit/modules → corresponding client plugins
 ```
 
-Mount order: `rdb → s3 → otel → browser → subscriptions → configCenter → memory`. The endpoint returns the modules enabled by configuration:
+Mount order: `rdb → s3 → otel → browser → subscriptions → configCenter → memory → gateway`. The endpoint returns the modules enabled by configuration:
 
 ```json
-{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true,"configCenter":true,"memory":true}
+{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true,"configCenter":true,"memory":true,"gateway":true}
 ```
 
 | Request | Response |
@@ -114,7 +115,7 @@ Module clients accept a `{ sidebar }` config as the entry visibility source; sta
 | `src/client/section-icons.tsx` | Settings nav icons of Observability, Environment dependencies and Local logs (`settings.section.icon` slot, registered by section id) |
 | `src/client/locales.ts` | Chinese and English labels of module entries |
 | `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
-| `build.mjs` | Host and client builds from the seven modules' sources |
+| `build.mjs` | Host and client builds from the eight modules' sources |
 
 ## License
 
