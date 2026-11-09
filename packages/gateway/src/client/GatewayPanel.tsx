@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { GatewayApi } from './api.ts'
 import { tt, type Key } from './locales.ts'
+import { formatCompact, formatNumber } from './format.ts'
 import { DETAIL_LIMIT, type ApiKeyView, type GatewayModel, type GatewaySettings, type GatewayStatus, type UsageFilter, type UsageRange, type UsageSummary } from '../protocol.ts'
 
 const TABS = ['overview', 'keys', 'usage'] as const
@@ -20,7 +21,6 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-const formatNumber = (value: number): string => value.toLocaleString()
 const formatCost = (value: number | null): string => value === null ? '—' : value.toFixed(value >= 1 ? 2 : 4)
 const formatTime = (time: number): string => new Date(time).toLocaleString()
 const copyText = (text: string): Promise<void> => navigator.clipboard.writeText(text)
@@ -358,11 +358,12 @@ function UsageTab({ api, status }: { api: GatewayApi; status: GatewayStatus }): 
   })
   const keyName = (id: string): string => summary?.facets.keys.find(key => key.id === id)?.name ?? status.keys.find(key => key.id === id)?.name ?? id
   const facets = summary?.facets ?? { keys: status.keys.map(key => ({ id: key.id, name: key.name })), models: status.models.map(model => model.id), protocols: [...PROTOCOLS] }
-  const cards: Array<[Key, string]> = totals === undefined ? [] : [
-    ['usage.requests', formatNumber(totals.requests)], ['usage.errors', formatNumber(totals.errors)],
-    ['usage.input', formatNumber(totals.inputTokens)], ['usage.output', formatNumber(totals.outputTokens)],
-    ['usage.cacheRead', formatNumber(totals.cacheReadTokens)], ['usage.reasoning', formatNumber(totals.reasoningTokens)],
-    ...cost ? [['usage.cost', formatCost(totals.cost)] as [Key, string]] : [],
+  const metric = (key: Key, value: number): [Key, string, string] => [key, formatCompact(value), formatNumber(value)]
+  const cards: Array<[Key, string, string]> = totals === undefined ? [] : [
+    metric('usage.requests', totals.requests), metric('usage.errors', totals.errors),
+    metric('usage.input', totals.inputTokens), metric('usage.output', totals.outputTokens),
+    metric('usage.cacheRead', totals.cacheReadTokens), metric('usage.reasoning', totals.reasoningTokens),
+    ...cost ? [['usage.cost', formatCost(totals.cost), formatCost(totals.cost)] as [Key, string, string]] : [],
   ]
   const active = Object.keys(filter).length > 0
   return <>
@@ -376,7 +377,7 @@ function UsageTab({ api, status }: { api: GatewayApi; status: GatewayStatus }): 
     </div>
     {error && <p role="alert" className="gw-notice err">{error}</p>}
     {totals && <div className="gw-stats">
-      {cards.map(([key, value]) => <div key={key} className="gw-stat"><div className="gw-stat-label">{tt(key)}</div><div className="gw-stat-value">{value}</div></div>)}
+      {cards.map(([key, value, exact]) => <div key={key} className="gw-stat"><div className="gw-stat-label">{tt(key)}</div><div className="gw-stat-value" title={exact}>{value}</div></div>)}
     </div>}
     {summary && <div className="gw-card">
       <div className="gw-row between"><h2>{tt('usage.details')}</h2><span className="gw-hint">{tt('usage.matched', { shown: summary.rows.length, total: summary.matched })}</span></div>
@@ -389,7 +390,7 @@ function UsageTab({ api, status }: { api: GatewayApi; status: GatewayStatus }): 
         <td>{row.protocol}{row.stream ? ` · ${tt('usage.stream')}` : ''}</td>
         <td className="gw-mono wrap">{row.modelId}</td>
         <td>{keyName(row.keyId)}</td>
-        <td className="gw-num">{formatNumber(row.inputTokens)}</td><td className="gw-num">{formatNumber(row.outputTokens)}</td><td className="gw-num">{formatNumber(row.cacheReadTokens)}</td><td className="gw-num">{formatNumber(row.reasoningTokens)}</td>
+        {[row.inputTokens, row.outputTokens, row.cacheReadTokens, row.reasoningTokens].map((value, column) => <td key={column} className="gw-num" title={formatNumber(value)}>{formatCompact(value)}</td>)}
         <td className="gw-num">{row.ttftMs === null ? '—' : `${row.ttftMs} ms`}</td><td className="gw-num">{row.durationMs} ms</td>
         <td style={{ color: row.status >= 400 ? '#f07171' : undefined }}>{row.status}</td><td className="gw-mono">{row.errorCode ?? ''}</td>
       </tr>)}</tbody></table></div>}
