@@ -15,16 +15,41 @@ const compiled = await build({
     build.onResolve({ filter: /^(@deepseek-ai\/|@cortexkit\/|undici$)/ }, args => ({ path: args.path.startsWith('@cortexkit/') ? import.meta.resolve(args.path) : pathToFileURL(require.resolve(args.path)).href, external: true }))
   } }],
 })
-const { parseAntigravityResponse, antigravityHeaders, requestAntigravityContent, discoverAntigravityAccount, antigravityFlow, exchangeAntigravityCode, refreshAntigravity, fetchAntigravityModels, fetchAntigravityUsage, AntigravityAdapter, toAntigravityRequest, streamAntigravity, resolveAntigravityOAuthConfig, preserveAntigravityClient } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`)
+const { parseAntigravityResponse, antigravityHeaders, buildAntigravityUserAgent, parseAntigravityCliVersion, primeAntigravityCliVersion, resetAntigravityCliVersion, antigravityCliVersion, ANTIGRAVITY_CLI_VERSION_FALLBACK, UNSUPPORTED_CLIENT_CODE, requestAntigravityContent, discoverAntigravityAccount, antigravityFlow, exchangeAntigravityCode, refreshAntigravity, fetchAntigravityModels, fetchAntigravityUsage, AntigravityAdapter, toAntigravityRequest, streamAntigravity, resolveAntigravityOAuthConfig, preserveAntigravityClient } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}`)
 const oauth = { clientId: 'fixture-client', clientSecret: 'fixture-secret' }
 const session = { accessToken: 'fixture-access', refreshToken: 'fixture-refresh', expiresAt: Date.now() + 3600000, projectId: 'fixture-project', account: 'fixture@example.test' }
 
 test('Antigravity client identity survives DSH attribution headers', () => {
   const headers = antigravityHeaders('fixture')
-  assert.match(headers['user-agent'], /^antigravity\/1\.15\.8 (windows|darwin|linux)\//)
+  assert.match(headers['user-agent'], /^antigravity\/cli\/\d+\.\d+\.\d+ \(aidev_client; os_type=(windows|darwin|linux); arch=(amd64|arm64|386); cl=\d+; auth_method=consumer\)$/)
   assert.equal(headers.authorization, 'Bearer fixture')
   assert.equal(headers.accept, 'application/json')
   assert.equal(antigravityHeaders('fixture', 'antigravity/custom')['user-agent'], 'antigravity/custom')
+  assert.equal(buildAntigravityUserAgent('1.5.3', 'win32', 'x64'), 'antigravity/cli/1.5.3 (aidev_client; os_type=windows; arch=amd64; cl=962369648; auth_method=consumer)')
+})
+
+test('CLI version comes from the auto-updater text and falls back when it is unavailable', async () => {
+  resetAntigravityCliVersion()
+  assert.equal(parseAntigravityCliVersion('Antigravity CLI auto updater is running! Stable Version: 1.6.0. Rolled out to 100%'), '1.6.0')
+  assert.equal(parseAntigravityCliVersion('maintenance'), null)
+  assert.equal(await primeAntigravityCliVersion(async () => new Response('Stable Version: 1.6.0.')), '1.6.0')
+  assert.equal(antigravityCliVersion(), '1.6.0')
+  assert.match(antigravityHeaders('fixture')['user-agent'], /^antigravity\/cli\/1\.6\.0 /)
+  // One request per process: a later prime reuses the answer.
+  assert.equal(await primeAntigravityCliVersion(async () => { throw new Error('unreachable') }), '1.6.0')
+  resetAntigravityCliVersion()
+  assert.equal(await primeAntigravityCliVersion(async () => new Response('down', { status: 503 })), ANTIGRAVITY_CLI_VERSION_FALLBACK)
+  resetAntigravityCliVersion()
+  assert.equal(await primeAntigravityCliVersion(async () => { throw new Error('offline') }), ANTIGRAVITY_CLI_VERSION_FALLBACK)
+  resetAntigravityCliVersion()
+})
+
+test('a rejected client signature answered with HTTP 200 becomes an error, not a reply', async () => {
+  const notice = { response: { candidates: [{ content: { role: 'model', parts: [{ text: 'This version of Antigravity is no longer supported. Please download and install the latest version at https://antigravity.google/download' }] }, finishReason: 'STOP' }] } }
+  await assert.rejects(parseAntigravityResponse(notice), error => error.code === UNSUPPORTED_CLIENT_CODE && /no longer supported/.test(error.message))
+  const normal = { response: { candidates: [{ content: { role: 'model', parts: [{ text: 'This version of the plan is fine.' }] }, finishReason: 'STOP' }] } }
+  const chunks = await parseAntigravityResponse(normal)
+  assert.ok(chunks.some(chunk => chunk.type === 'text-delta'))
 })
 
 test('models and quota fall back from production 403 to the available Google endpoint', async () => {

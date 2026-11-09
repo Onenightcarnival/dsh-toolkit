@@ -180,7 +180,7 @@ OAuth 客户端配置按以下顺序读取：
 | Antigravity 模型 | `antigravity.models` |
 | Grok 模型 | `grok.models` |
 | 模型条目 | `id`；可选 `name`、`contextWindow`、`inputModalities` |
-| Antigravity 连接 | `clientId`、`clientSecret`、`baseURL`、`userAgent`、`projectId`、`onboard`（默认关闭），均位于 `antigravity` 下 |
+| Antigravity 连接 | `clientId`、`clientSecret`、`baseURL`、`userAgent`、`projectId`、`onboard`（默认关闭），均位于 `antigravity` 下。`userAgent` 替换默认的 Antigravity CLI 签名 `antigravity/cli/<版本> (aidev_client; …)`，其版本每次启动从 CLI 自动更新端点读取一次，读取失败时使用固定值 |
 
 凭证和设置保存在 DSH home 的 `plugins/subscriptions/`。界面读取不含 token 的账号状态；RPC 通过 DSH 已认证的连接。原版订阅插件使用相同的 provider 和 RPC 名称，两个包不能同时加载。
 

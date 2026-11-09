@@ -275,6 +275,11 @@ interface OpenBlock {
 }
 
 /** Push translator for both parsed SSE events and one non-stream response. */
+/** Error code of a client signature the backend no longer accepts. */
+export const UNSUPPORTED_CLIENT_CODE = 'UNSUPPORTED_CLIENT'
+/** The backend answers a rejected client with HTTP 200 and this text as the only content. */
+export const ANTIGRAVITY_UNSUPPORTED_CLIENT = /^\s*This version of Antigravity is no longer supported/i
+
 export class AntigravityStreamTranslator {
   constructor(private readonly attachments?: AttachmentStore) {}
   private imageCount = 0
@@ -348,6 +353,9 @@ export class AntigravityStreamTranslator {
         this.sawContent = true
         chunks.push({ type: 'reasoning-delta', index: block.index, text: part.text })
       } else if (typeof part.text === 'string' && part.text.length > 0) {
+        if (!this.sawContent && ANTIGRAVITY_UNSUPPORTED_CLIENT.test(part.text)) {
+          throw new LlmError(`Antigravity rejected the client signature: ${part.text.trim().slice(0, 200)}`, UNSUPPORTED_CLIENT_CODE)
+        }
         const block = this.blocks.get('text') ?? this.open('text', 'text', chunks)
         block.text += part.text
         if (part.thoughtSignature !== undefined) block.thoughtSignature = part.thoughtSignature

@@ -3,6 +3,7 @@ import type { WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { AntigravitySession } from '../auth/store.js'
 import type { AccountTokenManager } from './accounts.js'
 import { antigravityHeaders, fetchAntigravity, type AntigravityRuntimeConfig } from './antigravity.js'
+import { primeAntigravityCliVersion } from './antigravity-client-version.js'
 import { httpLlmError, type FetchFn } from './common.js'
 import { proxiedFetch } from '../http.js'
 import type { GeneratedImage, ImageGenerateArgs } from '../tools/image-generate.js'
@@ -39,7 +40,9 @@ async function readJson(response: Response, maxBytes: number): Promise<unknown> 
 }
 
 export class AntigravityToolClient {
-  constructor(private readonly options: AntigravityToolOptions) {}
+  constructor(private readonly options: AntigravityToolOptions) {
+    if (options.runtime?.userAgent === undefined) void primeAntigravityCliVersion(options.fetchFn)
+  }
 
   available(): boolean { return this.options.enabled?.() ?? true }
 

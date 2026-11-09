@@ -183,7 +183,7 @@ Standalone plugin ID: `subscriptions`.
 | Antigravity models | `antigravity.models` |
 | Grok models | `grok.models` |
 | Model entry | `id`; optional `name`, `contextWindow`, `inputModalities` |
-| Antigravity connection | `clientId`, `clientSecret`, `baseURL`, `userAgent`, `projectId`, `onboard` (off by default), under `antigravity` |
+| Antigravity connection | `clientId`, `clientSecret`, `baseURL`, `userAgent`, `projectId`, `onboard` (off by default), under `antigravity`. `userAgent` replaces the default Antigravity CLI signature `antigravity/cli/<version> (aidev_client; …)`, whose version is read once per start from the CLI auto-updater and otherwise pinned |
 
 Auth and preferences use `plugins/subscriptions/` in the DSH home. The UI reads account status without tokens; RPC uses the DSH authenticated connection. The original subscription plugin shares the provider and authenticated RPC names; the two packages cannot be loaded together.
 

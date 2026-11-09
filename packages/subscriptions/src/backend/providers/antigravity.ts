@@ -42,6 +42,8 @@ import type {
   UsageWindow,
 } from './common.js'
 import { proxiedFetch } from '../http.js'
+import { buildAntigravityUserAgent, primeAntigravityCliVersion } from './antigravity-client-version.js'
+export { ANTIGRAVITY_CLI_VERSION_FALLBACK, ANTIGRAVITY_CLI_VERSION_URL, antigravityCliVersion, buildAntigravityUserAgent, parseAntigravityCliVersion, primeAntigravityCliVersion, resetAntigravityCliVersion } from './antigravity-client-version.js'
 import type { AntigravityOAuthConfig } from '../auth/antigravity-client.js'
 export { resolveAntigravityOAuthConfig } from '../auth/antigravity-client.js'
 export type { AntigravityOAuthConfig } from '../auth/antigravity-client.js'
@@ -56,7 +58,10 @@ export const ANTIGRAVITY_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/us
 export const ANTIGRAVITY_DEFAULT_BASE_URL = 'https://cloudcode-pa.googleapis.com'
 export const ANTIGRAVITY_FALLBACK_BASE_URL = 'https://daily-cloudcode-pa.sandbox.googleapis.com'
 const ANTIGRAVITY_PLATFORM = process.platform === 'darwin' ? 'MACOS' : process.platform === 'win32' ? 'WINDOWS' : 'LINUX'
-export const ANTIGRAVITY_DEFAULT_USER_AGENT = `antigravity/1.15.8 ${process.platform === 'win32' ? 'windows' : process.platform}/${process.arch === 'x64' ? 'amd64' : process.arch}`
+/** Default User-Agent: the CLI signature with the version in use. */
+export function antigravityDefaultUserAgent(): string {
+  return buildAntigravityUserAgent()
+}
 export const ANTIGRAVITY_PREEMPT_MS = 5 * 60_000
 const ANTIGRAVITY_CALLBACK_PATH = '/oauth-callback'
 const ANTIGRAVITY_CONTEXT_WINDOW = 1_048_576
@@ -77,6 +82,7 @@ export const ANTIGRAVITY_SCOPES = [
 export interface AntigravityRuntimeConfig {
   /** Optional fixed Cloud Code Assist origin. */
   baseURL?: string
+  /** Complete User-Agent replacing the CLI signature. */
   userAgent?: string
   projectId?: string
   /** Activate an eligible account when loadCodeAssist has no project yet. */
@@ -166,7 +172,7 @@ interface AntigravityAccountInfo {
 }
 
 /** Shared Antigravity API headers. */
-export function antigravityHeaders(accessToken: string, userAgent = ANTIGRAVITY_DEFAULT_USER_AGENT): Record<string, string> {
+export function antigravityHeaders(accessToken: string, userAgent = antigravityDefaultUserAgent()): Record<string, string> {
   return {
     ...attributionHeaders(),
     'authorization': `Bearer ${accessToken}`,
@@ -563,6 +569,7 @@ export class AntigravityAdapter extends LlmAdapter {
   constructor(private readonly options: AntigravityAdapterOptions) {
     super()
     this.catalog = new ModelCatalogCache(options.catalogStore)
+    if (options.runtime?.userAgent === undefined) void primeAntigravityCliVersion(options.fetchFn)
   }
 
   override providerInfo(provider: string): LlmProviderInfo {
