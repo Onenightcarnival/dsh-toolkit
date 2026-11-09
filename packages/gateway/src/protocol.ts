@@ -25,8 +25,6 @@ export interface GatewaySettings {
   host: string
   /** Listener port, 1–65535. */
   port: number
-  /** Gateway model id used when a request omits or names an unknown model; `null` follows the host default model. */
-  defaultModel: string | null
   /** Request model name → gateway model id. */
   aliases: Record<string, string>
   /** Gateway model id → price per one million tokens. */
@@ -62,8 +60,6 @@ export interface GatewayStatus {
   listenError: string | null
   models: GatewayModel[]
   keys: ApiKeyView[]
-  /** Host default model selection as a gateway id, when the host provides one. */
-  hostDefault: string | null
 }
 
 export type UsageRange = 'today' | '7d' | '30d'

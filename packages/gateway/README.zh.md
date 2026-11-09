@@ -21,11 +21,10 @@
 
 网关模型 id 为 `provider:model`，由宿主已注册的提供方路由及其模型清单构成；`GET /v1/models` 列出所用 key 可使用的 id。请求中的模型名按以下顺序解析：
 
-1. 设置页中的别名。
+1. `aliases` 中的别名。
 2. 已注册提供方的 `provider:model` id。
-3. 默认模型：设置页选定的模型，否则为宿主的默认模型选择。
 
-因此请求中未知的模型名会落到默认模型上；响应中报告实际使用的 id。没有默认模型且无匹配时返回 `404 model_not_found`。
+请求必须指明模型：省略模型或两条都不匹配时返回 `404 model_not_found`。网关没有默认模型。
 
 ### 参数支持
 
@@ -77,11 +76,10 @@ key 以完整形式保存在 `$DSH_HOME/gateway/keys.json`（权限 0600）。�
 | 启用网关 | `enabled` | `true` |
 | 地址 | `host` | `127.0.0.1` |
 | 端口 | `port` | `23340` |
-| 默认模型 | `defaultModel` | `null`（宿主默认模型） |
 | 别名 | `aliases` | `{}` |
 | 单价 | `pricing` | `{}` |
 
-面板只编辑监听字段；`defaultModel`、`aliases` 与 `pricing` 在设置文件或插件配置中编辑。用量页在单价产生数值后才显示费用列。
+面板只编辑监听字段；`aliases` 与 `pricing` 在设置文件或插件配置中编辑。用量页在单价产生数值后才显示费用列。
 
 设置保存在 `$DSH_HOME/gateway/settings.json`；保存后重启监听。非回环地址对宿主所在网络开放；所有请求仍需 key。
 

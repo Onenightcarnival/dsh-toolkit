@@ -13,7 +13,7 @@ import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { errorMessage, isLoopbackRequest, readJsonBody, writeJson } from '../../config-center/src/http.ts'
 import { createImageResolver, type AttachmentsLike } from './images.ts'
 import { KeyError, KeyStore } from './keys.ts'
-import { ModelCatalog, gatewayId, type ModelSelection } from './models.ts'
+import { ModelCatalog } from './models.ts'
 import { API, type GatewayStatus } from './protocol.ts'
 import { DEFAULT_MAX_BODY_BYTES, close, createGatewayServer, listen } from './server.ts'
 import { SettingsError, SettingsStore } from './settings.ts'
@@ -40,7 +40,6 @@ export interface Config {
 
 const INITIAL_KEY_NAME = 'default'
 
-interface DefaultModelLike { currentSelection(): ModelSelection }
 interface ConnectionLike { requestRejection?: (request: IncomingMessage) => number | undefined }
 
 export function apply(ctx: Context, config: Config = {}): void {
@@ -53,16 +52,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   const created = keys.ensureOne(INITIAL_KEY_NAME)
   if (created !== undefined) ctx.logger.info(`gateway: API key "${INITIAL_KEY_NAME}" generated; copy it from Settings → API gateway`)
 
-  const hostDefault = (): ModelSelection | undefined => {
-    const service = ctx.get('agentDefaultModel') as DefaultModelLike | undefined
-    try {
-      const selection = service?.currentSelection()
-      return selection && selection.provider !== '' && selection.model !== '' ? { provider: selection.provider, model: selection.model } : undefined
-    } catch {
-      return undefined
-    }
-  }
-  const catalog = new ModelCatalog(ctx.llm, () => settings.get(), hostDefault)
+  const catalog = new ModelCatalog(ctx.llm, () => settings.get())
   const resolveImage = createImageResolver({ attachments: () => ctx.get('attachments') as AttachmentsLike | undefined })
   const log = { info: (message: string) => { ctx.logger.info(message) }, warn: (message: string) => { ctx.logger.warn(message) } }
 
@@ -116,8 +106,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     return true
   }
   const status = async (): Promise<GatewayStatus> => {
-    const host = hostDefault()
-    return { settings: settings.get(), listening, listenError, models: await catalog.list(), keys: keys.list(), hostDefault: host === undefined ? null : gatewayId(host.provider, host.model) }
+    return { settings: settings.get(), listening, listenError, models: await catalog.list(), keys: keys.list() }
   }
   const failed = (res: ServerResponse, error: unknown): void => {
     if (error instanceof SettingsError) return writeJson(res, 400, { error: error.message, issue: error.field })

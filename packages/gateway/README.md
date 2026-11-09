@@ -21,11 +21,10 @@ Every request is translated into one host model request and the host's stream is
 
 A gateway model id is `provider:model`, built from the host's registered provider routes and their model lists; `GET /v1/models` lists the ids the presented key may use. Request model names resolve in this order:
 
-1. An alias from the settings page.
+1. An alias from `aliases`.
 2. A `provider:model` id of a registered provider.
-3. The default model: the one chosen on the settings page, else the host's default model selection.
 
-A request that names an unknown model therefore runs on the default model; the response reports the id actually used. No default model and no match → `404 model_not_found`.
+A request must name a model: an omitted model or one that matches neither rule returns `404 model_not_found`. There is no default model.
 
 ### Supported parameters
 
@@ -77,11 +76,10 @@ The sidebar row **API gateway** opens a center panel with three tabs; the last t
 | Enable gateway | `enabled` | `true` |
 | Address | `host` | `127.0.0.1` |
 | Port | `port` | `23340` |
-| Default model | `defaultModel` | `null` (host default model) |
 | Aliases | `aliases` | `{}` |
 | Prices | `pricing` | `{}` |
 
-The panel edits the listener fields; `defaultModel`, `aliases` and `pricing` are edited in the settings file or the plugin configuration. Cost columns appear in the usage tab once a price produces a value.
+The panel edits the listener fields; `aliases` and `pricing` are edited in the settings file or the plugin configuration. Cost columns appear in the usage tab once a price produces a value.
 
 Settings are stored in `$DSH_HOME/gateway/settings.json`; saving restarts the listener. A non-loopback address is reachable from the network the host is on; every request still needs a key.
 

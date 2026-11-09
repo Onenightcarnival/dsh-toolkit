@@ -1,6 +1,6 @@
 /**
- * Model catalog of the gateway: every host provider route as `provider:model`,
- * alias resolution and the default-model fallback.
+ * Model catalog of the gateway: every host provider route as `provider:model`
+ * and alias resolution. A request must name a model; nothing is assumed.
  */
 import type { GatewayModel, GatewaySettings } from './protocol.ts'
 
@@ -43,7 +43,6 @@ export class ModelCatalog {
   constructor(
     private readonly host: CatalogHost,
     private readonly settings: () => GatewaySettings,
-    private readonly hostDefault: () => ModelSelection | undefined,
   ) {}
 
   /** Every model of every registered provider; a provider whose listing fails contributes nothing. */
@@ -63,30 +62,20 @@ export class ModelCatalog {
     return models
   }
 
-  /** Default selection: the configured gateway default, else the host default model. */
-  defaultSelection(): ResolvedModel | undefined {
-    const configured = this.settings().defaultModel
-    const split = configured === null ? undefined : splitGatewayId(configured)
-    if (split !== undefined) return { ...split, id: configured as string, requested: undefined }
-    const host = this.hostDefault()
-    return host === undefined ? undefined : { ...host, id: gatewayId(host.provider, host.model), requested: undefined }
-  }
-
   /**
-   * Resolve a request's model name: alias first, then a `provider:model` id of a
-   * registered provider, otherwise the default selection.
-   * @throws {ModelResolutionError} when nothing resolves and no default exists.
+   * Resolve a request's model name: an alias first, then a `provider:model`
+   * id of a registered provider.
+   * @throws {ModelResolutionError} when the request names no model or one of an unregistered provider.
    */
   resolve(requested: unknown): ResolvedModel {
     const name = typeof requested === 'string' && requested.trim() !== '' ? requested.trim() : undefined
+    if (name === undefined) throw new ModelResolutionError('the request names no model; use a provider:model id from GET /v1/models')
     const providers = new Set(this.host.listProviders().map(provider => provider.id))
-    if (name !== undefined) {
-      const target = this.settings().aliases[name] ?? name
-      const split = splitGatewayId(target)
-      if (split !== undefined && providers.has(split.provider)) return { ...split, id: target, requested: name }
+    const target = this.settings().aliases[name] ?? name
+    const split = splitGatewayId(target)
+    if (split === undefined || !providers.has(split.provider)) {
+      throw new ModelResolutionError(`unknown model "${name}"; use a provider:model id from GET /v1/models`)
     }
-    const fallback = this.defaultSelection()
-    if (fallback === undefined) throw new ModelResolutionError(name === undefined ? 'no model requested and no default model is configured' : `unknown model "${name}" and no default model is configured`)
-    return { ...fallback, requested: name }
+    return { ...split, id: target, requested: name }
   }
 }

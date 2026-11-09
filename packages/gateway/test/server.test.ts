@@ -10,7 +10,7 @@ import { ModelCatalog } from '../src/models.ts'
 import { UsageStore } from '../src/usage.ts'
 import { close, createGatewayServer, listen } from '../src/server.ts'
 
-const settings = { enabled: true, host: '127.0.0.1', port: 0, defaultModel: null, aliases: { 'gpt-4o': 'echo:fast' }, pricing: {} }
+const settings = { enabled: true, host: '127.0.0.1', port: 0, aliases: { 'gpt-4o': 'echo:fast' }, pricing: {} }
 
 /** Echo adapter: streams the last user text back, one tool call when a tool is declared, then usage. */
 async function* echo(options: GenerateOptions): AsyncIterable<StreamChunk> {

@@ -133,7 +133,6 @@ function OverviewTab({ status, busy, save }: Shared): JSX.Element {
     <div className="gw-stats">
       <div className="gw-stat"><div className="gw-stat-label">{tt('models.title')}</div><div className="gw-stat-value">{status.models.length}</div></div>
       <div className="gw-stat"><div className="gw-stat-label">{tt('keys.title')}</div><div className="gw-stat-value">{status.keys.filter(key => key.enabled).length} / {status.keys.length}</div></div>
-      <div className="gw-stat"><div className="gw-stat-label">{tt('models.default')}</div><div className="gw-stat-value gw-mono" style={{ fontSize: 13 }}>{status.settings.defaultModel ?? status.hostDefault ?? '—'}</div></div>
     </div>
   </>
 }

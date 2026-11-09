@@ -66,13 +66,10 @@ export function normalizeSettings(input: unknown, defaults: SettingsDefaults = {
   const raw = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>
   const enabled = raw.enabled === undefined ? defaults.enabled ?? true : raw.enabled
   if (typeof enabled !== 'boolean') throw new SettingsError('enabled', 'enabled must be a boolean')
-  const defaultModel = raw.defaultModel === undefined || raw.defaultModel === null || raw.defaultModel === '' ? null : raw.defaultModel
-  if (defaultModel !== null && !isGatewayModelId(defaultModel)) throw new SettingsError('defaultModel', 'defaultModel must be a provider:model id')
   return {
     enabled,
     host: validHost(raw.host ?? defaults.host ?? DEFAULT_HOST),
     port: validPort(raw.port ?? defaults.port ?? DEFAULT_PORT),
-    defaultModel,
     aliases: validAliases(raw.aliases),
     pricing: validPricing(raw.pricing),
   }

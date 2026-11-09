@@ -92,8 +92,8 @@ test('settings: defaults, validation and persistence', () => {
   try {
     const file = join(dir, 'settings.json')
     const store = new SettingsStore(file, { port: 24000 })
-    assert.deepEqual(store.get(), { enabled: true, host: '127.0.0.1', port: 24000, defaultModel: null, aliases: {}, pricing: {} })
-    store.save({ enabled: false, host: '0.0.0.0', port: 8080, defaultModel: 'deepseek:deepseek-chat', aliases: { 'gpt-4o': 'deepseek:deepseek-chat' }, pricing: { 'deepseek:deepseek-chat': { input: 0.28, output: 0.42 } } })
+    assert.deepEqual(store.get(), { enabled: true, host: '127.0.0.1', port: 24000, aliases: {}, pricing: {} })
+    store.save({ enabled: false, host: '0.0.0.0', port: 8080, aliases: { 'gpt-4o': 'deepseek:deepseek-chat' }, pricing: { 'deepseek:deepseek-chat': { input: 0.28, output: 0.42 } } })
     assert.equal(JSON.parse(readFileSync(file, 'utf8')).port, 8080)
     assert.equal(new SettingsStore(file).get().aliases['gpt-4o'], 'deepseek:deepseek-chat')
     assert.throws(() => store.save({ port: 70000 }), (error: unknown) => error instanceof SettingsError && error.field === 'port')
@@ -103,26 +103,20 @@ test('settings: defaults, validation and persistence', () => {
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
-test('models: catalog ids, aliases and default fallback', async () => {
-  let settings = { enabled: true, host: '127.0.0.1', port: 1, defaultModel: null as string | null, aliases: { 'gpt-4o': 'deepseek:deepseek-chat' }, pricing: {} }
-  let hostDefault: { provider: string; model: string } | undefined = { provider: 'deepseek', model: 'deepseek-reasoner' }
+test('models: catalog ids and aliases; a request must name a registered model', async () => {
+  const settings = { enabled: true, host: '127.0.0.1', port: 1, aliases: { 'gpt-4o': 'deepseek:deepseek-chat' }, pricing: {} }
   const catalog = new ModelCatalog({
     listProviders: () => [{ id: 'deepseek', name: 'DeepSeek' }, { id: 'broken', name: 'Broken' }],
     listModels: async provider => {
       if (provider === 'broken') throw new Error('offline')
       return [{ id: 'deepseek-chat', name: 'DeepSeek Chat' }, { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' }]
     },
-  }, () => settings, () => hostDefault)
+  }, () => settings)
   assert.deepEqual((await catalog.list()).map(model => model.id), ['deepseek:deepseek-chat', 'deepseek:deepseek-reasoner'])
   assert.equal(catalog.resolve('deepseek:deepseek-chat').model, 'deepseek-chat')
   assert.equal(catalog.resolve('gpt-4o').id, 'deepseek:deepseek-chat')
-  assert.equal(catalog.resolve('unknown-model').id, 'deepseek:deepseek-reasoner')
-  assert.equal(catalog.resolve(undefined).id, 'deepseek:deepseek-reasoner')
-  assert.equal(catalog.resolve('other:model').id, 'deepseek:deepseek-reasoner')
-  settings = { ...settings, defaultModel: 'deepseek:deepseek-chat' }
-  assert.equal(catalog.resolve(undefined).id, 'deepseek:deepseek-chat')
-  settings = { ...settings, defaultModel: null }
-  hostDefault = undefined
+  assert.throws(() => catalog.resolve('unknown-model'), ModelResolutionError)
+  assert.throws(() => catalog.resolve('other:model'), ModelResolutionError)
   assert.throws(() => catalog.resolve(undefined), ModelResolutionError)
-  assert.throws(() => catalog.resolve('nope'), ModelResolutionError)
+  assert.throws(() => catalog.resolve(''), ModelResolutionError)
 })
