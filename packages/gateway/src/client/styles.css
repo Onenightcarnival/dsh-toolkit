@@ -48,7 +48,11 @@
 .gw-row.between { justify-content: space-between; }
 .gw-field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
 .gw-hint { color: var(--gw-muted); font-size: 12px; line-height: 1.5; }
-.gw-app input, .gw-app textarea, .gw-app select { border: 1px solid var(--gw-border); border-radius: 7px; padding: 7px 9px; background: transparent; font-size: 13px; }
+.gw-app input, .gw-app textarea, .gw-app select { border: 1px solid var(--gw-border); border-radius: 7px; padding: 7px 9px; background: var(--dsw-specific-input-major, var(--gw-bg)); font-size: 13px; }
+/* Native popups (select lists, date pickers, scrollbars) follow the host theme attribute, not the OS. */
+.gw-app { color-scheme: light; }
+[data-ds-dark-theme] .gw-app { color-scheme: dark; }
+.gw-app select option { color: var(--gw-text); background: var(--dsw-alias-bg-layer-1, var(--gw-bg)); }
 .gw-app textarea { width: 100%; min-height: 64px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .gw-app select { max-width: 100%; }
 .gw-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
