@@ -2,6 +2,7 @@
 export const zh = {
   'panel.rdb': '数据库',
   'panel.s3': 'S3',
+  'panel.http': 'HTTP',
   'panel.dsh-config-center-mcp': 'MCP',
   'panel.memory': '记忆',
   'panel.dsh-config-center-skills': '技能',
@@ -12,6 +13,7 @@ export const zh = {
 export const en: Record<Key, string> = {
   'panel.rdb': 'Database',
   'panel.s3': 'S3',
+  'panel.http': 'HTTP',
   'panel.dsh-config-center-mcp': 'MCP',
   'panel.memory': 'Memory',
   'panel.dsh-config-center-skills': 'Skills',

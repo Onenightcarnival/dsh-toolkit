@@ -1,0 +1,4 @@
+# Web profile row: host half (exports ".") serves /api/dsh-http and the http_* tools; client half (exports "./client") renders the panel.
+- insert:
+    - id: http
+      name: '@onenightcarnival/dsh-http'

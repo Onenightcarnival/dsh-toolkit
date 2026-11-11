@@ -2,19 +2,20 @@
 
 [English](README.md) | **中文**
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）插件集合，提供数据库、对象存储、可观测上报、浏览器操作、AI 订阅和配置中心。所有包共用版本号与发布流程。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）插件集合，提供数据库、对象存储、HTTP API 请求、可观测上报、浏览器操作、AI 订阅和配置中心。所有包共用版本号与发布流程。
 
 | 包 | 内容 | 界面入口 |
 |---|---|---|
 | [`@onenightcarnival/dsh-rdb`](packages/rdb/README.zh.md) | 关系数据库工作台：SQLite / PostgreSQL / MySQL / GaussDB，数据网格、结构、SQL 编辑器，`db_*` 工具 | 侧边栏「数据库」 |
 | [`@onenightcarnival/dsh-s3`](packages/s3/README.zh.md) | S3 兼容对象存储浏览器：MinIO / OSS / COS / R2，`s3_*` 工具 | 侧边栏「S3」 |
+| [`@onenightcarnival/dsh-http`](packages/http/README.zh.md) | HTTP API 请求工具：宿主保管凭证的 API 目标、请求构造器、响应查看器、共享历史，`http_*` 工具 | 侧边栏「HTTP」 |
 | [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI 上报到 Langfuse 等 OTLP 后端 | 设置 → 可观测 |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.zh.md) | 浏览器桥：`browser_*` 工具经 Chrome / Firefox 扩展操作用户的标签页 | 设置 → 通用设置 → 浏览器桥地址 |
 | [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.zh.md) | Codex、ChatGPT、Google Antigravity、Grok 订阅模型及 Codex 搜索、Grok X 搜索、生图与视频工具 | 侧边栏「AI 订阅」 |
 | [`@onenightcarnival/dsh-config-center`](packages/config-center/README.zh.md) | MCP 与技能管理、专属 uv / Python 环境、内置插件常用设置 | 主侧栏 → MCP / 技能；设置 → 环境依赖 / 内置插件 → 常用设置 |
 | [`@onenightcarnival/dsh-memory`](packages/memory/README.zh.md) | 分层履历、项目经验、人工修正与版本历史，`memory_*` 工具 | 左侧栏「记忆」 |
 | [`@onenightcarnival/dsh-gateway`](packages/gateway/README.zh.md) | 本机 API 网关：以 OpenAI Chat Completions / Responses 与 Anthropic Messages 协议提供已配置模型，API key 与用量统计 | 侧栏「API 网关」 |
-| [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.zh.md) | 八个插件的集成包 | 各模块对应入口 |
+| [`@onenightcarnival/dsh-toolkit`](packages/toolkit/README.zh.md) | 九个插件的集成包 | 各模块对应入口 |
 | [`dsh-browser-extension`](extensions/dsh-browser/README.zh.md) | Chrome / Firefox MV3 扩展，与浏览器桥配对 | 浏览器侧边栏 |
 
 ## 运行时兼容性
@@ -37,8 +38,8 @@
 
 | 文件 | 用途 |
 |---|---|
-| `onenightcarnival-dsh-toolkit-<版本>.tgz` | 集成安装八个插件 |
-| `onenightcarnival-dsh-rdb-<版本>.tgz` 等八个 | 单独安装某一个插件 |
+| `onenightcarnival-dsh-toolkit-<版本>.tgz` | 集成安装九个插件 |
+| `onenightcarnival-dsh-rdb-<版本>.tgz` 等九个 | 单独安装某一个插件 |
 | `dsh-browser-extension-chrome-<版本>.zip` | Chrome 扩展，解压后以未打包扩展加载 |
 | `SHA256SUMS.txt` | 校验和 |
 
@@ -67,7 +68,7 @@ dsh web
 
 | 路径 | 职责 |
 |---|---|
-| `packages/{rdb,s3,otel,browser-bridge,subscriptions,config-center,memory,gateway}` | 八个独立插件 |
+| `packages/{rdb,s3,http,otel,browser-bridge,subscriptions,config-center,memory,gateway}` | 九个独立插件 |
 | `packages/toolkit` | 模块配置、宿主挂载、界面挂载与 typert 注册 |
 | `extensions/dsh-browser` | Chrome / Firefox MV3 扩展 |
 | `benchmark` | 浏览器操作的 Playwright 对照评测 |
@@ -87,7 +88,7 @@ pnpm install
 pnpm run build        # 全部包，按依赖顺序
 pnpm run typecheck
 pnpm run test
-pnpm run package      # dist/：九个 tgz、扩展 zip、SHA256SUMS.txt
+pnpm run package      # dist/：十个 tgz、扩展 zip、SHA256SUMS.txt
 
 pnpm --filter @onenightcarnival/dsh-rdb run build      # 单个包
 pnpm --filter dsh-browser-extension run build:firefox
@@ -99,14 +100,14 @@ pnpm --filter dsh-browser-extension run build:firefox
 |---|---|
 | 宿主依赖 | `@deepseek-ai/*` 由 dsh 提供；其余依赖按各包构建配置内联 |
 | 订阅认证依赖 | `@cortexkit/antigravity-auth-core` 为 subscriptions 与 toolkit 的运行时依赖 |
-| 集成包 | 直接编译八个子包的源码；类型检查覆盖同一组源码 |
+| 集成包 | 直接编译九个子包的源码；类型检查覆盖同一组源码 |
 | 运行时版本 | `pnpm-workspace.yaml` 的 overrides 统一锁定 |
 
 ### 安装验证
 
 1. 将 `DSH_HOME` 指向临时目录，执行 `dsh plugin --profile web add file:<tgz>`。
 2. 执行 `dsh web --no-open --port 0`，使用就绪日志中的 token URL 换取 cookie。每个 token 仅可兑换一次。
-3. 携带 cookie 检查 `/api/dsh-toolkit/modules`、`/api/dsh-rdb/profiles`、`/api/dsh-s3/profiles`、`/api/dsh-config-center/mcp` 和 `/ext/bridge-config`。
+3. 携带 cookie 检查 `/api/dsh-toolkit/modules`、`/api/dsh-rdb/profiles`、`/api/dsh-s3/profiles`、`/api/dsh-http/targets`、`/api/dsh-config-center/mcp` 和 `/ext/bridge-config`。
 
 同版本 `file:` 包的安装内容由 pnpm store 缓存；重新验证前先执行 `plugin remove`，再安装。
 

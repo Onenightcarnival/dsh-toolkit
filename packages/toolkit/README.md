@@ -2,7 +2,7 @@
 
 **English** | [中文](README.zh.md)
 
-Integrated plugin package for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), containing eight modules. Each module retains its standalone panels, tools, settings, data files and API paths.
+Integrated plugin package for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), containing nine modules. Each module retains its standalone panels, tools, settings, data files and API paths.
 
 ## Installation
 
@@ -20,6 +20,7 @@ The integrated package and standalone plugins are mutually exclusive. Runtime co
 |---|---|---|
 | `rdb` | Relational databases | [RDB](../rdb/README.md) |
 | `s3` | Object storage | [S3](../s3/README.md) |
+| `http` | HTTP API client | [HTTP](../http/README.md) |
 | `otel` | Observability | [OTel](../otel/README.md) |
 | `browser` | Browser control | [Browser bridge](../browser-bridge/README.md#config) |
 | `subscriptions` | AI subscriptions | [Subscriptions](../subscriptions/README.md) |
@@ -51,10 +52,10 @@ An override replaces the entire `config` object; retained custom values must be 
 config → host modules → GET /api/dsh-toolkit/modules → corresponding client plugins
 ```
 
-Mount order: `rdb → s3 → otel → browser → subscriptions → configCenter → memory → gateway`. The endpoint returns the modules enabled by configuration:
+Mount order: `rdb → s3 → http → otel → browser → subscriptions → configCenter → memory → gateway`. The endpoint returns the modules enabled by configuration:
 
 ```json
-{"rdb":true,"s3":true,"otel":false,"browser":true,"subscriptions":true,"configCenter":true,"memory":true,"gateway":true}
+{"rdb":true,"s3":true,"http":true,"otel":false,"browser":true,"subscriptions":true,"configCenter":true,"memory":true,"gateway":true}
 ```
 
 | Request | Response |
@@ -77,6 +78,7 @@ Toolkit module entries:
 |---|---|---|
 | Database | `rdb` | `rdb` |
 | S3 | `s3` | `s3` |
+| HTTP | `http` | `http` |
 | MCP | `configCenter` | `dsh-config-center-mcp` |
 | Memory | `memory` | `memory` |
 | Skills | `configCenter` | `dsh-config-center-skills` |
@@ -115,7 +117,7 @@ Module clients accept a `{ sidebar }` config as the entry visibility source; sta
 | `src/client/section-icons.tsx` | Settings nav icons of Observability, Environment dependencies and Local logs (`settings.section.icon` slot, registered by section id) |
 | `src/client/locales.ts` | Chinese and English labels of module entries |
 | `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
-| `build.mjs` | Host and client builds from the eight modules' sources |
+| `build.mjs` | Host and client builds from the nine modules' sources |
 
 ## License
 

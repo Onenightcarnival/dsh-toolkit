@@ -9,6 +9,7 @@ import type { ComponentType } from 'react'
 import * as memory from '../../memory/src/client/index.tsx'
 import * as rdb from '../../rdb/src/client/index.tsx'
 import * as s3 from '../../s3/src/client/index.tsx'
+import * as http from '../../http/src/client/index.tsx'
 import * as subscriptions from '../../subscriptions/src/client/index.tsx'
 import * as bridge from '../../browser-bridge/src/client/index.js'
 import * as configCenter from '../../config-center/src/client/index.tsx'
@@ -32,6 +33,7 @@ const PLUGINS: Record<Module, unknown> = {
   memory: { name: 'memory-client', ...memory },
   rdb: { name: 'rdb-client', ...rdb },
   s3: { name: 's3-client', ...s3 },
+  http: { name: 'http-client', ...http },
   otel: otelClient('@onenightcarnival/dsh-toolkit'),
   browser: { name: 'bridge-browser-client', ...bridge },
   subscriptions: { name: 'subscriptions-client', ...subscriptions },

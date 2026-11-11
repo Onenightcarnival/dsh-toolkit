@@ -1,7 +1,7 @@
 {
   "name": "@onenightcarnival/dsh-toolkit",
   "version": "0.9.1",
-  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser), configuration center (dsh-config-center), career memory (dsh-memory), API gateway (dsh-gateway); Codex, ChatGPT, Google Antigravity and Grok subscriptions, Codex web search, Grok X search, image and video generation",
+  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), HTTP API client (dsh-http), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser), configuration center (dsh-config-center), career memory (dsh-memory), API gateway (dsh-gateway); Codex, ChatGPT, Google Antigravity and Grok subscriptions, Codex web search, Grok X search, image and video generation",
   "author": "onenightcarnival",
   "license": "MIT",
   "repository": {
@@ -19,6 +19,7 @@
     "dsh-plugin",
     "database",
     "s3",
+    "http",
     "opentelemetry",
     "browser",
     "mcp"
@@ -83,6 +84,7 @@
     "@onenightcarnival/dsh-otel": "workspace:*",
     "@onenightcarnival/dsh-rdb": "workspace:*",
     "@onenightcarnival/dsh-s3": "workspace:*",
+    "@onenightcarnival/dsh-http": "workspace:*",
     "@onenightcarnival/dsh-subscriptions": "workspace:*",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",

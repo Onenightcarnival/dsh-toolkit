@@ -20,6 +20,7 @@ const FILES = [
   { path: 'packages/rdb/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/memory/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/s3/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
+  { path: 'packages/http/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/subscriptions/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/otel/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/otel/src/index.js', field: /^(export const PLUGIN_VERSION = )"([^"]*)"/m },
