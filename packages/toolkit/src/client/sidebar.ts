@@ -1,10 +1,9 @@
-/** Sidebar row visibility: the gate handed to module clients and its persistence calls. */
+/** Stored set of the panels unpinned from the shell sidebar, and its persistence calls. */
 import { SIDEBAR_API, type SidebarPreferences } from '../modules.ts'
 
 export interface SidebarStore {
-  /** Gate face read by module mount helpers. */
-  visible(id: string): boolean
   subscribe(listener: () => void): () => void
+  /** Ids of the unpinned panels. */
   hidden(): readonly string[]
   /** Applies `hidden` at once and persists it; a failed latest write restores the previous set. */
   save(hidden: readonly string[]): Promise<void>
@@ -31,7 +30,6 @@ export function createSidebarStore(initial: readonly string[]): SidebarStore {
     for (const listener of [...listeners]) listener()
   }
   return {
-    visible: id => !hidden.includes(id),
     subscribe(listener) {
       listeners.add(listener)
       return () => { listeners.delete(listener) }

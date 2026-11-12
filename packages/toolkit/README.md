@@ -65,12 +65,21 @@ Mount order: `rdb → s3 → http → otel → browser → subscriptions → con
 
 ## Sidebar entries
 
-The sidebar's **More** menu lists the sidebar entries of all plugins, including third-party plugins such as SSH and the task board, after the shell's own rows; a check mark marks a shown entry. Selecting a row toggles the entry at once: the choice is stored and applied at every start, and the shell's pin callback hides or shows the row for the current page. Features and data of a hidden entry stay unchanged. The Plugins entry is never listed. While the rows are mounted, the menu card takes the width of the More row.
+The toolkit stores the pin state of the shell sidebar. Pinning and unpinning use the shell's own controls and cover the sidebar entries of all plugins, including third-party plugins such as SSH and the task board:
 
-| Entry source | Hiding at start |
+| Action | Place |
 |---|---|
-| Toolkit modules | The module client unregisters the sidebar row; its open panel closes |
-| Other plugins | A style rule hides the sidebar row by the entry's current display name; its open panel closes |
+| Unpin | The unpin button on an entry row of the expanded sidebar |
+| Pin | The pin button on an unpinned entry in the **More** menu |
+| Open an unpinned entry | Its row in the **More** menu |
+
+| Moment | Behaviour |
+|---|---|
+| Start | Once the sidebar registers, the stored unpinned entries move from the sidebar into the **More** menu |
+| Pin or unpin | The current unpinned set is saved at once |
+| Failed save | The sidebar returns to the last saved state; the console logs a warning |
+
+Features and data of an unpinned entry stay unchanged. The Plugins entry is always pinned. The pin state is read from the inject face of the shell's `sidebar` slot entry; a shell without that face keeps no stored pin state.
 
 Toolkit module entries:
 
@@ -83,11 +92,9 @@ Toolkit module entries:
 | Memory | `memory` | `memory` |
 | Skills | `configCenter` | `dsh-config-center-skills` |
 | AI subscriptions | `subscriptions` | `subscriptions` |
+| API gateway | `gateway` | `gateway` |
 
-Constraints:
-
-- An entry of another plugin that shares its display name with another entry hides both rows.
-- Entry IDs of uninstalled plugins stay in the setting; a reinstalled plugin stays hidden.
+Entry IDs of uninstalled plugins stay in the setting; a reinstalled plugin stays unpinned.
 
 The setting is stored as `hiddenSidebarPanels` in `dsh-toolkit.json` in the active profile directory, for example `~/.dsh/profiles/web/dsh-toolkit.json`:
 
@@ -97,25 +104,21 @@ The setting is stored as `hiddenSidebarPanels` in `dsh-toolkit.json` in the acti
 
 | Request | Response |
 |---|---|
-| `GET /api/dsh-toolkit/sidebar` | `200`, `{"hidden":[entry ID…]}` |
+| `GET /api/dsh-toolkit/sidebar` | `200`, `{"hidden":[unpinned entry ID…]}` |
 | `PUT /api/dsh-toolkit/sidebar` with body `{"hidden":[…]}` | `200`, the saved structure; IDs must be 1–128 printable characters, at most 200, otherwise `400`; non-loopback or cross-site requests return `403` |
 | Other methods | `405`, empty JSON object |
-
-Module clients accept a `{ sidebar }` config as the entry visibility source; standalone plugins receive none and always show their entries.
 
 ## Structure
 
 | File | Responsibility |
 |---|---|
 | `src/index.ts` | Host module mounting, module map endpoint and sidebar preferences endpoint |
-| `src/client.ts` | Client plugin mounting from the host map, sidebar visibility, More menu rows |
-| `src/modules.ts` | Module order, map type, sidebar entry table and API paths |
+| `src/client.ts` | Client plugin mounting from the host map, sidebar pin persistence, settings nav icons |
+| `src/modules.ts` | Module order, map type, entry ID constraints and API paths |
 | `src/preferences.ts` | `dsh-toolkit.json` in the profile directory |
-| `src/client/sidebar.ts` | Sidebar visibility state and save requests |
-| `src/client/rows.ts` | Sidebar entry list of all plugins and style hiding of other plugins' entries |
-| `src/client/SidebarMenuRows.tsx` | Entry rows of the sidebar's More menu |
+| `src/client/sidebar.ts` | Unpinned entry set and save requests |
+| `src/client/pins.ts` | Two-way sync between the shell sidebar's pin state and the stored set |
 | `src/client/section-icons.tsx` | Settings nav icons of Observability, Environment dependencies and Local logs (`settings.section.icon` slot, registered by section id) |
-| `src/client/locales.ts` | Chinese and English labels of module entries |
 | `src/typert.ts` | OTel typert manifest registered under the toolkit package name |
 | `build.mjs` | Host and client builds from the nine modules' sources |
 

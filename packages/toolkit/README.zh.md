@@ -65,12 +65,21 @@ config → 宿主挂载模块 → GET /api/dsh-toolkit/modules → 客户端挂�
 
 ## 侧栏入口
 
-侧栏「更多」菜单在宿主自带的行之后列出全部插件的侧栏入口（含 SSH、任务看板等第三方插件），显示中的入口带对勾。选择一行即切换该入口：选择结果保存并在每次启动时生效，同时经宿主的固定回调即时隐藏或显示当前页面的行。隐藏入口的功能与数据不受影响。「插件」入口不在列表中。菜单行挂载期间，菜单卡片的宽度与「更多」行一致。
+集成包保存宿主侧栏的固定状态。固定与取消固定使用宿主自带的控件，适用于全部插件的侧栏入口（含 SSH、任务看板等第三方插件）：
 
-| 入口来源 | 启动时的隐藏方式 |
+| 操作 | 位置 |
 |---|---|
-| toolkit 模块 | 模块客户端撤销侧栏注册，已打开的对应面板关闭 |
-| 其他插件 | 按入口当前显示名称的样式规则隐藏侧栏行，已打开的对应面板关闭 |
+| 取消固定 | 侧栏展开时入口行上的取消固定按钮 |
+| 固定 | 「更多」菜单中未固定入口上的固定按钮 |
+| 打开未固定的入口 | 「更多」菜单中的入口行 |
+
+| 时机 | 行为 |
+|---|---|
+| 启动 | 侧栏注册后，已保存的未固定入口从侧栏移入「更多」菜单 |
+| 固定或取消固定 | 当前未固定集合立即保存 |
+| 保存失败 | 侧栏恢复到上一次保存的状态，控制台记录警告 |
+
+未固定入口的功能与数据不受影响。「插件」入口始终固定。固定状态取自宿主 `sidebar` 槽位注册项的注入对象；宿主不提供该对象时不保存固定状态。
 
 toolkit 模块入口：
 
@@ -83,11 +92,9 @@ toolkit 模块入口：
 | 记忆 | `memory` | `memory` |
 | 技能 | `configCenter` | `dsh-config-center-skills` |
 | AI 订阅 | `subscriptions` | `subscriptions` |
+| API 网关 | `gateway` | `gateway` |
 
-约束：
-
-- 其他插件的入口与另一入口显示名称相同时，两行一起隐藏。
-- 已卸载插件的入口 ID 保留在设置中，重新安装后保持隐藏。
+已卸载插件的入口 ID 保留在设置中，重新安装后保持未固定。
 
 设置保存在当前 profile 目录的 `dsh-toolkit.json`（`hiddenSidebarPanels`），例如 `~/.dsh/profiles/web/dsh-toolkit.json`：
 
@@ -97,25 +104,21 @@ toolkit 模块入口：
 
 | 请求 | 响应 |
 |---|---|
-| `GET /api/dsh-toolkit/sidebar` | `200`，`{"hidden":[入口 ID…]}` |
+| `GET /api/dsh-toolkit/sidebar` | `200`，`{"hidden":[未固定的入口 ID…]}` |
 | `PUT /api/dsh-toolkit/sidebar`，请求体 `{"hidden":[…]}` | `200`，保存后的同一结构；ID 须为 1–128 个可打印字符，最多 200 个，否则返回 `400`；非回环或跨站请求返回 `403` |
 | 其他方法 | `405`，空 JSON 对象 |
-
-模块客户端接受 `{ sidebar }` 配置作为入口可见性来源；独立安装的插件不传该配置，入口始终显示。
 
 ## 结构
 
 | 文件 | 职责 |
 |---|---|
 | `src/index.ts` | 宿主模块挂载、模块清单接口与侧栏设置接口 |
-| `src/client.ts` | 按宿主清单挂载客户端插件、传入侧栏可见性、注册「更多」菜单行 |
-| `src/modules.ts` | 模块顺序、清单类型、侧栏入口表与 API 路径 |
+| `src/client.ts` | 按宿主清单挂载客户端插件、保存侧栏固定状态、注册设置页导航图标 |
+| `src/modules.ts` | 模块顺序、清单类型、入口 ID 约束与 API 路径 |
 | `src/preferences.ts` | profile 目录内的 `dsh-toolkit.json` 读写 |
-| `src/client/sidebar.ts` | 侧栏可见性状态与保存请求 |
-| `src/client/rows.ts` | 全部插件的侧栏入口列表与其他插件入口的样式隐藏 |
-| `src/client/SidebarMenuRows.tsx` | 侧栏「更多」菜单中的入口行 |
+| `src/client/sidebar.ts` | 未固定入口集合与保存请求 |
+| `src/client/pins.ts` | 宿主侧栏固定状态与已保存集合的双向同步 |
 | `src/client/section-icons.tsx` | 可观测、环境依赖、本机日志设置页的导航图标（`settings.section.icon` 槽位，按设置页 id 注册） |
-| `src/client/locales.ts` | 模块入口的中英文名称 |
 | `src/typert.ts` | 以集成包名注册 OTel typert 清单 |
 | `build.mjs` | 九个模块源码的宿主与客户端构建 |
 

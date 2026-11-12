@@ -1,8 +1,7 @@
 /**
- * Client: module panels selected by the host's module map, sidebar row
- * visibility for every plugin through the sidebar's More menu, and the
- * settings nav icons of toolkit sections (`settings.section.icon`, keyed by
- * section id).
+ * Client: module panels selected by the host's module map, persistence of
+ * the shell sidebar's panel pins, and the settings nav icons of toolkit
+ * sections (`settings.section.icon`, keyed by section id).
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { ComponentType } from 'react'
@@ -15,19 +14,12 @@ import * as bridge from '../../browser-bridge/src/client/index.js'
 import * as configCenter from '../../config-center/src/client/index.tsx'
 import * as gateway from '../../gateway/src/client/index.tsx'
 import { clientFor as otelClient } from '../../otel/src/client/index.jsx'
-import { MODULES, MODULES_API, SIDEBAR_PANELS, type Module, type ModuleMap } from './modules.ts'
-import { en, zh, type Key } from './client/locales.ts'
+import { MODULES, MODULES_API, type Module, type ModuleMap } from './modules.ts'
 import { createSidebarStore, loadSidebarPreferences } from './client/sidebar.ts'
 import { SECTION_ICONS } from './client/section-icons.tsx'
-import { trackSidebarRows, type RowSources } from './client/rows.ts'
-import { SidebarMenuRows } from './client/SidebarMenuRows.tsx'
+import { persistPanelPins, type PinSlots } from './client/pins.ts'
 
-export const inject = ['slots', 'locale', 'remote', 'layout']
-
-const NS = 'dsh-toolkit'
-/** More menu slot of the shell sidebar; the toolkit rows follow the shell's own rows. */
-const MENU_SLOT = 'sidebar.panellist.actions'
-const MENU_ORDER = 10
+export const inject = ['slots', 'remote']
 
 const PLUGINS: Record<Module, unknown> = {
   memory: { name: 'memory-client', ...memory },
@@ -41,18 +33,9 @@ const PLUGINS: Record<Module, unknown> = {
   gateway: { name: 'gateway-client', ...gateway },
 }
 
-/** Modules whose clients take the sidebar gate. */
-const GATED = new Set<Module>(SIDEBAR_PANELS.map(panel => panel.module))
-
-type Slots = RowSources['slots'] & {
+type Slots = PinSlots & {
   inject(name: string, register: () => () => void): () => void
   register(options: Record<string, unknown>, component: ComponentType<any>): () => void
-}
-
-interface Locale {
-  register(ns: string, dicts: unknown): () => void
-  bind(ns: string): (key: string, values?: Record<string, string>) => string
-  subscribe(listener: () => void): () => void
 }
 
 async function mountedModules(): Promise<ModuleMap> {
@@ -62,7 +45,7 @@ async function mountedModules(): Promise<ModuleMap> {
 }
 
 export async function apply(ctx: Context): Promise<void> {
-  const { slots, locale, layout } = ctx as unknown as { slots: Slots; locale: Locale; layout: RowSources['layout'] }
+  const { slots } = ctx as unknown as { slots: Slots }
   const [mounted, hidden] = await Promise.all([
     mountedModules(),
     loadSidebarPreferences().then(value => value.hidden, (error: unknown) => {
@@ -74,25 +57,14 @@ export async function apply(ctx: Context): Promise<void> {
 
   for (const module of MODULES) {
     if (!mounted[module]) continue
-    const config = GATED.has(module) ? { sidebar: store } : undefined
-    ctx.plugin(PLUGINS[module] as Parameters<Context['plugin']>[0], config)
+    ctx.plugin(PLUGINS[module] as Parameters<Context['plugin']>[0])
   }
 
-  ctx.effect(() => locale.register(NS, { zh, en }), 'dsh-toolkit: dictionaries')
-  const t = locale.bind(NS) as (key: Key, values?: Record<string, string>) => string
-  const tracked = trackSidebarRows({ slots, locale, layout, store, mounted, label: id => t(`panel.${id}` as Key) })
-  ctx.effect(() => tracked.dispose, 'dsh-toolkit: sidebar rows')
-  ctx.effect(() => slots.inject(MENU_SLOT, () => slots.register({
-    name: MENU_SLOT,
-    id: 'dsh-toolkit',
-    order: MENU_ORDER,
-    locale: NS,
-    inject: () => ({ store, rows: tracked.rows }),
-  }, SidebarMenuRows)), 'dsh-toolkit: sidebar menu rows')
+  ctx.effect(() => persistPanelPins(slots, store), 'dsh-toolkit: sidebar pins')
   for (const module of ['otel', 'configCenter'] as const) {
     if (!mounted[module]) continue
     for (const { id, icon } of SECTION_ICONS[module]) {
-      ctx.effect(() => slots.inject('settings.section.icon', () => slots.register({ name: 'settings.section.icon', id, locale: NS }, icon)), `dsh-toolkit: settings icon ${id}`)
+      ctx.effect(() => slots.inject('settings.section.icon', () => slots.register({ name: 'settings.section.icon', id }, icon)), `dsh-toolkit: settings icon ${id}`)
     }
   }
 }

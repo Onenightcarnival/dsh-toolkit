@@ -4,8 +4,7 @@
  * `main` (the panel occupies the center column while the layout service has
  * it selected). dsh-ssh and the task board take the center column by DOM and
  * announce it on `dsh-panel-activate`; this panel closes when they announce
- * and closes them when it opens. An optional gate hides the row and closes
- * the panel.
+ * and closes them when it opens.
  */
 import type { ComponentType } from 'react'
 
@@ -26,12 +25,6 @@ export interface LayoutLike {
   selectPanel(id: string | null): void
 }
 
-/** Sidebar row visibility supplied by an integrating plugin. */
-export interface SidebarGate {
-  visible(id: string): boolean
-  subscribe(listener: () => void): () => void
-}
-
 /** Props the sidebar row passes to the icon occupant. */
 export interface PanelIconProps {
   size: number
@@ -50,8 +43,6 @@ export interface PanelMountOptions<P extends object> {
   panel: ComponentType<P & { close: () => void }>
   /** Business props handed to the panel on each mount. */
   props: () => P
-  /** Row visibility; without a gate the row stays visible. */
-  gate?: SidebarGate
 }
 
 /** Register the row and the panel; returns a disposer. */
@@ -60,31 +51,14 @@ export function mountPanel<P extends object>(options: PanelMountOptions<P>): () 
   const isOpen = (): boolean => layout.panelInfo.getSnapshot().activePanelId === PANEL_ID
   const close = (): void => { if (isOpen()) layout.selectPanel(null) }
 
-  let shown = false
-  let disposeRow = (): void => {}
-  const syncRow = (): void => {
-    const next = options.gate?.visible(PANEL_ID) ?? true
-    if (next === shown) return
-    shown = next
-    if (!next) {
-      disposeRow()
-      disposeRow = () => {}
-      close()
-      return
-    }
-    disposeRow = slots.inject('sidebar.panellist', () => slots.register({
+  const disposers = [
+    slots.inject('sidebar.panellist', () => slots.register({
       name: 'sidebar.panellist',
       id: PANEL_ID,
       order: options.order,
       locale: options.locale,
       label: options.label,
-    }, options.icon as ComponentType<never>))
-  }
-  syncRow()
-
-  const disposers = [
-    () => disposeRow(),
-    options.gate?.subscribe(syncRow) ?? (() => {}),
+    }, options.icon as ComponentType<never>)),
     slots.inject('main', () => slots.register({
       name: 'main',
       key: PANEL_ID,

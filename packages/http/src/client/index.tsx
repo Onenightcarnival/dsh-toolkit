@@ -5,7 +5,7 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { HttpApi } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh } from './locales.ts'
-import { mountPanel, PANEL_ID, type LayoutLike, type PanelIconProps, type SidebarGate, type SlotsLike } from './mount.tsx'
+import { mountPanel, PANEL_ID, type LayoutLike, type PanelIconProps, type SlotsLike } from './mount.tsx'
 import { HttpPanel } from './panel/HttpPanel.tsx'
 import css from './styles.css'
 
@@ -37,12 +37,7 @@ function PanelIcon({ size }: PanelIconProps): JSX.Element {
   )
 }
 
-/** Client config from an integrating plugin; `sidebar` gates the row. */
-export interface Config {
-  sidebar?: SidebarGate
-}
-
-export function apply(ctx: ClientContext, config: Config = {}): void {
+export function apply(ctx: ClientContext): void {
   injectStyles()
   const services = ctx as unknown as {
     slots: SlotsLike
@@ -73,7 +68,6 @@ export function apply(ctx: ClientContext, config: Config = {}): void {
         icon: PanelIcon,
         panel: HttpPanel,
         props: () => ({ api }),
-        gate: config.sidebar,
       })
     } catch (error) {
       console.warn('[dsh-http] mount failed:', error)

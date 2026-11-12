@@ -11,7 +11,7 @@ export function preferences(profileDir: string) {
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}; throw error }
   }
   return {
-    /** Hidden sidebar rows of any plugin; invalid ids are dropped. */
+    /** Panels of any plugin unpinned from the sidebar; invalid ids are dropped. */
     async hiddenSidebarPanels(): Promise<string[]> {
       const value = (await read()).hiddenSidebarPanels
       return Array.isArray(value) ? [...new Set(value.filter(isPanelId))].slice(0, MAX_HIDDEN) : []
