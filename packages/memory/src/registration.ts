@@ -24,7 +24,7 @@ export function registerMemoryTools(ctx: Context, store: MemoryStore): () => voi
     if (!enabled) return
     try {
       for (const tool of memoryTools(store)) disposers.push(ctx.tools.register(tool))
-      disposers.push(ctx.systemPrompt.section({ name: 'plugin:memory', order: 155, text: GUIDANCE }))
+      disposers.push(ctx.systemPrompt.section({ name: 'plugin:memory', order: 155, text: GUIDANCE, interpolate: false }))
     } catch (error) { clear(); throw error }
   }
   ctx.effect(() => clear, 'memory: tool registrations')

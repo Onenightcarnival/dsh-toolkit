@@ -324,6 +324,7 @@ function mountBridge(
         + 'large pages, browser_screenshot when layout, images, charts, or canvases matter (labels on the image are snapshot indices), '
         + 'browser_form_input to fill several fields at once, and browser_wait_for after actions that load content asynchronously. '
         + 'Never assume page content you have not read.',
+      interpolate: false,
     }), 'bridge-browser: system prompt section')
   }
 

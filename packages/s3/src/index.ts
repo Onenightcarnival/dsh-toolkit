@@ -72,7 +72,7 @@ function applyImpl(ctx: Context, config?: Config): void {
       const disposers = tools.map(tool => ctx.tools.register(tool))
       return () => { for (const dispose of disposers) dispose() }
     }, 'dsh-s3: tools')
-    disposeSection = ctx.systemPrompt.section({ name: 'plugin:dsh-s3', order: SECTION_ORDER, text: S3_GUIDANCE })
+    disposeSection = ctx.systemPrompt.section({ name: 'plugin:dsh-s3', order: SECTION_ORDER, text: S3_GUIDANCE, interpolate: false })
   }
 
   const routes = makeRoutes({

@@ -72,7 +72,7 @@ function applyImpl(ctx: Context, config?: Config): void {
       const disposers = tools.map(tool => ctx.tools.register(tool))
       return () => { for (const dispose of disposers) dispose() }
     }, 'dsh-rdb: tools')
-    disposeSection = ctx.systemPrompt.section({ name: 'plugin:dsh-rdb', order: SECTION_ORDER, text: RDB_GUIDANCE })
+    disposeSection = ctx.systemPrompt.section({ name: 'plugin:dsh-rdb', order: SECTION_ORDER, text: RDB_GUIDANCE, interpolate: false })
   }
 
   const routes = makeRoutes({
