@@ -196,7 +196,7 @@ function ModelPicker({ models, selected, onClose, onConfirm }: { models: Gateway
     else next.add(provider)
     return next
   })
-  return <div className="gw-overlay" onClick={onClose}>
+  return <div className="gw-overlay" data-window-drag-exclude="" onClick={onClose}>
     <div className="gw-dialog" role="dialog" aria-modal="true" aria-labelledby="gw-picker-title" onClick={event => event.stopPropagation()}>
       <div className="gw-row between">
         <h2 id="gw-picker-title">{tt('keys.pickTitle')}</h2>

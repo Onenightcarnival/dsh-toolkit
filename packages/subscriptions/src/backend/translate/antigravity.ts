@@ -354,7 +354,7 @@ export class AntigravityStreamTranslator {
         chunks.push({ type: 'reasoning-delta', index: block.index, text: part.text })
       } else if (typeof part.text === 'string' && part.text.length > 0) {
         if (!this.sawContent && ANTIGRAVITY_UNSUPPORTED_CLIENT.test(part.text)) {
-          throw new LlmError(`Antigravity rejected the client signature: ${part.text.trim().slice(0, 200)}`, UNSUPPORTED_CLIENT_CODE)
+          throw LlmError.fromFailure({ message: `Antigravity rejected the client signature: ${part.text.trim().slice(0, 200)}`, code: UNSUPPORTED_CLIENT_CODE })
         }
         const block = this.blocks.get('text') ?? this.open('text', 'text', chunks)
         block.text += part.text

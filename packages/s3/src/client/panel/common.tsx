@@ -39,7 +39,7 @@ export function Modal(props: { title: string; wide?: boolean; onClose: () => voi
     return () => { document.removeEventListener('keydown', onKey) }
   }, [props.onClose])
   return (
-    <div className="dsh-s3-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose() }}>
+    <div className="dsh-s3-backdrop" data-window-drag-exclude="" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose() }}>
       <div className="dsh-s3-modal" role="dialog" aria-modal="true" aria-label={props.title} {...(props.wide ? { 'data-wide': '' } : {})}>
         <h3 className="dsh-s3-modalTitle">{props.title}</h3>
         {props.children}

@@ -3,8 +3,8 @@
  * take no gate.
  * - Toolkit module rows: the gate unregisters a hidden row; the list keeps it
  *   with its dictionary label.
- * - Other plugins' rows: stay registered; a style rule hides the row button by
- *   its rendered label, and a hidden row's open panel closes.
+ * - Other plugins' rows: stay registered; a style rule hides the row entry by
+ *   the rendered label of its button, and a hidden row's open panel closes.
  */
 import { SIDEBAR_PANELS, type ModuleMap } from '../modules.ts'
 import type { SidebarStore } from './sidebar.ts'
@@ -44,6 +44,8 @@ const SLOT = 'sidebar.panellist'
 const STYLE_ID = 'dsh-toolkit/sidebar-hidden'
 /** Row buttons of the shell sidebar (CSS-module class `…_panelRow`). */
 const ROW_SELECTOR = 'button[class*="_panelRow"]'
+/** Row entries of the shell sidebar (CSS-module class `…_panelEntry`): the row button and its unpin control. */
+const ENTRY_SELECTOR = '[class*="_panelEntry"]'
 
 function labelOf(label: unknown, fallback: string): string {
   const value = typeof label === 'function' ? (label as () => unknown)() : label
@@ -91,7 +93,7 @@ export function trackSidebarRows(sources: RowSources): { rows: RowList; dispose:
   const restyle = (): void => {
     if (style === undefined) return
     const labels = [...new Set(rows.filter(row => row.registered && !store.visible(row.id)).map(row => row.label))]
-    const text = labels.length === 0 ? '' : `${labels.map(label => `${ROW_SELECTOR}[aria-label=${cssString(label)}]`).join(',\n')} { display: none !important; }\n`
+    const text = labels.length === 0 ? '' : `${labels.map(label => `${ENTRY_SELECTOR}:has(${ROW_SELECTOR}[aria-label=${cssString(label)}])`).join(',\n')} { display: none !important; }\n`
     if (style.textContent !== text) style.textContent = text
   }
   const closeHidden = (): void => {

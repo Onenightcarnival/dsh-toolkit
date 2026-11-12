@@ -32,7 +32,7 @@ const messageOf = (error: unknown): string => {
 function DisconnectDialog({ label, busy, cancel, confirm }: { label: string; busy: boolean; cancel: () => void; confirm: () => void }): JSX.Element {
   const dialog = useRef<HTMLDialogElement>(null)
   useEffect(() => { dialog.current?.showModal() }, [])
-  return <dialog ref={dialog} className="dsh-sub-modal" aria-labelledby="sub-disconnect-title" onCancel={e => { e.preventDefault(); cancel() }}>
+  return <dialog ref={dialog} className="dsh-sub-modal" data-window-drag-exclude="" aria-labelledby="sub-disconnect-title" onCancel={e => { e.preventDefault(); cancel() }}>
     <h3 id="sub-disconnect-title">{tt('disconnect')}</h3><p>{tt('disconnectHint', { account: label })}</p>
     <div className="dsh-sub-actions"><button autoFocus onClick={cancel}>{tt('cancel')}</button><button className="dsh-sub-danger" disabled={busy} onClick={confirm}>{tt('confirm')}</button></div>
   </dialog>

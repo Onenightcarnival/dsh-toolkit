@@ -15,6 +15,7 @@ import {
   QUOTA_EXCEEDED_CODE,
   ReasoningEffortId,
 } from '@deepseek-ai/dsh-llm'
+import type { BuiltinLlmFailureCode } from '@deepseek-ai/dsh-llm'
 import { rateLimitDiagnostics, retryAfterInstant, waitFromReset } from './rate-limit.js'
 import type { RateLimitResetReader } from './rate-limit.js'
 
@@ -109,14 +110,14 @@ export async function httpLlmError(
   const message = shown.length > 0
     ? `${label} error (HTTP ${String(response.status)}): ${shown}`
     : `${label} error (HTTP ${String(response.status)})`
-  let code: string
+  let code: BuiltinLlmFailureCode
   if (response.status === 401 || response.status === 403) code = 'AUTH'
   else if (response.status === 429) code = 'RATE_LIMIT'
   else if (isQuotaExceededError(shown)) code = QUOTA_EXCEEDED_CODE
   else if (response.status === 400 && isContextWindowExceededError(shown)) code = CONTEXT_WINDOW_EXCEEDED_CODE
   else if (response.status === 408 || response.status === 504) code = 'TIMEOUT'
   else if (response.status >= 500) code = 'SERVER'
-  else code = `HTTP_${String(response.status)}`
+  else code = `HTTP_${response.status}`
   const now = Date.now()
   // The provider's reader runs on a 429 only and takes precedence over
   // `retry-after`; `retry-after` is read on any status.
