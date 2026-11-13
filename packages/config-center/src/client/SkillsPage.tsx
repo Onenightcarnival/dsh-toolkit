@@ -82,7 +82,7 @@ export function SkillsPage({ api, close }: { api: ConfigCenterApi; close: () => 
       <Button size="sm" disabled={busy} onClick={() => { void run(() => api.openSkills()) }}>{tt('skills.open')}</Button>
       <Button size="sm" variant="primary" disabled={busy || !!pending} onClick={() => input.current?.click()}>{tt('skills.install')}</Button>
       <Button size="sm" variant="outline" onClick={close}>{tt('common.back')}</Button>
-      <input ref={input} type="file" accept=".zip" hidden onChange={event => { const archive = event.target.files?.[0]; event.target.value = ''; if (archive) void install(archive, 'ask') }} />
+      <input ref={input} type="file" accept=".zip,.skill" hidden onChange={event => { const archive = event.target.files?.[0]; event.target.value = ''; if (archive) void install(archive, 'ask') }} />
     </header>
     {notice && <div role="status" style={{ ...styles.info, flex: 'none', maxHeight: 120, overflow: 'auto' }}>{notice}</div>}
     {pending && <div style={{ ...styles.info, minHeight: 0, maxHeight: '35%', overflow: 'auto' }} role="group" aria-label={tt('skills.conflicts')}>

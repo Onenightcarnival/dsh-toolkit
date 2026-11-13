@@ -7,19 +7,21 @@ import { unzipSync } from 'fflate'
 import { parse } from 'yaml'
 import type { Skill, SkillDetail, SkillFile, SkillInstallResult } from './protocol.ts'
 
-const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const MAX_FILE = 256 * 1024
 export const MAX_SKILL_ZIP = 32 * 1024 * 1024
 const MAX_EXPANDED = 100 * 1024 * 1024
 
+const unsafePart = (part: string): boolean => !part || part === '.' || part === '..' || /[:\x00-\x1f]/.test(part) || /[. ]$/.test(part) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part)
+
+/** A skill is addressed by its entry name in the skills directory: one visible, portable path segment. */
 function validName(name: string): void {
-  if (!NAME.test(name) || name.length > 64) throw new Error('技能名无效')
+  if (name.length > 128 || name.startsWith('.') || /[\\/]/.test(name) || unsafePart(name)) throw new Error('技能名无效')
 }
 
 /** All components must remain beneath the root and must not be symlinks. */
 function fenced(root: string, name: string): string {
   const parts = name.replaceAll('\\', '/').split('/')
-  if (parts.some(part => !part || part === '.' || part === '..' || /[:\x00-\x1f]/.test(part) || /[. ]$/.test(part) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))) throw new Error('路径无效')
+  if (parts.some(unsafePart)) throw new Error('路径无效')
   const target = resolve(root, ...parts)
   if (relative(resolve(root), target).startsWith('..') || target === resolve(root)) throw new Error('路径无效')
   let cursor = resolve(root)
@@ -39,6 +41,33 @@ function summary(file: string): Pick<Skill, 'description' | 'version'> & { front
   }
   const metadata = frontmatter.metadata as Record<string, unknown> | undefined
   return { description: String(frontmatter.description ?? text.split('\n').find(line => line.trim() && !/^(#|---)/.test(line)) ?? '').slice(0, 2000), version: String(frontmatter.version ?? metadata?.version ?? ''), frontmatter }
+}
+
+/** Archive entry path: `/` separators, UTF-8 names stored without the ZIP UTF-8 flag decoded. */
+function entryPath(raw: string): string {
+  let name = raw
+  if (/[\x80-\xff]/.test(raw) && !/[^\x00-\xff]/.test(raw)) {
+    try { name = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(raw, char => char.charCodeAt(0))) } catch { /* not UTF-8 */ }
+  }
+  return name.replaceAll('\\', '/').replace(/^(?:\.\/)+/, '')
+}
+
+/** Central-directory indexes of file entries whose stored Unix mode carries an executable bit. */
+function executables(bytes: Uint8Array): Set<number> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const marked = new Set<number>()
+  let end = bytes.length - 22
+  while (end >= 0 && view.getUint32(end, true) !== 0x06054b50) end--
+  if (end < 0) return marked
+  const count = view.getUint16(end + 10, true)
+  let at = view.getUint32(end + 16, true)
+  if (count === 0xffff || at === 0xffffffff) return marked
+  for (let index = 0; index < count && at + 46 <= bytes.length && view.getUint32(at, true) === 0x02014b50; index++) {
+    const host = view.getUint8(at + 5), mode = view.getUint16(at + 40, true)
+    if ((host === 3 || host === 19) && (mode & 0o170000) !== 0o120000 && mode & 0o111) marked.add(index)
+    at += 46 + view.getUint16(at + 28, true) + view.getUint16(at + 30, true) + view.getUint16(at + 32, true)
+  }
+  return marked
 }
 
 function readText(file: string): SkillFile {
@@ -89,8 +118,9 @@ export class SkillStore {
       if (!fs.existsSync(root)) continue
       for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
         const name = entry.isDirectory() ? entry.name : entry.isFile() && entry.name.endsWith('.md') ? entry.name.slice(0, -3) : ''
-        if (!NAME.test(name) || name.length > 64 || seen.has(name)) continue
+        if (!name || seen.has(name)) continue
         try {
+          validName(name)
           const hit = this.locate(root, name)
           if (!hit) continue
           const { frontmatter: _, ...info } = summary(hit.kind === 'bundle' ? fenced(hit.path, 'SKILL.md') : hit.path)
@@ -163,57 +193,73 @@ export class SkillStore {
     }
   }
 
-  install(bytes: Uint8Array, filename: string, policy: 'ask' | 'skip' | 'replace' = 'ask'): SkillInstallResult {
+  /** Existing entries under `name` in any skill directory. */
+  private occupants(name: string): string[] {
+    return this.roots().flatMap(([root]) => [join(root, name), join(root, `${name}.md`)]).filter(path => fs.lstatSync(path, { throwIfNoEntry: false }))
+  }
+
+  /**
+   * Extract a ZIP into the skills directory. Every entry keeps its path and bytes; file contents
+   * are not read. Each top-level entry is one install unit named after it (`.md` files without the
+   * extension) and replaces existing entries of that name as a whole. Executable bits stored in the
+   * archive are applied. `__MACOSX` resource-fork folders are not extracted.
+   */
+  install(bytes: Uint8Array, policy: 'ask' | 'skip' | 'replace' = 'ask'): SkillInstallResult {
     if (bytes.length > MAX_SKILL_ZIP) throw new Error('ZIP 最大 32 MB')
+    const executable = executables(bytes)
+    const modes = new Map<string, boolean>()
+    const directories: string[] = []
     let total = 0, count = 0
-    const files = unzipSync(bytes, { filter: entry => {
-      total += entry.originalSize; count++
+    const raw = unzipSync(bytes, { filter: entry => {
+      const index = count++
+      total += entry.originalSize
       if (total > MAX_EXPANDED || count > 4000) throw new Error('解压内容超出限制')
-      fenced(this.root, entry.name.replace(/\/$/, ''))
-      return !entry.name.endsWith('/')
+      const path = entryPath(entry.name)
+      if (!path || path.split('/').includes('__MACOSX')) return false
+      fenced(this.root, path.replace(/\/$/, ''))
+      if (path.endsWith('/')) { directories.push(path.slice(0, -1)); return false }
+      modes.set(path, executable.has(index))
+      return true
     } })
-    const names = Object.keys(files)
-    const kebab = (name: string) => name.toLowerCase().replace(/\.(zip|md)$/i, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-    const candidates: Array<{ name: string; prefix: string; kind: 'bundle' | 'flat' }> = []
-    if (names.includes('SKILL.md')) candidates.push({ name: kebab(filename), prefix: '', kind: 'bundle' })
-    else for (const file of names) {
-      const parts = file.split('/')
-      if (parts[0].startsWith('.') || parts[0] === '__MACOSX') continue
-      if (parts.length === 2 && parts[1] === 'SKILL.md') candidates.push({ name: kebab(parts[0]), prefix: parts[0] + '/', kind: 'bundle' })
-      else if (parts.length === 1 && file.endsWith('.md') && file !== 'README.md') candidates.push({ name: kebab(file), prefix: file, kind: 'flat' })
+    const files = new Map(Object.entries(raw).map(([name, data]) => [entryPath(name), data]))
+    // Top-level entry -> install name.
+    const units = new Map<string, string>()
+    for (const path of [...directories, ...files.keys()]) {
+      const top = path.split('/')[0]
+      units.set(top, top === path && files.has(path) && top.endsWith('.md') ? top.slice(0, -3) : top)
     }
-    if (!candidates.length) throw new Error('ZIP 中没有技能')
+    if (!units.size) throw new Error('ZIP 中没有可解压的文件')
     const seen = new Set<string>()
-    for (const item of candidates) { validName(item.name); if (seen.has(item.name)) throw new Error('ZIP 中存在重复技能名'); seen.add(item.name) }
-    const conflicts = candidates.filter(item => this.roots().some(([root]) => this.locate(root, item.name))).map(item => item.name)
+    for (const name of units.values()) {
+      if (seen.has(name.toLowerCase())) throw new Error(`ZIP 中存在重复技能名：${name}`)
+      seen.add(name.toLowerCase())
+    }
+    const occupants = new Map([...units].map(([top, name]) => [top, [...new Set([join(this.root, top), ...this.occupants(name)])].filter(path => fs.lstatSync(path, { throwIfNoEntry: false }))]))
+    const conflicts = [...units].filter(([top]) => occupants.get(top)!.length).map(([, name]) => name)
     const result: SkillInstallResult = { installed: [], skipped: [], conflicts }
     if (conflicts.length && policy === 'ask') return result
     fs.mkdirSync(this.disabled, { recursive: true })
     const stage = fs.mkdtempSync(join(this.disabled, '.install-'))
+    const extracted = join(stage, 'new'), replaced = join(stage, 'old')
     let cleanup = true
     try {
-      // Complete archive validation and staging before replacing installed files.
-      for (const item of candidates) {
-        for (const file of names.filter(file => item.kind === 'flat' ? file === item.prefix : file.startsWith(item.prefix))) {
-          const rel = item.kind === 'flat' ? `${item.name}.md` : `${item.name}/${file.slice(item.prefix.length)}`
-          const dest = fenced(stage, rel)
-          fs.mkdirSync(resolve(dest, '..'), { recursive: true })
-          fs.writeFileSync(dest, files[file])
-          if (process.platform !== 'win32' && files[file][0] === 35 && files[file][1] === 33) fs.chmodSync(dest, 0o755)
-        }
+      // Complete extraction before replacing installed files.
+      fs.mkdirSync(extracted); fs.mkdirSync(replaced)
+      for (const path of directories) fs.mkdirSync(fenced(extracted, path), { recursive: true })
+      for (const [path, data] of files) {
+        const dest = fenced(extracted, path)
+        fs.mkdirSync(resolve(dest, '..'), { recursive: true })
+        fs.writeFileSync(dest, data)
+        if (process.platform !== 'win32' && modes.get(path)) fs.chmodSync(dest, 0o755)
       }
       fs.mkdirSync(this.root, { recursive: true })
-      for (const item of candidates) {
-        if (conflicts.includes(item.name) && policy === 'skip') { result.skipped.push(item.name); continue }
+      for (const [top, name] of units) {
+        if (conflicts.includes(name) && policy === 'skip') { result.skipped.push(name); continue }
         const backups: Array<[string, string]> = []
         try {
-          for (const [root] of this.roots()) {
-            const hit = this.locate(root, item.name)
-            if (hit) { const backup = join(stage, `.backup-${backups.length}-${item.name}`); this.move(hit.path, backup); backups.push([backup, hit.path]) }
-          }
-          const leaf = item.kind === 'bundle' ? item.name : `${item.name}.md`
-          this.move(fenced(stage, leaf), fenced(this.root, leaf))
-          result.installed.push(item.name)
+          for (const path of occupants.get(top)!) { const backup = join(replaced, `${backups.length}-${top}`); this.move(path, backup); backups.push([backup, path]) }
+          this.move(fenced(extracted, top), fenced(this.root, top))
+          result.installed.push(name)
         } catch (error) {
           try { for (const [backup, original] of backups.reverse()) this.move(backup, original) }
           catch { cleanup = false; throw new Error(`恢复失败，原文件保存在 ${stage}`) }

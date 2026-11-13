@@ -55,7 +55,7 @@ export class ConfigCenterApi {
       reader.onerror = () => reject(reader.error)
       reader.readAsDataURL(file)
     })
-    return readJson(await post(API.skillInstall, { filename: file.name, data, policy }))
+    return readJson(await post(API.skillInstall, { data, policy }))
   }
   async saveMcpTimeout(stdioTimeoutSeconds: number): Promise<{ stdioTimeoutSeconds: number }> {
     return readJson(await post(API.mcpPreferences, { stdioTimeoutSeconds }))

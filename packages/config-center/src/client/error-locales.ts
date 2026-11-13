@@ -22,8 +22,8 @@ export const errorMessages: Record<string, string> = {
   "目标位置存在同名技能": "A skill with this name exists at the destination",
   "ZIP 最大 32 MB": "ZIP size limit: 32 MB",
   "解压内容超出限制": "Extracted contents exceed the limit",
-  "ZIP 中没有技能": "No skills found in ZIP",
-  "ZIP 中存在重复技能名": "Duplicate skill names in ZIP",
+  "ZIP 中没有可解压的文件": "No files to extract in ZIP",
+  "ZIP 中存在重复技能名：{0}": "Duplicate skill name in ZIP: {0}",
   "恢复失败，原文件保存在 {0}": "Recovery failed. Original files are at {0}",
   "{0} 秒内未完成 MCP 启动准备。{1}": "MCP startup preparation timed out after {0} seconds. {1}",
   "MCP 启动准备失败：{0}": "MCP startup preparation failed: {0}"

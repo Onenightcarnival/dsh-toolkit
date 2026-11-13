@@ -24,7 +24,9 @@ Location: Settings → Local logs, below Environment dependencies.
 
 Entry: Sidebar → Skills, below MCP.
 
-- Install individual skills or collections from ZIP; replace, skip or cancel name conflicts.
+- Install from ZIP (`.zip` / `.skill`): the archive is extracted as is into the active directory; entry paths and file contents are unchanged and file contents are not read. Executable bits stored in the archive are kept; `__MACOSX` resource folders are not extracted.
+- Each top-level entry is one install unit named after it (`.md` files without the extension); replace, skip or cancel when an entry of that name exists. Replacing swaps the whole entry.
+- The list shows folders holding `SKILL.md` and `.md` files in the active and disabled directories, named after the folder or file; skill content and naming are maintained by the skill author.
 - Enable, disable, delete, inspect metadata and preview source files.
 - Active directory: `<DSH home>/skills/`; disabled directory: `<DSH home>/config-center/disabled-skills/`.
 - Desktop supplies its previous disabled directory through `DSHDESKTOP_DISABLED_SKILLS`; existing files stay in place.

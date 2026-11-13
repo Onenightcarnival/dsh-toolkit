@@ -99,8 +99,8 @@ export function makeRoutes(deps: RouteDeps): Route[] {
           if (path === API.skillFile) { writeJson(res, 200, deps.skills.read(name, query.get('file') ?? '')); return }
           if (path === API.skillInstall) {
             const body = await readJsonBody(req, Math.ceil(MAX_SKILL_ZIP * 4 / 3) + 4096)
-            if (typeof body?.data !== 'string' || typeof body.filename !== 'string' || !['ask', 'skip', 'replace'].includes(String(body.policy))) throw new Error('安装参数无效')
-            writeJson(res, 200, deps.skills.install(Buffer.from(body.data, 'base64'), body.filename, body.policy as 'ask' | 'skip' | 'replace'))
+            if (typeof body?.data !== 'string' || !['ask', 'skip', 'replace'].includes(String(body.policy))) throw new Error('安装参数无效')
+            writeJson(res, 200, deps.skills.install(Buffer.from(body.data, 'base64'), body.policy as 'ask' | 'skip' | 'replace'))
             return
           }
           if (req.method === 'DELETE') deps.skills.remove(name)
