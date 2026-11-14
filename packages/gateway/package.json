@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-gateway",
-  "version": "0.9.2",
+  "version": "0.9.6",
   "description": "Local LLM API gateway for DeepSeek Harness (dsh): OpenAI Chat Completions, OpenAI Responses and Anthropic Messages endpoints over the configured model routes, with API keys and usage accounting.",
   "author": "onenightcarnival",
   "license": "MIT",
@@ -23,7 +23,7 @@
     "api"
   ],
   "engines": {
-    "dsh": ">=0.2.2-rc.2"
+    "dsh": ">=0.2.2-rc.3"
   },
   "dsh": {
     "bundle": {
@@ -62,11 +62,11 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.1.0",
-    "@deepseek-ai/dsh-attachment": "^0.2.2-rc.2",
-    "@deepseek-ai/dsh-error": "^0.2.2-rc.2",
-    "@deepseek-ai/dsh-home-paths": "^0.2.2-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "^0.2.2-rc.2",
-    "@deepseek-ai/dsh-llm": "^0.2.2-rc.2",
+    "@deepseek-ai/dsh-attachment": "^0.2.2-rc.3",
+    "@deepseek-ai/dsh-error": "^0.2.2-rc.3",
+    "@deepseek-ai/dsh-home-paths": "^0.2.2-rc.3",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.2-rc.3",
+    "@deepseek-ai/dsh-llm": "^0.2.2-rc.3",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
     "@types/react-dom": "^18.3.5",

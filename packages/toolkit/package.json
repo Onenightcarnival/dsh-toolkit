@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-toolkit",
-  "version": "0.9.2",
+  "version": "0.9.6",
   "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), HTTP API client (dsh-http), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser), configuration center (dsh-config-center), career memory (dsh-memory), API gateway (dsh-gateway); Codex, ChatGPT, Google Antigravity and Grok subscriptions, Codex web search, Grok X search, image and video generation",
   "author": "onenightcarnival",
   "license": "MIT",
@@ -25,7 +25,7 @@
     "mcp"
   ],
   "engines": {
-    "dsh": ">=0.2.2-rc.2"
+    "dsh": ">=0.2.2-rc.3"
   },
   "dsh": {
     "bundle": {
@@ -68,16 +68,16 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.1.0",
-    "@deepseek-ai/dsh-app-boot": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-attachment": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-llm": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-storage-domain": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-subprocess": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-tools": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.2",
-    "@deepseek-ai/dsh-web": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-app-boot": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-attachment": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-home-paths": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-storage-domain": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-subprocess": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-web": "0.2.2-rc.3",
     "@deepseek-ai/schemastery": "3.19.0",
     "@onenightcarnival/dsh-bridge-browser": "workspace:*",
     "@onenightcarnival/dsh-config-center": "workspace:*",
@@ -92,7 +92,7 @@
     "typescript": "~5.7.2",
     "@onenightcarnival/dsh-memory": "workspace:*",
     "@onenightcarnival/dsh-gateway": "workspace:*",
-    "@deepseek-ai/dsh-error": "0.2.2-rc.2"
+    "@deepseek-ai/dsh-error": "0.2.2-rc.3"
   },
   "dependencies": {
     "@cortexkit/antigravity-auth-core": "2.2.0"
