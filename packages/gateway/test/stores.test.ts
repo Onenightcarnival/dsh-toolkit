@@ -56,7 +56,7 @@ test('usage: records aggregate by range, model and key with optional pricing', (
     store.record({ ...base, time: now - 1000, inputTokens: 1000, outputTokens: 500 })
     store.record({ ...base, time: now - 2000, inputTokens: 2000, outputTokens: 1000, keyId: 'k2', keyName: 'cli', modelId: 'x:y', provider: 'x', model: 'y', status: 502, errorCode: 'QUOTA' })
     store.record({ ...base, time: now - 10 * 24 * 60 * 60_000, inputTokens: 7, outputTokens: 7 })
-    const summary = store.summary('7d', { 'deepseek:deepseek-chat': { input: 1, output: 2 } }, now)
+    const summary = store.summary('7d', { 'deepseek:deepseek-chat': { input: 1, output: 2 } }, {}, now)
     assert.equal(summary.totals.requests, 2)
     assert.equal(summary.totals.errors, 1)
     assert.equal(summary.totals.inputTokens, 3000)
