@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-gateway",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "description": "Local LLM API gateway for DeepSeek Harness (dsh): OpenAI Chat Completions, OpenAI Responses and Anthropic Messages endpoints over the configured model routes, with API keys and usage accounting.",
   "author": "onenightcarnival",
   "license": "MIT",
