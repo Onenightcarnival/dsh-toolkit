@@ -1,25 +1,30 @@
 /**
  * The /api/dsh-http route family: target CRUD, saved request CRUD, plugin
- * settings, sending a request, exchange history and the connection test. Loopback-only, behind the
- * browser session.
+ * settings, sending a request, exchange history, the connection test, captured
+ * values and configuration export / import. Loopback-only, behind the browser
+ * session.
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpEngine } from './engine.ts'
 import { errorMessage, isLoopbackRequest, readJsonBody, writeJson } from './http.ts'
 import { DIRECT_TARGET_ID, HTTP_API, PANEL_BODY_BYTES, type HttpSendLine, type HttpRequestInput, type HttpSavedRequestPayload, type HttpSettings, type HttpTargetPayload } from './protocol.ts'
-import type { HistoryStore, RequestStore, TargetStore } from './store.ts'
+import type { HistoryStore, RequestStore, TargetStore, ValueStore } from './store.ts'
+import { exportBundle, planImport } from './transfer.ts'
 
 /** Send bodies (request JSON incl. the body string) above this are refused. */
 const MAX_SEND_BYTES = 4 * 1024 * 1024
 const MAX_HISTORY_PAGE = 500
 /** Saved request payloads (form incl. the body text) above this are refused. */
 const MAX_REQUEST_BYTES = 512 * 1024
+/** Import documents above this are refused. */
+const MAX_IMPORT_BYTES = 32 * 1024 * 1024
 
 export interface RouteDeps {
   store: TargetStore
   requests: RequestStore
   history: HistoryStore
+  values: ValueStore
   engine: HttpEngine
   /** Called after each settings write; the host re-syncs tool registration. */
   onSettingsChange: () => void
@@ -42,7 +47,7 @@ function q(url: URL, name: string): string | undefined {
 }
 
 export function makeRoutes(deps: RouteDeps): Route[] {
-  const { store, requests, history, engine } = deps
+  const { store, requests, history, values, engine } = deps
 
   const guard = (req: IncomingMessage, res: ServerResponse, ...methods: string[]): boolean => {
     if (!isLoopbackRequest(req)) {
@@ -103,6 +108,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
           store.delete(id)
           requests.deleteByTarget(id)
           history.clear({ targetId: id })
+          values.delete(id)
           writeJson(res, 200, { ok: true })
         } catch (error) { fail(res, error) }
       },
@@ -218,6 +224,45 @@ export function makeRoutes(deps: RouteDeps): Route[] {
         const id = q(url, 'id')
         const removed = history.clear({ id: id === '' ? undefined : id, targetId: target === '' ? undefined : target })
         writeJson(res, 200, { removed })
+      },
+    },
+    {
+      kind: 'exact',
+      path: HTTP_API.values,
+      handler: (req, res) => {
+        if (!guard(req, res, 'GET', 'DELETE')) return
+        const url = new URL(req.url ?? '/', 'http://localhost')
+        const target = q(url, 'target') ?? ''
+        if (!knownScope(target)) return fail(res, `target '${target}' not found`)
+        if (req.method === 'DELETE') {
+          const name = q(url, 'name')
+          writeJson(res, 200, { removed: values.delete(target, name === '' ? undefined : name) })
+          return
+        }
+        writeJson(res, 200, { values: values.list(target) })
+      },
+    },
+    {
+      kind: 'exact',
+      path: HTTP_API.transfer,
+      handler: async (req, res) => {
+        if (!guard(req, res, 'GET', 'POST')) return
+        if (req.method === 'GET') {
+          writeJson(res, 200, { bundle: exportBundle(store.list(), requests.list(), store.settings()) })
+          return
+        }
+        const body = await readJsonBody(req, MAX_IMPORT_BYTES)
+        if (body === null) return fail(res, 'invalid JSON body or body too large')
+        try {
+          // A dry run validates the file and reports the names an import would collide with.
+          const dryRun = body.dryRun === true
+          const plan = planImport(body.bundle, { targets: store.list(), requests: requests.list() }, body.conflict === 'overwrite' ? 'overwrite' : 'skip')
+          if (!dryRun) {
+            requests.replaceAll(plan.requests)
+            store.replaceAll(plan.targets, plan.historyLimit)
+          }
+          writeJson(res, 200, { result: plan.result })
+        } catch (error) { fail(res, error) }
       },
     },
     {

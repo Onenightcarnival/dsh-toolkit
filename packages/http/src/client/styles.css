@@ -138,8 +138,18 @@
 .dsh-http-editor { flex: 1; min-height: 140px; width: 100%; resize: none; padding: 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; outline: none; background: var(--dsw-specific-input-major); color: var(--dsw-alias-label-primary); font-family: var(--dsh-http-mono); font-size: 12.5px; line-height: 1.5; tab-size: 2; }
 .dsh-http-editor:focus { border-color: var(--dsh-http-accent); }
 .dsh-http-editor::placeholder { color: var(--dsw-alias-label-tertiary); }
+/* Highlighted editor: the input lies over the highlighted text in one grid cell of the scrolling box. */
+.dsh-http-codeEditor { display: grid; grid-template-columns: minmax(0, 1fr); padding: 0; overflow: auto; cursor: text; }
+.dsh-http-codeEditor:focus-within { border-color: var(--dsh-http-accent); }
+.dsh-http-codeEditor[data-disabled] { opacity: .6; }
+.dsh-http-editorLayer, .dsh-http-editorInput { grid-area: 1 / 1; margin: 0; padding: 10px; border: none; min-width: 0; font-family: var(--dsh-http-mono); font-size: 12.5px; line-height: 1.5; letter-spacing: normal; tab-size: 2; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; }
+.dsh-http-editorLayer { pointer-events: none; color: var(--dsw-alias-label-primary); }
+.dsh-http-editorInput { width: 100%; height: 100%; min-height: 100%; resize: none; outline: none; overflow: hidden; background: transparent; color: transparent; caret-color: var(--dsw-alias-label-primary); }
+.dsh-http-editorInput::placeholder { color: var(--dsw-alias-label-tertiary); }
 .dsh-http-readonlyBlock { display: flex; flex-direction: column; gap: 6px; flex: none; }
 .dsh-http-note { margin: 0; font-size: 12px; line-height: 1.5; color: var(--dsw-alias-label-tertiary); word-break: break-word; }
+.dsh-http-note[data-kind='ok'] { color: var(--dsh-http-ok); }
+.dsh-http-note[data-kind='error'] { color: var(--dsh-http-error); }
 .dsh-http-meta { font-size: 11.5px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dsh-http-code { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); font-family: var(--dsh-http-mono); font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 .dsh-http-headersTable { border-collapse: collapse; font-size: 12px; width: 100%; }
@@ -181,6 +191,10 @@
 .dsh-http-kvRow .dsh-http-input { padding: 5px 8px; font-size: 12.5px; }
 .dsh-http-kvRow[data-off] .dsh-http-input { opacity: .5; text-decoration: line-through; }
 .dsh-http-kvRow[data-ghost] .dsh-http-check, .dsh-http-kvRow[data-ghost] .dsh-http-iconButton { visibility: hidden; }
+.dsh-http-kvRow.dsh-http-captureRow { grid-template-columns: 16px minmax(70px, 2fr) 104px minmax(90px, 3fr) 22px; }
+.dsh-http-captureRow .dsh-http-select { height: 28px; min-width: 0; padding: 0 6px; font-size: 12px; }
+.dsh-http-valuesTable td.dsh-http-valueMeta { font-family: inherit; color: var(--dsw-alias-label-tertiary); word-break: normal; }
+.dsh-http-valuesTable td.dsh-http-valueAction { width: 1%; text-align: right; white-space: nowrap; }
 
 /* --- controls --- */
 .dsh-http-input {

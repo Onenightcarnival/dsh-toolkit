@@ -10,11 +10,11 @@
  * target carries a full URL; a target adds a base URL, host-kept credentials
  * and agent access, and can be created from such a request.
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import type { HttpApi } from '../api.ts'
-import { DEFAULT_TIMEOUT_MS, DIRECT_TARGET_ID, joinUrl, type HttpExchange, type HttpSavedRequest, type HttpSavedRequestPayload, type HttpTargetPayload, type HttpTargetSummary } from '../../protocol.ts'
+import { DEFAULT_TIMEOUT_MS, DIRECT_TARGET_ID, joinUrl, type HttpCapturedValue, type HttpExchange, type HttpImportConflict, type HttpSavedRequest, type HttpSavedRequestPayload, type HttpTargetPayload, type HttpTargetSummary } from '../../protocol.ts'
 import { tt } from '../locales.ts'
-import { BannerView, Modal, copyText, errorMessage, sendShortcut, type Banner } from './common.tsx'
+import { BannerView, Modal, copyText, downloadBlob, errorMessage, sendShortcut, type Banner } from './common.tsx'
 import { HistorySidebar } from './HistorySidebar.tsx'
 import { RequestList, requestTitle } from './RequestList.tsx'
 import { RequestPane, builderFromExchange, builderFromSaved, curlOf, pathBelow, savedFromBuilder, toRequestInput, type BuilderState, type RequestTab } from './RequestPane.tsx'
@@ -69,6 +69,7 @@ function directScope(): HttpTargetSummary {
 }
 
 function authLabel(target: HttpTargetSummary): string {
+  if (target.auth.type !== 'none' && target.auth.missing === true) return tt('targets.authMissing')
   switch (target.auth.type) {
     case 'none': return tt('form.auth.none')
     case 'bearer': return `Bearer ${target.auth.hint}`
@@ -115,6 +116,13 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
   /** The event stream being read, from its response head on. */
   const [live, setLive] = useState<LiveStream | undefined>()
   const [split, setSplit] = useState(readSplit)
+  /** Captured variables of the scope on display. */
+  const [captured, setCaptured] = useState<HttpCapturedValue[]>([])
+  /** An import waiting for the choice between overwrite and skip. */
+  const [importing, setImporting] = useState<{ bundle: unknown; conflicts: string[] } | undefined>()
+  /** Incremented to load the scope on display again. */
+  const [reload, setReload] = useState(0)
+  const fileRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLElement>(null)
   const panesRef = useRef<HTMLDivElement>(null)
   const newestRef = useRef<string | undefined>(undefined)
@@ -148,21 +156,21 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
 
   useEffect(() => { void refresh() }, [refresh])
 
-  /** Write a request form with a pending edit to the host now. */
-  const flushSave = useCallback((id: string, keepalive = false): void => {
+  /** Write a request form with a pending edit to the host now; resolves once the host has it. */
+  const flushSave = useCallback(async (id: string, keepalive = false): Promise<void> => {
     const timer = saveTimers.current.get(id)
     if (timer === undefined) return
     clearTimeout(timer)
     saveTimers.current.delete(id)
     const request = requestsRef.current.find(r => r.id === id)
     if (request === undefined) return
-    api.updateRequest(id, { name: request.name, ...savedFromBuilder(builderFromSaved(request)) }, keepalive).catch((error: unknown) => {
+    await api.updateRequest(id, { name: request.name, ...savedFromBuilder(builderFromSaved(request)) }, keepalive).catch((error: unknown) => {
       setBanner({ kind: 'error', text: tt('requests.saveFailed', { error: errorMessage(error) }) })
     })
   }, [api])
 
-  const flushAll = useCallback((keepalive = false): void => {
-    for (const id of [...saveTimers.current.keys()]) flushSave(id, keepalive)
+  const flushAll = useCallback(async (keepalive = false): Promise<void> => {
+    await Promise.all([...saveTimers.current.keys()].map(id => flushSave(id, keepalive)))
   }, [flushSave])
 
   const dropSave = (id: string): void => {
@@ -181,12 +189,20 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
     }
   }, [api])
 
+  const loadValues = useCallback(async (scope: string): Promise<void> => {
+    try {
+      setCaptured(await api.values(scope))
+    } catch { /* the list is informational */ }
+  }, [api])
+
   useEffect(() => {
     if (!loaded) return
     try { localStorage.setItem(SCOPE_KEY, scopeId) } catch { /* optional */ }
     setRequestFilter('')
     setHistoryFilter('')
     setRequests([])
+    setCaptured([])
+    void loadValues(scopeId)
     let stale = false
     api.requests(scopeId).then((list) => {
       if (stale) return
@@ -210,12 +226,12 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
       stale = true
       clearInterval(timer)
       // Edits of the scope being left are saved before its forms leave the state.
-      flushAll()
+      void flushAll()
     }
-  }, [loaded, scopeId, api, loadHistory, flushAll])
+  }, [loaded, scopeId, reload, api, loadHistory, loadValues, flushAll])
 
   useEffect(() => {
-    const onHide = (): void => { flushAll(true) }
+    const onHide = (): void => { void flushAll(true) }
     window.addEventListener('pagehide', onHide)
     return () => { window.removeEventListener('pagehide', onHide) }
   }, [flushAll])
@@ -242,7 +258,7 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
   const editRequest = (id: string, patch: Partial<HttpSavedRequest>): void => {
     setRequests(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)))
     dropSave(id)
-    saveTimers.current.set(id, setTimeout(() => { flushSave(id) }, AUTOSAVE_MS))
+    saveTimers.current.set(id, setTimeout(() => { void flushSave(id) }, AUTOSAVE_MS))
   }
 
   /** Add a request to the current scope, select it and put the caret in its URL bar. */
@@ -374,9 +390,10 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
     if (current === undefined || sending !== undefined) return
     const controller = new AbortController()
     const targetId = scope.id
-    flushSave(current.id)
     setSending({ since: Date.now(), controller })
     setBanner(undefined)
+    // The host reads the capture rules from the saved request.
+    await flushSave(current.id)
     // Stream events reach the state once per frame.
     const pending: SseRow[] = []
     let frame = 0
@@ -395,6 +412,7 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
       })
       setShown(prev => ({ ...prev, [targetId]: exchange }))
       setResponseTab('preview')
+      if (exchange.captures?.some(result => result.ok) === true) void loadValues(targetId)
     } catch (error) {
       if (!controller.signal.aborted) setBanner({ kind: 'error', text: errorMessage(error) })
       // A stopped request shows what the host recorded for it: the latest exchange of this request.
@@ -442,7 +460,58 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
     }
   }
 
-  const dialogOpen = form !== undefined || confirmDelete !== undefined || confirmClear !== undefined || confirmDeleteRequest !== undefined
+  const clearValue = async (name: string): Promise<void> => {
+    try {
+      await api.deleteValue(scope.id, name)
+      await loadValues(scope.id)
+    } catch (error) {
+      setBanner({ kind: 'error', text: errorMessage(error) })
+    }
+  }
+
+  const runExport = async (): Promise<void> => {
+    try {
+      await flushAll()
+      const bundle = await api.exportBundle()
+      const date = new Date(bundle.exportedAt)
+      const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
+      downloadBlob(new Blob([JSON.stringify(bundle, null, 2) + '\n'], { type: 'application/json' }), `dsh-http-${stamp}.json`)
+      setBanner({ kind: 'ok', text: tt('transfer.exported', { targets: bundle.targets.length, requests: bundle.requests.length }) })
+    } catch (error) {
+      setBanner({ kind: 'error', text: errorMessage(error) })
+    }
+  }
+
+  const runImport = async (bundle: unknown, conflict: HttpImportConflict): Promise<void> => {
+    setImporting(undefined)
+    try {
+      const result = await api.importBundle(bundle, conflict)
+      const done = tt('transfer.done', { created: result.created.length, overwritten: result.overwritten.length, skipped: result.skipped.length, requests: result.requests })
+      setBanner({ kind: 'ok', text: result.needAuth.length > 0 ? `${done} ${tt('transfer.needAuth', { names: result.needAuth.join(', ') })}` : done })
+      await refresh()
+      setReload(value => value + 1)
+    } catch (error) {
+      setBanner({ kind: 'error', text: tt('transfer.invalid', { error: errorMessage(error) }) })
+    }
+  }
+
+  /** Read the picked file, let the host check it, then import or ask what to do with existing names. */
+  const onImportFile = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file === undefined) return
+    try {
+      const bundle: unknown = JSON.parse(await file.text())
+      await flushAll()
+      const check = await api.importBundle(bundle)
+      if (check.conflicts.length > 0) setImporting({ bundle, conflicts: check.conflicts })
+      else await runImport(bundle, 'skip')
+    } catch (error) {
+      setBanner({ kind: 'error', text: tt('transfer.invalid', { error: errorMessage(error) }) })
+    }
+  }
+
+  const dialogOpen = form !== undefined || confirmDelete !== undefined || confirmClear !== undefined || confirmDeleteRequest !== undefined || importing !== undefined
   const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>): void => {
     if (dialogOpen) return
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -483,6 +552,9 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
           <span className="dsh-http-switch" aria-hidden="true" />
           <span>{tt('panel.agentTools')}</span>
         </label>
+        <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { void onImportFile(e) }} />
+        <button type="button" className="dsh-http-ghost" disabled={!loaded || sending !== undefined} onClick={() => { fileRef.current?.click() }}>{tt('panel.import')}</button>
+        <button type="button" className="dsh-http-ghost" disabled={!loaded} onClick={() => { void runExport() }}>{tt('panel.export')}</button>
         <button type="button" className="dsh-http-ghost" onClick={close}>{tt('panel.back')}</button>
       </header>
 
@@ -569,6 +641,9 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
                 onEditTarget={() => { if (!direct) setForm({ mode: 'edit', target: scope }) }}
                 onCreateTarget={() => { setForm({ mode: 'create', fromRequest: current }) }}
                 onNotice={(text) => { setBanner({ kind: 'info', text }) }}
+                captured={captured}
+                requestTitle={(id) => { const request = requests.find(r => r.id === id); return request === undefined ? undefined : requestTitle(request) }}
+                onClearValue={(name) => { void clearValue(name) }}
               />
             ) : (
               <div className="dsh-http-pane" data-pane="request">
@@ -623,6 +698,17 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
           <button type="button" className="dsh-http-primary" data-danger onClick={() => { void runDeleteRequest(confirmDeleteRequest) }}>{tt('requests.delete')}</button>
         </>}>
           <p style={{ margin: 0 }}>{tt('requests.deleteConfirm', { name: requestTitle(confirmDeleteRequest) })}</p>
+        </Modal>
+      )}
+      {importing !== undefined && (
+        <Modal title={tt('transfer.title')} onClose={() => { setImporting(undefined) }} footer={<>
+          <button type="button" className="dsh-http-ghost" onClick={() => { setImporting(undefined) }}>{tt('form.cancel')}</button>
+          <span className="dsh-http-spacer" />
+          <button type="button" className="dsh-http-ghost" onClick={() => { void runImport(importing.bundle, 'skip') }}>{tt('transfer.skip')}</button>
+          <button type="button" className="dsh-http-primary" data-danger onClick={() => { void runImport(importing.bundle, 'overwrite') }}>{tt('transfer.overwrite')}</button>
+        </>}>
+          <p style={{ margin: 0 }}>{tt('transfer.conflicts', { names: importing.conflicts.map(name => (name === DIRECT_TARGET_ID ? tt('transfer.direct') : name)).join(', ') })}</p>
+          <p className="dsh-http-note">{tt('transfer.hint')}</p>
         </Modal>
       )}
       {confirmClear !== undefined && (

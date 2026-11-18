@@ -1,9 +1,10 @@
 /**
- * Request engine: resolves a target, substitutes `{{variables}}`, joins the
- * URL, enforces the host and private-network policy, injects auth, follows
- * redirects with the same checks, caps the response body, masks secrets and
- * records the exchange in the history. A `text/event-stream` response is read
- * incrementally and reported event by event.
+ * Request engine: resolves a target, substitutes `{{variables}}` (the target's
+ * and the values captured in its scope), joins the URL, enforces the host and
+ * private-network policy, injects auth, follows redirects with the same
+ * checks, caps the response body, runs the saved request's capture rules,
+ * masks secrets and records the exchange in the history. A `text/event-stream`
+ * response is read incrementally and reported event by event.
  *
  * Requests go through the global `fetch`, so the kernel's outbound proxy
  * policy (undici global dispatcher) applies.
@@ -12,10 +13,11 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
 import { randomBytes } from 'node:crypto'
-import { FORBIDDEN_HEADERS, normalizeRequestAuth, secretsOf, usableRequestAuth, type HistoryStore, type TargetStore } from './store.ts'
+import { runCaptures, type CaptureInput } from './capture.ts'
+import { FORBIDDEN_HEADERS, authMissing, normalizeRequestAuth, secretsOf, usableRequestAuth, type HistoryStore, type RequestStore, type TargetStore, type ValueStore } from './store.ts'
 import {
   DEFAULT_TIMEOUT_MS, DIRECT_TARGET_ID, HISTORY_BODY_BYTES, PANEL_BODY_BYTES, SseParser, isEventStream, isHttpMethod, joinUrl, substitute,
-  type HttpAuth, type HttpExchange, type HttpExchangeRequest, type HttpExchangeResponse, type HttpMethod, type HttpPairs, type HttpRequestInput, type HttpSseEvent, type HttpStreamEnd, type HttpStreamHead, type HttpTarget, type HttpTestResult,
+  type HttpAuth, type HttpCapture, type HttpExchange, type HttpExchangeRequest, type HttpExchangeResponse, type HttpMethod, type HttpPairs, type HttpRequestInput, type HttpSseEvent, type HttpStreamEnd, type HttpStreamHead, type HttpTarget, type HttpTestResult,
 } from './protocol.ts'
 
 const MAX_REDIRECTS = 5
@@ -145,7 +147,7 @@ function applyAuth(target: HttpTarget, headers: Headers, url: URL): void {
 }
 
 /** Request headers whose values are credentials. Lower-case. */
-const CREDENTIAL_HEADERS: ReadonlySet<string> = new Set(['authorization', 'proxy-authorization', 'cookie', 'x-api-key', 'api-key', 'x-auth-token', 'x-access-token'])
+export const CREDENTIAL_HEADERS: ReadonlySet<string> = new Set(['authorization', 'proxy-authorization', 'cookie', 'x-api-key', 'api-key', 'x-auth-token', 'x-access-token'])
 
 /**
  * Credentials typed into request headers: the value, or the part after the
@@ -291,11 +293,20 @@ export function validateInput(input: unknown): HttpRequestInput {
   return { method, path, query, headers: cleanMap(headers as Record<string, string> | undefined), body: raw.body as string | undefined, requestId, auth }
 }
 
+/** Reads the response as received and returns the values to mask in everything recorded and returned. */
+type CaptureHook = (input: CaptureInput) => string[]
+
 export class HttpEngine {
+  /**
+   * @param requests - saved requests, the source of capture rules; absent disables capturing.
+   * @param values - captured variable values; absent disables capturing and their substitution.
+   */
   constructor(
     private readonly store: TargetStore,
     private readonly history: HistoryStore,
     private readonly fetchImpl: FetchLike = (input, init) => globalThis.fetch(input, init),
+    private readonly requests?: Pick<RequestStore, 'get'>,
+    private readonly values?: ValueStore,
   ) {}
 
   /**
@@ -320,12 +331,17 @@ export class HttpEngine {
     // A request's own authentication applies when the panel sends it and its target has none.
     const requestAuth = options.source === 'panel' && target.auth.type === 'none' ? usableRequestAuth(input.auth) : undefined
     const effective: HttpTarget = requestAuth === undefined ? target : { ...target, auth: requestAuth }
-    const vars = target.variables
+    // Captured values are variables of the scope; one named like a target variable takes its place.
+    const captured = this.values?.map(target.id) ?? {}
+    const vars = { ...target.variables, ...captured }
+    // The panel's saved request brings the capture rules; they run on a response of its own scope.
+    const saved = options.source === 'panel' && input.requestId !== undefined && this.values !== undefined ? this.requests?.get(input.requestId) : undefined
+    const rules: HttpCapture[] = saved !== undefined && saved.targetId === target.id ? saved.captures.filter(rule => rule.enabled && rule.name.trim() !== '') : []
     const path = substitute(input.path, vars)
     const composedQuery = input.query as HttpPairs
     const query: HttpPairs = composedQuery.map(([k, v]) => [substitute(k, vars), substitute(v, vars)])
     const requestHeaders = Object.fromEntries(Object.entries(input.headers ?? {}).map(([k, v]) => [k, substitute(v, vars)]))
-    const secrets = [...secretsOf(effective), ...typedCredentials(requestHeaders)]
+    const secrets = [...secretsOf(effective), ...typedCredentials(requestHeaders), ...Object.values(captured)]
     const hasBody = input.body !== undefined && input.body !== '' && input.method !== 'GET' && input.method !== 'HEAD'
     const body = hasBody ? substitute(input.body as string, vars) : undefined
     const storedBody = truncate(maskSecrets(input.body ?? '', secrets), REQUEST_BODY_BYTES)
@@ -358,10 +374,18 @@ export class HttpEngine {
         headers.set('content-type', trimmed.startsWith('{') || trimmed.startsWith('[') ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8')
       }
       if (!headers.has('accept')) headers.set('accept', '*/*')
+      if (authMissing(target.auth)) throw new HttpPolicyError(`authentication of target '${target.name}' is not filled in (edit the target in the HTTP panel)`)
       applyAuth(effective, headers, url)
       exchange.request.url = maskSecrets(url.toString(), secrets)
       exchange.request.sentHeaders = headersToRecord(headers, secrets)
-      exchange.response = await this.perform(effective, url, input.method, headers, body, options.maxBodyBytes ?? PANEL_BODY_BYTES, secrets, started, options)
+      const capture: CaptureHook | undefined = rules.length === 0 ? undefined : (received) => {
+        const { values, results } = runCaptures(rules, received)
+        exchange.captures = results
+        this.values?.set(target.id, values, saved?.id ?? '')
+        return Object.values(values)
+      }
+      exchange.response = await this.perform(effective, url, input.method, headers, body, options.maxBodyBytes ?? PANEL_BODY_BYTES, secrets, started, options, capture)
+      if (rules.length > 0 && exchange.captures === undefined) exchange.captures = rules.map(rule => ({ name: rule.name.trim(), ok: false, error: 'event streams are not captured' }))
     } catch (error) {
       exchange.error = options.signal?.aborted === true ? 'cancelled' : describeError(error, target.timeoutMs, secrets)
     }
@@ -378,7 +402,7 @@ export class HttpEngine {
     return { ok: true, status: exchange.response?.status, latencyMs }
   }
 
-  private async perform(target: HttpTarget, firstUrl: URL, firstMethod: HttpMethod, headers: Headers, body: string | undefined, maxBodyBytes: number, secrets: readonly string[], started: number, options: SendOptions): Promise<HttpExchangeResponse> {
+  private async perform(target: HttpTarget, firstUrl: URL, firstMethod: HttpMethod, headers: Headers, body: string | undefined, maxBodyBytes: number, secrets: readonly string[], started: number, options: SendOptions, capture?: CaptureHook): Promise<HttpExchangeResponse> {
     const cancel = options.signal
     // The deadline covers the whole request; an event stream the panel reads restarts it with every chunk.
     const deadline = new AbortController()
@@ -443,13 +467,16 @@ export class HttpEngine {
         }
         const { bytes, truncated } = await readCapped(response, maxBodyBytes)
         const textual = isTextual(contentType, bytes)
+        const text = textual ? decode(bytes, contentType) : ''
+        // Values captured from this response are masked in it like every other secret.
+        const masked = capture === undefined ? secrets : [...secrets, ...capture({ status: response.status, headers: response.headers, body: text, truncated })]
         return {
           status: response.status,
           statusText: response.statusText,
-          headers: headersToRecord(response.headers, secrets),
+          headers: headersToRecord(response.headers, masked),
           contentType,
           bodyBytes: bytes.length,
-          body: textual ? maskSecrets(decode(bytes, contentType), secrets) : '',
+          body: maskSecrets(text, masked),
           bodyTruncated: truncated,
           binary: !textual,
           ...(!textual && options.keepBinary === true && !truncated && bytes.length > 0 ? { bodyBase64: Buffer.from(bytes).toString('base64') } : {}),

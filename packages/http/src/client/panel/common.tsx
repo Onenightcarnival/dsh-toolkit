@@ -114,3 +114,15 @@ export async function copyText(text: string): Promise<void> {
   }
   if (!ok) throw new Error('clipboard unavailable')
 }
+
+/** Hand a Blob to the browser as a file download. */
+export function downloadBlob(blob: Blob, name: string): void {
+  const href = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = href
+  link.download = name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => { URL.revokeObjectURL(href) }, 10_000)
+}

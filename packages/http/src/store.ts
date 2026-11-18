@@ -2,19 +2,21 @@
  * Host stores. Targets and switches: one JSON file (`$DSH_HOME/dsh-http.json`)
  * written atomically with mode 0600; auth secrets are stored in plaintext and
  * never returned to the browser or the agent. Saved requests: one JSON file
- * (`$DSH_HOME/dsh-http-requests.json`). History: JSON Lines
- * (`$DSH_HOME/dsh-http-history.jsonl`), appended per exchange and compacted
- * to the configured limit.
+ * (`$DSH_HOME/dsh-http-requests.json`). Captured variable values: one JSON
+ * file (`$DSH_HOME/dsh-http-values.json`), secrets like the auth. History:
+ * JSON Lines (`$DSH_HOME/dsh-http-history.jsonl`), appended per exchange and
+ * compacted to the configured limit.
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
+import { MAX_CAPTURED_LENGTH, VARIABLE_NAME_RE } from './capture.ts'
 import {
-  DEFAULT_HISTORY_LIMIT, DEFAULT_TIMEOUT_MS, HTTP_AUTH_TYPES, HTTP_BODY_MODES, MAX_HISTORY_LIMIT, MAX_TIMEOUT_MS, MIN_HISTORY_LIMIT, MIN_TIMEOUT_MS, isHttpMethod,
-  type HttpAuth, type HttpAuthPayload, type HttpAuthSummary, type HttpBodyMode, type HttpExchange, type HttpKeyValue, type HttpSavedRequest, type HttpSavedRequestPayload,
-  type HttpSettings, type HttpTarget, type HttpTargetPayload, type HttpTargetSummary,
+  DEFAULT_HISTORY_LIMIT, DEFAULT_TIMEOUT_MS, HTTP_AUTH_TYPES, HTTP_BODY_MODES, HTTP_CAPTURE_SOURCES, MAX_HISTORY_LIMIT, MAX_TIMEOUT_MS, MIN_HISTORY_LIMIT, MIN_TIMEOUT_MS, isHttpMethod,
+  type HttpAuth, type HttpAuthPayload, type HttpAuthSummary, type HttpBodyMode, type HttpCapture, type HttpCaptureSource, type HttpCapturedValue, type HttpExchange, type HttpKeyValue,
+  type HttpSavedRequest, type HttpSavedRequestPayload, type HttpSettings, type HttpTarget, type HttpTargetPayload, type HttpTargetSummary,
 } from './protocol.ts'
 
 const FORMAT_VERSION = 1
@@ -27,6 +29,11 @@ export function storePath(): string {
 /** Saved request file location. */
 export function requestsPath(): string {
   return dshHomePath('dsh-http-requests.json')
+}
+
+/** Captured value file location. */
+export function valuesPath(): string {
+  return dshHomePath('dsh-http-values.json')
 }
 
 /** History file location. */
@@ -46,7 +53,6 @@ const DEFAULT_SETTINGS: HttpSettings = { agentTools: false, historyLimit: DEFAUL
 const NAME_RE = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,63}$/u
 /** RFC 7230 token. */
 const HEADER_NAME_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/
-const VARIABLE_NAME_RE = /^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/
 /** Hostname or `*.` wildcard prefix; labels of letters, digits and hyphens, or a bracketed IPv6 literal. */
 const HOST_PATTERN_RE = /^(\*\.)?([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$|^\[[0-9a-f:.]+\]$/i
 const MAX_ENTRIES = 50
@@ -136,8 +142,12 @@ function normalizeTimeout(value: unknown): number {
   return value
 }
 
-/** Validate an auth payload; `previous` supplies secrets left empty by the form when the type is unchanged. */
-export function normalizeAuth(value: unknown, previous?: HttpAuth): HttpAuth {
+/**
+ * Validate an auth payload; `previous` supplies secrets left empty by the form
+ * when the type is unchanged. `allowMissing` accepts a secret that is neither
+ * given nor stored (an imported target) and keeps it empty.
+ */
+export function normalizeAuth(value: unknown, previous?: HttpAuth, allowMissing = false): HttpAuth {
   if (value === undefined) return previous ?? { type: 'none' }
   if (typeof value !== 'object' || value === null) fail('auth must be an object')
   const raw = value as Partial<Record<string, unknown>> & { type?: unknown }
@@ -155,6 +165,7 @@ export function normalizeAuth(value: unknown, previous?: HttpAuth): HttpAuth {
       const kept = (previous as unknown as Record<string, unknown>)[field]
       if (typeof kept === 'string' && kept !== '') return kept
     }
+    if (allowMissing) return ''
     fail(`${label} is required`)
   }
   switch (type) {
@@ -218,18 +229,31 @@ export function usableRequestAuth(auth: HttpAuth | undefined): HttpAuth | undefi
 }
 
 function hint(secret: string): string {
+  if (secret === '') return ''
   if (secret.length <= 6) return '••••'
   return `${secret.slice(0, 3)}…${secret.slice(-2)}`
 }
 
+/** Whether the secret of a target's authentication is not stored. */
+export function authMissing(auth: HttpAuth): boolean {
+  switch (auth.type) {
+    case 'none': return false
+    case 'bearer': return auth.token === ''
+    case 'basic': return auth.password === ''
+    case 'header': return auth.value === ''
+    case 'query': return auth.value === ''
+  }
+}
+
 /** Secret-free view of an auth setting. */
 export function summarizeAuth(auth: HttpAuth): HttpAuthSummary {
+  const missing = authMissing(auth) ? { missing: true as const } : {}
   switch (auth.type) {
     case 'none': return { type: 'none' }
-    case 'bearer': return { type: 'bearer', hint: hint(auth.token) }
-    case 'basic': return { type: 'basic', username: auth.username }
-    case 'header': return { type: 'header', name: auth.name, hint: hint(auth.value) }
-    case 'query': return { type: 'query', name: auth.name, hint: hint(auth.value) }
+    case 'bearer': return { type: 'bearer', hint: hint(auth.token), ...missing }
+    case 'basic': return { type: 'basic', username: auth.username, ...missing }
+    case 'header': return { type: 'header', name: auth.name, hint: hint(auth.value), ...missing }
+    case 'query': return { type: 'query', name: auth.name, hint: hint(auth.value), ...missing }
   }
 }
 
@@ -239,7 +263,7 @@ export function secretsOf(target: HttpTarget): string[] {
   switch (auth.type) {
     case 'none': return []
     case 'bearer': return [auth.token]
-    case 'basic': return [auth.password, Buffer.from(`${auth.username}:${auth.password}`).toString('base64')]
+    case 'basic': return auth.password === '' ? [] : [auth.password, Buffer.from(`${auth.username}:${auth.password}`).toString('base64')]
     case 'header': return [auth.value]
     case 'query': return [auth.value]
   }
@@ -260,6 +284,34 @@ function defaultName(baseUrl: string): string {
     return new URL(baseUrl).host.replace(/[^\p{L}\p{N} ._-]/gu, '-').slice(0, 64) || 'api'
   } catch {
     return 'api'
+  }
+}
+
+/**
+ * A validated target from a payload. `previous` supplies the fields the
+ * payload leaves out and keeps its id and creation time; `taken` are the names
+ * of the other targets.
+ * @throws TargetValidationError on an invalid field.
+ */
+export function buildTarget(payload: HttpTargetPayload, options: { previous?: HttpTarget; taken: string[]; allowMissingSecret?: boolean }): HttpTarget {
+  const previous = options.previous
+  const baseUrl = payload.baseUrl === undefined && previous !== undefined ? previous.baseUrl : normalizeBaseUrl(payload.baseUrl)
+  const wanted = payload.name === undefined && previous !== undefined ? previous.name : (str(payload.name) ?? '').trim()
+  if (wanted !== '' && !NAME_RE.test(wanted)) fail('name may contain letters, digits, spaces, dots, hyphens and underscores (max 64)')
+  const now = Date.now()
+  return {
+    id: previous?.id ?? randomBytes(6).toString('hex'),
+    name: uniqueName(wanted || defaultName(baseUrl), options.taken),
+    baseUrl,
+    auth: normalizeAuth(payload.auth, previous?.auth, options.allowMissingSecret === true),
+    headers: payload.headers === undefined && previous !== undefined ? previous.headers : normalizeHeaders(payload.headers),
+    variables: payload.variables === undefined && previous !== undefined ? previous.variables : normalizeVariables(payload.variables),
+    allowedHosts: payload.allowedHosts === undefined && previous !== undefined ? previous.allowedHosts : normalizeAllowedHosts(payload.allowedHosts),
+    allowMutations: typeof payload.allowMutations === 'boolean' ? payload.allowMutations : previous?.allowMutations ?? false,
+    allowPrivate: typeof payload.allowPrivate === 'boolean' ? payload.allowPrivate : previous?.allowPrivate ?? false,
+    timeoutMs: payload.timeoutMs === undefined && previous !== undefined ? previous.timeoutMs : normalizeTimeout(payload.timeoutMs),
+    createdAt: previous?.createdAt ?? now,
+    updatedAt: now,
   }
 }
 
@@ -326,24 +378,7 @@ export class TargetStore {
 
   create(payload: HttpTargetPayload): HttpTarget {
     const file = this.load()
-    const baseUrl = normalizeBaseUrl(payload.baseUrl)
-    const wanted = (str(payload.name) ?? '').trim()
-    if (wanted !== '' && !NAME_RE.test(wanted)) fail('name may contain letters, digits, spaces, dots, hyphens and underscores (max 64)')
-    const now = Date.now()
-    const target: HttpTarget = {
-      id: randomBytes(6).toString('hex'),
-      name: uniqueName(wanted || defaultName(baseUrl), file.targets.map(t => t.name)),
-      baseUrl,
-      auth: normalizeAuth(payload.auth),
-      headers: normalizeHeaders(payload.headers),
-      variables: normalizeVariables(payload.variables),
-      allowedHosts: normalizeAllowedHosts(payload.allowedHosts),
-      allowMutations: payload.allowMutations === true,
-      allowPrivate: payload.allowPrivate === true,
-      timeoutMs: normalizeTimeout(payload.timeoutMs),
-      createdAt: now,
-      updatedAt: now,
-    }
+    const target = buildTarget(payload, { taken: file.targets.map(t => t.name) })
     file.targets.push(target)
     this.save(file)
     return target
@@ -351,28 +386,20 @@ export class TargetStore {
 
   update(id: string, patch: HttpTargetPayload): HttpTarget {
     const file = this.load()
-    const target = file.targets.find(t => t.id === id)
-    if (target === undefined) fail(`target '${id}' not found`)
-    const baseUrl = patch.baseUrl === undefined ? target.baseUrl : normalizeBaseUrl(patch.baseUrl)
-    const wanted = patch.name === undefined ? target.name : (str(patch.name) ?? '').trim()
-    if (wanted !== '' && !NAME_RE.test(wanted)) fail('name may contain letters, digits, spaces, dots, hyphens and underscores (max 64)')
-    const auth = normalizeAuth(patch.auth, target.auth)
-    const headers = patch.headers === undefined ? target.headers : normalizeHeaders(patch.headers)
-    const variables = patch.variables === undefined ? target.variables : normalizeVariables(patch.variables)
-    const allowedHosts = patch.allowedHosts === undefined ? target.allowedHosts : normalizeAllowedHosts(patch.allowedHosts)
-    const timeoutMs = patch.timeoutMs === undefined ? target.timeoutMs : normalizeTimeout(patch.timeoutMs)
-    target.name = uniqueName(wanted || defaultName(baseUrl), file.targets.filter(t => t.id !== id).map(t => t.name))
-    target.baseUrl = baseUrl
-    target.auth = auth
-    target.headers = headers
-    target.variables = variables
-    target.allowedHosts = allowedHosts
-    if (typeof patch.allowMutations === 'boolean') target.allowMutations = patch.allowMutations
-    if (typeof patch.allowPrivate === 'boolean') target.allowPrivate = patch.allowPrivate
-    target.timeoutMs = timeoutMs
-    target.updatedAt = Date.now()
+    const index = file.targets.findIndex(t => t.id === id)
+    if (index < 0) fail(`target '${id}' not found`)
+    const target = buildTarget(patch, { previous: file.targets[index], taken: file.targets.filter(t => t.id !== id).map(t => t.name) })
+    file.targets[index] = target
     this.save(file)
     return target
+  }
+
+  /** Replace the whole target list in one write (import); `historyLimit` updates that setting. */
+  replaceAll(targets: HttpTarget[], historyLimit?: number): void {
+    const file = this.load()
+    file.targets = targets
+    if (historyLimit !== undefined) file.settings = { ...DEFAULT_SETTINGS, ...file.settings, historyLimit }
+    this.save(file)
   }
 
   delete(id: string): void {
@@ -545,8 +572,24 @@ function normalizeRows(value: unknown, what: string): HttpKeyValue[] {
   })
 }
 
+const MAX_CAPTURES = 20
+
+function normalizeCaptures(value: unknown): HttpCapture[] {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) fail('captures must be an array of rules')
+  if (value.length > MAX_CAPTURES) fail(`captures: at most ${MAX_CAPTURES} rules`)
+  return value.map((raw: unknown) => {
+    const rule = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+    const name = typeof rule.name === 'string' ? rule.name : ''
+    const path = typeof rule.path === 'string' ? rule.path : ''
+    if (name.length > 128 || path.length > 512 || /[\r\n]/.test(name + path)) fail('captures: a rule is too long or contains line breaks')
+    const source: HttpCaptureSource = (HTTP_CAPTURE_SOURCES as readonly unknown[]).includes(rule.source) ? rule.source as HttpCaptureSource : 'body'
+    return { name, source, path, enabled: rule.enabled !== false }
+  })
+}
+
 /** Validated fields of a saved request payload; absent fields stay absent. */
-function normalizeRequestPatch(payload: HttpSavedRequestPayload): Partial<Omit<HttpSavedRequest, 'id' | 'targetId' | 'createdAt' | 'updatedAt'>> {
+export function normalizeRequestPatch(payload: HttpSavedRequestPayload): Partial<Omit<HttpSavedRequest, 'id' | 'targetId' | 'createdAt' | 'updatedAt'>> {
   const out: Partial<Omit<HttpSavedRequest, 'id' | 'targetId' | 'createdAt' | 'updatedAt'>> = {}
   if (payload.name !== undefined) {
     const name = (str(payload.name) ?? '').trim()
@@ -566,6 +609,7 @@ function normalizeRequestPatch(payload: HttpSavedRequestPayload): Partial<Omit<H
   if (payload.query !== undefined) out.query = normalizeRows(payload.query, 'query')
   if (payload.headers !== undefined) out.headers = normalizeRows(payload.headers, 'headers')
   if (payload.form !== undefined) out.form = normalizeRows(payload.form, 'form')
+  if (payload.captures !== undefined) out.captures = normalizeCaptures(payload.captures)
   if (payload.auth !== undefined) out.auth = normalizeRequestAuth(payload.auth)
   if (payload.bodyMode !== undefined) {
     if (!(HTTP_BODY_MODES as readonly string[]).includes(payload.bodyMode)) fail(`bodyMode must be one of ${HTTP_BODY_MODES.join(', ')}`)
@@ -618,6 +662,7 @@ export class RequestStore {
       bodyMode: fields.bodyMode ?? 'none',
       body: fields.body ?? '',
       form: fields.form ?? [],
+      captures: fields.captures ?? [],
       createdAt: now,
       updatedAt: now,
     }
@@ -647,6 +692,11 @@ export class RequestStore {
     this.save(all)
   }
 
+  /** Replace the whole request list in one write (import). */
+  replaceAll(requests: HttpSavedRequest[]): void {
+    this.save(requests)
+  }
+
   /** Remove every request of a target; returns the count. */
   deleteByTarget(targetId: string): number {
     const all = this.load()
@@ -671,6 +721,7 @@ export class RequestStore {
         bodyMode: (HTTP_BODY_MODES as readonly string[]).includes(r.bodyMode) ? r.bodyMode : 'none',
         body: r.body ?? '',
         form: Array.isArray(r.form) ? r.form : [],
+        captures: Array.isArray(r.captures) ? r.captures : [],
       }))
     } catch {
       this.entries = []
@@ -685,5 +736,94 @@ export class RequestStore {
     writeFileSync(tmp, JSON.stringify({ version: FORMAT_VERSION, requests: entries }, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 })
     renameSync(tmp, this.path)
     this.entries = entries
+  }
+}
+
+interface StoredValue { value: string; requestId: string; at: number }
+
+/**
+ * Captured variable values by scope (a target id or DIRECT_TARGET_ID). The
+ * values are secrets: they stay on the host and reach the browser and the
+ * agent as hints only.
+ */
+export class ValueStore {
+  readonly path: string
+  private scopes: Record<string, Record<string, StoredValue>> | undefined
+
+  constructor(path?: string) {
+    this.path = resolve(path ?? valuesPath())
+  }
+
+  /** Values of a scope by variable name. */
+  map(scopeId: string): Record<string, string> {
+    const out: Record<string, string> = {}
+    for (const [name, entry] of Object.entries(this.load()[scopeId] ?? {})) out[name] = entry.value
+    return out
+  }
+
+  /** Secret-free list of a scope's values, by name. */
+  list(scopeId: string): HttpCapturedValue[] {
+    return Object.entries(this.load()[scopeId] ?? {})
+      .map(([name, entry]) => ({ name, hint: hint(entry.value), requestId: entry.requestId, at: entry.at }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  /** Write values captured from one saved request. */
+  set(scopeId: string, values: Record<string, string>, requestId: string): void {
+    const names = Object.keys(values).filter(name => VARIABLE_NAME_RE.test(name) && values[name].length <= MAX_CAPTURED_LENGTH)
+    if (names.length === 0) return
+    const scopes = this.load()
+    const scope = scopes[scopeId] ?? {}
+    const at = Date.now()
+    for (const name of names) scope[name] = { value: values[name], requestId, at }
+    scopes[scopeId] = scope
+    this.save(scopes)
+  }
+
+  /** Remove one value of a scope, or the whole scope; returns the count. */
+  delete(scopeId: string, name?: string): number {
+    const scopes = this.load()
+    const scope = scopes[scopeId]
+    if (scope === undefined) return 0
+    let removed = 0
+    if (name === undefined) {
+      removed = Object.keys(scope).length
+      delete scopes[scopeId]
+    } else if (Object.hasOwn(scope, name)) {
+      removed = 1
+      delete scope[name]
+      if (Object.keys(scope).length === 0) delete scopes[scopeId]
+    }
+    if (removed > 0) this.save(scopes)
+    return removed
+  }
+
+  private load(): Record<string, Record<string, StoredValue>> {
+    if (this.scopes !== undefined) return this.scopes
+    const out: Record<string, Record<string, StoredValue>> = {}
+    try {
+      const parsed = JSON.parse(readFileSync(this.path, 'utf8')) as { scopes?: unknown }
+      const scopes = typeof parsed.scopes === 'object' && parsed.scopes !== null ? parsed.scopes as Record<string, unknown> : {}
+      for (const [scopeId, raw] of Object.entries(scopes)) {
+        if (typeof raw !== 'object' || raw === null) continue
+        const scope: Record<string, StoredValue> = {}
+        for (const [name, entry] of Object.entries(raw as Record<string, Partial<StoredValue> | null>)) {
+          if (!VARIABLE_NAME_RE.test(name) || typeof entry?.value !== 'string') continue
+          scope[name] = { value: entry.value, requestId: typeof entry.requestId === 'string' ? entry.requestId : '', at: typeof entry.at === 'number' ? entry.at : 0 }
+        }
+        if (Object.keys(scope).length > 0) out[scopeId] = scope
+      }
+    } catch { /* a missing or unreadable file is an empty store */ }
+    this.scopes = out
+    return out
+  }
+
+  private save(scopes: Record<string, Record<string, StoredValue>>): void {
+    const dir = dirname(this.path)
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 })
+    const tmp = this.path + '.tmp'
+    writeFileSync(tmp, JSON.stringify({ version: FORMAT_VERSION, scopes }, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 })
+    renameSync(tmp, this.path)
+    this.scopes = scopes
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Host routes: /api/dsh-http, API targets, saved requests, request sending and history.
+ * Host routes: /api/dsh-http, API targets, saved requests, captured variables, request sending, history and configuration export / import.
  * Agent tools: http_* and system guidance, active while enabled in the panel.
  * Client: request builder, response viewer and history in ./client.
  */
@@ -10,7 +10,7 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
 import { HttpEngine } from './engine.ts'
 import { makeRoutes } from './routes.ts'
-import { HistoryStore, RequestStore, TargetStore } from './store.ts'
+import { HistoryStore, RequestStore, TargetStore, ValueStore } from './store.ts'
 import { allTools } from './tools.ts'
 
 /** Stable cordis plugin name. */
@@ -54,12 +54,13 @@ function applyImpl(ctx: Context, config?: Config): void {
   const store = new TargetStore()
   const requests = new RequestStore()
   const history = new HistoryStore(undefined, () => store.settings().historyLimit)
-  const engine = new HttpEngine(store, history)
+  const values = new ValueStore()
+  const engine = new HttpEngine(store, history, undefined, requests, values)
 
   let disposeTools: (() => void) | undefined
   let disposeSection: (() => void) | undefined
 
-  const tools = allTools(store, engine, history)
+  const tools = allTools(store, engine, history, values)
 
   const syncTools = (): void => {
     const want = (config?.enabled ?? true) && store.settings().agentTools
@@ -83,6 +84,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     store,
     requests,
     history,
+    values,
     engine,
     onSettingsChange: syncTools,
     rejection: (req) => {

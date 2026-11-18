@@ -10,11 +10,13 @@
 |---|---|
 | 目标 | Base URL、认证（bearer / basic / header / query）、固定 header、`{{变量}}`、允许的额外 host、变更开关、内网开关、超时 |
 | 侧栏 | 范围选择器：「无目标」或某个目标，末项为「新增目标…」，并提供所选目标的编辑与连接测试；其下是该范围的两个页签。「请求」：保存的请求表单与过滤框；「+」新增一条空白请求并把光标放进其 URL 栏；可重命名（双击或菜单）、创建副本、「复制为 cURL」、删除。「历史」：全部请求记录，最新在前；选中一条即显示，记录可存为请求 |
-| 请求栏 | 所选请求的表单，就地编辑并自动保存：方法、完整 URL（无目标）或 Base URL 之下的路径、「发送」。把 cURL 命令粘贴进 URL 栏即填好整张表单。页签：Params（URL 预览、「从 URL 导入参数」）、Body（JSON / 文本 / 表单；Tab 缩进）、Headers（附只读的目标固定 header）、Auth |
+| 请求栏 | 所选请求的表单，就地编辑并自动保存：方法、完整 URL（无目标）或 Base URL 之下的路径、「发送」。把 cURL 命令粘贴进 URL 栏即填好整张表单。页签：Params（URL 预览、「从 URL 导入参数」）、Body（JSON / 文本 / 表单；JSON 语法高亮；Tab 缩进）、Headers（附只读的目标固定 header）、Auth、提取 |
 | 键值表 | Params、Headers 与表单字段：末尾始终有一行空白行；提供「添加」「批量编辑」（每行一条 `名称: 值`，`#` 开头的行停用）与「全部删除」；每行可勾选启用；同名项全部保留 |
 | Auth 页签 | 目标已配置认证：只读显示。目标未配置认证或无目标：编辑请求自身的认证，支持 bearer、basic、自定义 header 与 query 参数 |
-| 响应栏 | 所选请求的最近一次响应，可切换其历次响应；或从历史中选中的记录。状态、耗时与大小；页签 Preview（JSON 格式化 / 原始；图片直接显示；HTML 可看源码或在无脚本的沙箱中渲染；事件流边到边显示；复制；「保存到文件」）、Headers、Request（实际发出的 URL、header 与 body，密钥已遮罩）。发送中显示已用时间与取消按钮 |
+| 提取页签 | 该请求的[提取规则](#提取变量)，以及本范围已提取的变量：名称、遮罩后的提示、来源请求、时间与「清除」 |
+| 响应栏 | 所选请求的最近一次响应，可切换其历次响应；或从历史中选中的记录。状态、耗时与大小；页签 Preview（JSON 格式化 / 原始；JSON、HTML、XML、JavaScript、CSS 与 YAML 语法高亮；提取结果；图片直接显示；HTML 可看源码或在无脚本的沙箱中渲染；事件流边到边显示；复制；「保存到文件」）、Headers、Request（实际发出的 URL、header 与 body，密钥已遮罩）。发送中显示已用时间与取消按钮 |
 | 历史 | 面板与 Agent 的全部请求按目标记录；Agent 发出的请求数秒内出现；可删除单条或清空该目标 |
+| 导入 / 导出 | 标题栏的「导出」与「导入」：见[导入与导出](#导入与导出) |
 | Agent | `http_targets`、`http_request`、`http_history` |
 
 布局：侧栏、请求栏与响应栏并排；面板较窄时两栏上下排布，两栏之间的分隔条可拖动（双击复位）。`Ctrl` / `⌘` + `Enter` 发送请求。
@@ -33,6 +35,34 @@
 | 超时 | 面板读取时，目标超时随每个数据块重新计时；Agent 读取时覆盖整条流 |
 | 历史 | 流的原文（上限 32 KiB）与每个事件的到达时间 |
 | Agent | `http_request` 返回流的原文，读取到流结束、64 KiB 上限或目标超时为止 |
+
+## 提取变量
+
+保存的请求可带提取规则：面板发送该请求并收到 2xx 响应后，宿主从响应中读取值，写入该请求所在范围的变量。
+
+| 方面 | 行为 |
+|---|---|
+| 规则 | 变量名、来源与路径；可逐条停用，每个请求最多 20 条 |
+| 来源 | 响应 JSON：路径如 `data.access_token`、`items[0].id`、`$.a["b.c"]`。响应头：header 名 |
+| 取值 | 字符串、数字与布尔值；空值、对象、数组、含换行或超过 16 KiB 的值不提取 |
+| 触发 | 仅面板发送该保存的请求时；Agent 的请求与事件流响应不执行规则 |
+| 未提取 | 响应不是 2xx、正文不是 JSON 或被截断、路径或 header 不存在时，已保存的值保持不变，响应栏显示原因 |
+| 引用 | 同一范围的请求以 `{{变量名}}` 引用，含 Agent 对该目标的请求；与目标变量同名时以提取值为准 |
+| 刷新 | 再次发送来源请求 |
+| 范围 | 每个目标一份；无目标的请求共用一份 |
+| 保密 | 值只保存在宿主；面板与 Agent 只得到名称与短提示，值在 URL、header、正文与历史中遮罩，含其来源响应 |
+
+## 导入与导出
+
+| 方面 | 行为 |
+|---|---|
+| 导出 | 一个 JSON 文件：全部目标、保存的请求（含提取规则）与历史保留条数 |
+| 不导出 | 目标与请求的认证密钥、凭证类 header 的字面值（引用 `{{变量}}` 的值保留）、已提取的变量值、历史与「允许 Agent 使用」开关 |
+| 导入 | 整份文件先校验，任一条目无效则不写入 |
+| 同名目标 | 按名称匹配，不区分大小写；无目标的请求作为一个整体参与匹配。存在同名项时选择「覆盖」或「跳过」 |
+| 覆盖 | 以文件替换同名目标的设置与请求列表；认证类型不变时保留已保存的密钥 |
+| 跳过 | 同名目标及其请求保持不变，只导入其余目标 |
+| 缺少密钥的目标 | 显示「认证未填写」，填写前请求不发送 |
 
 ## 无目标的请求
 
@@ -62,7 +92,7 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-http-<版本>.tgz
 | 名称 | 默认用 host；Agent 按名称引用目标（唯一，不区分大小写） |
 | 认证 | `none`；`bearer`（Authorization: Bearer）；`basic`；`header`（自定义 header）；`query`（附加到每个 URL 的参数）。密钥保存在宿主；编辑时留空保留已保存的值 |
 | 固定 header | 每个请求都发送；同名请求 header 覆盖。传输层 header（`Host`、`Content-Length`、`Transfer-Encoding`、`Connection` 等）不接受 |
-| 变量 | `{{名称}}` 在路径、query、header 与 body 中替换；未定义的名称原样保留。非密钥 |
+| 变量 | `{{名称}}` 在路径、query、header 与 body 中替换；未定义的名称原样保留。非密钥；[提取的变量](#提取变量)同名时优先 |
 | 允许的额外 host | Base URL host 之外，绝对 URL 或重定向可以到达的 host；`*.example.com` 匹配子域 |
 | 允许变更 | Agent 可使用 POST / PUT / PATCH / DELETE；每次调用仍需 `confirm=true` |
 | 允许访问内网 | 请求可到达回环、链路本地与 RFC 1918 地址，含解析到这些地址的域名 |
@@ -79,7 +109,7 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-http-<版本>.tgz
 | Body | GET 与 HEAD 忽略 body；以 `{` 或 `[` 开头的 body 默认 `content-type: application/json`，否则 `text/plain`；表单模式发送 `application/x-www-form-urlencoded` |
 | 重定向 | 最多 5 跳，每跳按允许的 host 检查；origin 变化时去掉凭证；303 以及 POST 后的 301/302 改为无 body 的 GET |
 | 响应 | 文本正文按声明的 charset 解码；完整的二进制正文交给面板用于预览与保存，不写入历史；面板保留 1 MiB，Agent 64 KiB，历史每个正文 32 KiB |
-| 遮罩 | 目标密钥、请求自身的认证，以及写在请求 header `Authorization`、`Proxy-Authorization`、`Cookie`、`X-API-Key`、`API-Key`、`X-Auth-Token`、`X-Access-Token` 中的凭证，在交给面板、Agent 与历史的 URL、header 和正文中替换为 `••••••`（含其 URL 编码） |
+| 遮罩 | 目标密钥、请求自身的认证、已提取的变量值，以及写在请求 header `Authorization`、`Proxy-Authorization`、`Cookie`、`X-API-Key`、`API-Key`、`X-Auth-Token`、`X-Access-Token` 中的凭证，在交给面板、Agent 与历史的 URL、header 和正文中替换为 `••••••`（含其 URL 编码） |
 | 代理 | 请求经宿主全局 `fetch` 发出，遵循内核的出站代理策略 |
 
 ## Agent 工具
@@ -88,7 +118,7 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-http-<版本>.tgz
 
 | 工具 | 功能 |
 |---|---|
-| `http_targets` | 目标列表：Base URL、认证类型、固定 header、变量名、允许的 host 与开关 |
+| `http_targets` | 目标列表：Base URL、认证类型、固定 header、变量名（含已提取的变量）、允许的 host 与开关 |
 | `http_request` | `target`、`method`、`path`、`query`、`headers`、`body`、`confirm`。GET / HEAD / OPTIONS 直接执行；其他方法需目标开启变更并传 `confirm=true` |
 | `http_history` | 一个或全部目标的最近请求：状态、耗时与正文预览；不含无目标的请求 |
 
@@ -102,13 +132,14 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-http-<版本>.tgz
 | 请求 | 每个范围一个扁平列表：没有文件夹与手动排序；方法限 GET、POST、PUT、PATCH、DELETE、HEAD、OPTIONS；超时与重定向按目标设置 |
 | 协议 | 仅 HTTP：不支持 WebSocket 与 gRPC |
 | 脚本 | 没有请求前后脚本、测试，以及 cURL 之外的代码生成 |
-| 编辑器 | 纯文本编辑器：没有语法高亮与响应过滤 |
+| 编辑器 | 没有自动补全、括号匹配与响应过滤；超过 200 000 字符的正文不高亮 |
+| 提取 | 没有自动刷新与过期时间；不支持从事件流、非 JSON 正文或 Cookie 提取 |
 
 ## 数据与访问
 
 | 边界 | 契约 |
 |---|---|
-| 存储 | `~/.dsh/dsh-http.json`（目标、开关）、`~/.dsh/dsh-http-requests.json`（保存的请求）与 `~/.dsh/dsh-http-history.jsonl`（请求记录），权限 `0600` |
+| 存储 | `~/.dsh/dsh-http.json`（目标、开关）、`~/.dsh/dsh-http-requests.json`（保存的请求）、`~/.dsh/dsh-http-values.json`（已提取的变量值）与 `~/.dsh/dsh-http-history.jsonl`（请求记录），权限 `0600` |
 | 保存的请求 | 每个目标最多 500 个，无目标的请求最多 500 个；body 最大 256 KiB。目标的认证保留在目标上；请求自身的认证与写在其 header 里的凭证随请求明文保存。删除目标同时删除其请求 |
 | 凭证 | 仅宿主读取；摘要只含认证类型、非密钥名称与短提示 |
 | 历史 | 默认保留 200 条，先丢最旧（`historyLimit`，10–1 000）；删除目标同时删除其历史 |
@@ -131,6 +162,10 @@ dsh plugin --profile web add file:./onenightcarnival-dsh-http-<版本>.tgz
 | `GET /api/dsh-http/history?target=&limit=` | `{ entries }`，最新在前 |
 | `DELETE /api/dsh-http/history?id=` / `?target=` / 无参数 | `{ removed }` |
 | `POST /api/dsh-http/test`，请求体 `{ id }` | `{ result: { ok, status, latencyMs, error } }` |
+| `GET /api/dsh-http/values?target=` | `{ values: [{ name, hint, requestId, at }] }` |
+| `DELETE /api/dsh-http/values?target=&name=` | 清除一个已提取的变量；省略 `name` 清除该范围全部；`{ removed }` |
+| `GET /api/dsh-http/transfer` | `{ bundle }`：导出文件的内容 |
+| `POST /api/dsh-http/transfer`，请求体 `{ bundle, conflict }` | 导入；`conflict` 为 `overwrite` 或 `skip`；`{ result: { conflicts, created, overwritten, skipped, needAuth, requests } }`。`{ bundle, dryRun: true }` 只校验并返回 `conflicts` |
 
 ## 开发
 
@@ -145,8 +180,10 @@ pnpm --filter @onenightcarnival/dsh-http pack
 | 文件 | 职责 |
 |---|---|
 | `src/protocol.ts` | 宿主与客户端共享的线协议、URL 拼接、server-sent event 解析器 |
-| `src/store.ts` | 目标校验与存储、保存的请求、请求历史 |
-| `src/engine.ts` | host 与内网策略、认证、重定向、正文上限、事件流增量读取、遮罩 |
+| `src/store.ts` | 目标校验与存储、保存的请求、已提取的变量值、请求历史 |
+| `src/capture.ts` | 提取规则：JSON 路径解析与取值 |
+| `src/engine.ts` | host 与内网策略、变量替换、认证、重定向、正文上限、事件流增量读取、提取、遮罩 |
+| `src/transfer.ts` | 导出文件的生成、导入的校验与合并 |
 | `src/routes.ts` | `/api/dsh-http/*` |
 | `src/tools.ts` | `http_*` Agent 工具 |
 | `src/client/curl.ts` | cURL 命令的解析与生成、query 拆分 |
@@ -155,6 +192,7 @@ pnpm --filter @onenightcarnival/dsh-http pack
 | `src/client/panel/HttpPanel.tsx` | 三栏外壳：目标选择器、请求选择与自动保存、分隔条、快捷键、发送与取消 |
 | `src/client/panel/{RequestList,HistorySidebar,RequestPane,ResponsePane}.tsx` | 保存的请求列表、请求记录列表、请求页签、响应页签 |
 | `src/client/panel/{TargetForm,KeyValueEditor}.tsx` | 目标对话框；末尾带空行的名称/值编辑器 |
+| `src/client/panel/{Code,CaptureEditor}.tsx` | 语法高亮的只读视图与编辑器；提取规则编辑器与已提取变量列表 |
 
 ## 许可
 

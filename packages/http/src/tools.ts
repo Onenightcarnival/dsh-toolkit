@@ -9,7 +9,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { HttpPolicyError, humanBytes, type HttpEngine } from './engine.ts'
 import { DIRECT_TARGET_ID, SAFE_METHODS, isHttpMethod, type HttpExchange, type HttpTargetSummary } from './protocol.ts'
-import type { HistoryStore, TargetStore } from './store.ts'
+import type { HistoryStore, TargetStore, ValueStore } from './store.ts'
 
 function text(value: string): ContentBlock[] {
   return [{ type: 'text', text: value }]
@@ -101,7 +101,7 @@ export function renderExchange(method: string, value: ExchangeOutput): string {
   return lines.join('\n')
 }
 
-export function httpTargetsTool(store: TargetStore) {
+export function httpTargetsTool(store: TargetStore, values?: ValueStore) {
   return defineTool({
     name: 'http_targets',
     description: 'List the HTTP API targets the user configured in the dsh HTTP panel: name, base URL, auth type (credentials are injected by the host and never shown), fixed headers, {{variables}}, extra allowed hosts and whether non-GET methods are allowed. Every other http_* tool takes one of these names. Triggers: API, HTTP request, REST, endpoint, webhook, curl, Postman, 接口, 调接口, 请求.',
@@ -140,7 +140,7 @@ export function httpTargetsTool(store: TargetStore) {
     async execute() {
       return {
         targets: store.list().map(store.summarize.bind(store)).map((t: HttpTargetSummary) => ({
-          id: t.id, name: t.name, baseUrl: t.baseUrl, authType: t.auth.type, headers: t.headers, variables: Object.keys(t.variables),
+          id: t.id, name: t.name, baseUrl: t.baseUrl, authType: t.auth.type, headers: t.headers, variables: [...new Set([...Object.keys(t.variables), ...(values?.list(t.id) ?? []).map(value => value.name)])],
           allowedHosts: t.allowedHosts, allowMutations: t.allowMutations, allowPrivate: t.allowPrivate, timeoutMs: t.timeoutMs,
         })),
       }
@@ -264,6 +264,6 @@ export function httpHistoryTool(store: TargetStore, history: HistoryStore) {
   })
 }
 
-export function allTools(store: TargetStore, engine: HttpEngine, history: HistoryStore) {
-  return [httpTargetsTool(store), httpRequestTool(engine), httpHistoryTool(store, history)]
+export function allTools(store: TargetStore, engine: HttpEngine, history: HistoryStore, values?: ValueStore) {
+  return [httpTargetsTool(store, values), httpRequestTool(engine), httpHistoryTool(store, history)]
 }

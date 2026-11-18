@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isEventStream, type HttpExchange, type HttpExchangeResponse, type HttpStreamHead } from '../../protocol.ts'
 import { tt, type HttpKey } from '../locales.ts'
-import { copyText, formatTime, humanSize, prettyJson, sendShortcut, shortTime, statusKind } from './common.tsx'
+import { CodeView, languageOf } from './Code.tsx'
+import { copyText, downloadBlob, formatTime, humanSize, prettyJson, sendShortcut, shortTime, statusKind } from './common.tsx'
 import { sseRows, type SseRow } from '../sse.ts'
 import { SseView } from './SseView.tsx'
 
@@ -88,6 +89,8 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
   const bodyText = response === undefined ? '' : pretty && formatted.json ? formatted.text : response.body
   const responseHeaders = Object.entries(response?.headers ?? {})
   const sentHeaders = Object.entries(exchange?.request.sentHeaders ?? exchange?.request.headers ?? {})
+  const sentContentType = sentHeaders.find(([name]) => name.toLowerCase() === 'content-type')?.[1] ?? ''
+  const captured = (exchange?.captures ?? []).filter(result => result.ok).map(result => result.name)
   const mediaType = (response?.contentType ?? '').split(';')[0].trim().toLowerCase()
   const html = response !== undefined && !response.binary && response.body !== '' && (mediaType === 'text/html' || mediaType === 'application/xhtml+xml')
   const image = response !== undefined && response.bodyBase64 !== undefined && mediaType.startsWith('image/')
@@ -106,14 +109,7 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
     if (response === undefined || exchange === undefined) return
     const blob = bodyBlob(response)
     if (blob === undefined) return
-    const href = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = href
-    link.download = saveName(exchange.request.url, response.contentType)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    setTimeout(() => { URL.revokeObjectURL(href) }, 10_000)
+    downloadBlob(blob, saveName(exchange.request.url, response.contentType))
   }
 
   const overlay = props.sendingSince !== undefined && (
@@ -230,9 +226,13 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
                     : html && rendered
                       // Scripts, forms and same-origin access stay off; relative links resolve against the request URL.
                       ? <iframe className="dsh-http-frame" sandbox="" referrerPolicy="no-referrer" title={tt('response.render')} srcDoc={`<base href="${escapeAttribute(exchange.request.url)}">${response.body}`} />
-                      : <pre className="dsh-http-code">{bodyText}</pre>
+                      : <CodeView text={bodyText} language={languageOf(response.contentType, bodyText)} />
             )}
             {response?.bodyTruncated === true && <div className="dsh-http-note">{tt('response.truncated', { size: humanSize(response.bodyBytes) })}</div>}
+            {captured.length > 0 && <div className="dsh-http-note" data-kind="ok">{tt('response.captured', { names: captured.map(name => `{{${name}}}`).join(' ') })}</div>}
+            {(exchange.captures ?? []).filter(result => !result.ok).map(result => (
+              <div key={result.name} className="dsh-http-note" data-kind="error">{tt('response.captureFailed', { name: `{{${result.name}}}`, error: result.error ?? '' })}</div>
+            ))}
           </>
         )}
 
@@ -261,7 +261,7 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
             {exchange.request.body !== '' && (
               <div className="dsh-http-readonlyBlock">
                 <span className="dsh-http-label">{tt('response.sentBody')}</span>
-                <pre className="dsh-http-code">{exchange.request.body}</pre>
+                <CodeView text={exchange.request.body} language={languageOf(sentContentType, exchange.request.body)} />
                 {exchange.request.bodyTruncated && <div className="dsh-http-note">{tt('response.requestTruncated')}</div>}
               </div>
             )}

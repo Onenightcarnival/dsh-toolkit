@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { HttpStreamEnd } from '../../protocol.ts'
 import { deltaText, type SseRow } from '../sse.ts'
 import { tt, type HttpKey } from '../locales.ts'
+import { CodeView } from './Code.tsx'
 import { prettyJson } from './common.tsx'
 
 const TEXT_CACHE = new WeakMap<SseRow, string>()
@@ -95,7 +96,7 @@ export function SseView(props: SseViewProps): JSX.Element {
                       {expanded && (
                         <div className="dsh-http-sseDetail">
                           {(row.id !== undefined || row.retry !== undefined) && <span className="dsh-http-meta">{row.id !== undefined ? `id: ${row.id}` : ''}{row.id !== undefined && row.retry !== undefined ? ' · ' : ''}{row.retry !== undefined ? `retry: ${row.retry}` : ''}</span>}
-                          <pre className="dsh-http-code">{prettyJson(row.data).text}</pre>
+                          <EventData data={row.data} />
                         </div>
                       )}
                     </div>
@@ -109,4 +110,10 @@ export function SseView(props: SseViewProps): JSX.Element {
       </div>
     </div>
   )
+}
+
+/** Data of one event: pretty-printed and highlighted when it is JSON. */
+function EventData(props: { data: string }): JSX.Element {
+  const formatted = prettyJson(props.data)
+  return <CodeView text={formatted.text} language={formatted.json ? 'json' : undefined} />
 }

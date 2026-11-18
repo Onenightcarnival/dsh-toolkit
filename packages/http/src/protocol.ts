@@ -11,6 +11,8 @@ export const HTTP_API = {
   history: '/api/dsh-http/history',
   requests: '/api/dsh-http/requests',
   test: '/api/dsh-http/test',
+  values: '/api/dsh-http/values',
+  transfer: '/api/dsh-http/transfer',
 } as const
 
 /**
@@ -40,13 +42,17 @@ export type HttpAuth =
 export type HttpAuthType = HttpAuth['type']
 export const HTTP_AUTH_TYPES: readonly HttpAuthType[] = ['none', 'bearer', 'basic', 'header', 'query']
 
-/** Secret-free view of the authentication: type, non-secret names and a hint of the secret. */
+/**
+ * Secret-free view of the authentication: type, non-secret names and a hint of
+ * the secret. `missing` marks a secret that is not stored (an imported target);
+ * requests to the target are refused until it is filled in.
+ */
 export type HttpAuthSummary =
   | { type: 'none' }
-  | { type: 'bearer'; hint: string }
-  | { type: 'basic'; username: string }
-  | { type: 'header'; name: string; hint: string }
-  | { type: 'query'; name: string; hint: string }
+  | { type: 'bearer'; hint: string; missing?: true }
+  | { type: 'basic'; username: string; missing?: true }
+  | { type: 'header'; name: string; hint: string; missing?: true }
+  | { type: 'query'; name: string; hint: string; missing?: true }
 
 /** One API target as stored on disk (secrets included). */
 export interface HttpTarget {
@@ -59,7 +65,7 @@ export interface HttpTarget {
   auth: HttpAuth
   /** Headers sent on every request; a request header of the same name overrides. */
   headers: Record<string, string>
-  /** `{{name}}` substitutions applied to path, query, headers and body. Non-secret. */
+  /** `{{name}}` substitutions applied to path, query, headers and body. Non-secret; a captured value of the same name takes precedence. */
   variables: Record<string, string>
   /** Extra hosts a request or redirect may reach besides the base URL host; `*.example.com` matches subdomains. */
   allowedHosts: string[]
@@ -153,6 +159,44 @@ export interface HttpKeyValue {
 export const HTTP_BODY_MODES = ['none', 'json', 'text', 'form'] as const
 export type HttpBodyMode = typeof HTTP_BODY_MODES[number]
 
+export const HTTP_CAPTURE_SOURCES = ['body', 'header'] as const
+export type HttpCaptureSource = typeof HTTP_CAPTURE_SOURCES[number]
+
+/**
+ * One capture rule of a saved request: after the panel sends the request and a
+ * 2xx response arrives, the host reads one value from the response and keeps
+ * it as the variable `name` of the request's scope. Fields may be incomplete
+ * while edited; incomplete rules are skipped.
+ */
+export interface HttpCapture {
+  /** Variable the value is written to; other requests of the scope reference it as `{{name}}`. */
+  name: string
+  /** `body`: a path into the JSON body. `header`: a response header name. */
+  source: HttpCaptureSource
+  /** JSON path (`data.token`, `items[0].id`, `$.a["b.c"]`) or header name. */
+  path: string
+  enabled: boolean
+}
+
+/** Outcome of one capture rule on an exchange. */
+export interface HttpCaptureResult {
+  name: string
+  ok: boolean
+  /** Why no value was captured. */
+  error?: string
+}
+
+/** A captured variable as shown to the browser and the agent: the value stays on the host. */
+export interface HttpCapturedValue {
+  name: string
+  /** Masked hint of the value. */
+  hint: string
+  /** Saved request the value came from. */
+  requestId: string
+  /** Unix ms of the capture. */
+  at: number
+}
+
 /** A request form kept under a target: edited in place in the panel and sent as often as needed. */
 export interface HttpSavedRequest {
   id: string
@@ -171,6 +215,8 @@ export interface HttpSavedRequest {
   body: string
   /** Fields of the form mode. */
   form: HttpKeyValue[]
+  /** Values read from the response into variables of the scope. */
+  captures: HttpCapture[]
   createdAt: number
   updatedAt: number
 }
@@ -187,6 +233,7 @@ export interface HttpSavedRequestPayload {
   bodyMode?: HttpBodyMode
   body?: string
   form?: HttpKeyValue[]
+  captures?: HttpCapture[]
 }
 
 /** The request as sent, after substitution and auth injection; secret values masked. */
@@ -350,6 +397,57 @@ export interface HttpExchange {
   response?: HttpExchangeResponse
   /** Transport or policy failure; absent when a response arrived. */
   error?: string
+  /** Outcome of the saved request's capture rules; captured values are masked in this exchange. */
+  captures?: HttpCaptureResult[]
+}
+
+/** Format marker of an export file. */
+export const HTTP_BUNDLE_FORMAT = 'dsh-http'
+export const HTTP_BUNDLE_VERSION = 1
+
+/** A target in an export file: `id` only links the file's requests to it; secrets are blank. */
+export interface HttpBundleTarget {
+  id: string
+  name: string
+  baseUrl: string
+  auth: HttpAuth
+  headers: Record<string, string>
+  variables: Record<string, string>
+  allowedHosts: string[]
+  allowMutations: boolean
+  allowPrivate: boolean
+  timeoutMs: number
+}
+
+/**
+ * Export file: targets, saved requests and the history limit. It carries no
+ * secrets: target and request credentials and literal credential header values
+ * are blank, captured values and the history are left out.
+ */
+export interface HttpBundle {
+  format: typeof HTTP_BUNDLE_FORMAT
+  version: number
+  exportedAt: number
+  settings: { historyLimit: number }
+  targets: HttpBundleTarget[]
+  /** `targetId` is a bundle target id or DIRECT_TARGET_ID. */
+  requests: Array<Omit<HttpSavedRequest, 'createdAt' | 'updatedAt'>>
+}
+
+/** What an import does with a target name (or the direct scope) that already exists. */
+export type HttpImportConflict = 'overwrite' | 'skip'
+
+/** Outcome of an import, or of its dry run. */
+export interface HttpImportResult {
+  /** Names of existing targets the file also contains; DIRECT_TARGET_ID when both sides hold requests without a target. */
+  conflicts: string[]
+  created: string[]
+  overwritten: string[]
+  skipped: string[]
+  /** Targets whose credentials have to be filled in. */
+  needAuth: string[]
+  /** Saved requests written. */
+  requests: number
 }
 
 /** Connection test outcome: any HTTP status counts as reachable. */

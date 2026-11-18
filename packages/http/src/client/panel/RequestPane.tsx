@@ -1,18 +1,20 @@
 import { useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import {
   DIRECT_TARGET_ID, HTTP_AUTH_TYPES, HTTP_BODY_MODES, HTTP_METHODS, joinUrl, substitute,
-  type HttpAuth, type HttpAuthType, type HttpBodyMode, type HttpExchange, type HttpKeyValue, type HttpMethod, type HttpPairs, type HttpRequestInput,
+  type HttpAuth, type HttpAuthType, type HttpBodyMode, type HttpCapture, type HttpCapturedValue, type HttpExchange, type HttpKeyValue, type HttpMethod, type HttpPairs, type HttpRequestInput,
   type HttpSavedRequest, type HttpSavedRequestPayload, type HttpTargetSummary,
 } from '../../protocol.ts'
 import { parseCurl, splitQuery, toCurl, type ParsedCurl } from '../curl.ts'
 import { tt, type HttpKey } from '../locales.ts'
+import { CaptureEditor, activeCaptures } from './CaptureEditor.tsx'
+import { CodeEditor } from './Code.tsx'
 import { copyText, prettyJson, sendShortcut } from './common.tsx'
 import { KeyValueEditor, activeCount, recordToRows, rowsToPairs, rowsToRecord, type KeyValueRow } from './KeyValueEditor.tsx'
 
 export type BodyMode = HttpBodyMode
 const BODY_MODES: readonly BodyMode[] = HTTP_BODY_MODES
 
-export const REQUEST_TABS = ['params', 'body', 'headers', 'auth'] as const
+export const REQUEST_TABS = ['params', 'body', 'headers', 'auth', 'captures'] as const
 export type RequestTab = typeof REQUEST_TABS[number]
 
 /** The form fields of a saved request, as edited in the panel. */
@@ -26,6 +28,8 @@ export interface BuilderState {
   bodyMode: BodyMode
   body: string
   form: KeyValueRow[]
+  /** Values read from the response into variables of the scope. */
+  captures: HttpCapture[]
 }
 
 function storedRows(rows: KeyValueRow[]): HttpKeyValue[] {
@@ -34,12 +38,12 @@ function storedRows(rows: KeyValueRow[]): HttpKeyValue[] {
 
 /** Form fields of a saved request. */
 export function builderFromSaved(request: HttpSavedRequest): BuilderState {
-  return { method: request.method, path: request.path, query: request.query, headers: request.headers, auth: request.auth ?? { type: 'none' }, bodyMode: request.bodyMode, body: request.body, form: request.form }
+  return { method: request.method, path: request.path, query: request.query, headers: request.headers, auth: request.auth ?? { type: 'none' }, bodyMode: request.bodyMode, body: request.body, form: request.form, captures: request.captures ?? [] }
 }
 
 /** Stored fields of a form. */
 export function savedFromBuilder(state: BuilderState): Required<Omit<HttpSavedRequestPayload, 'targetId' | 'name'>> {
-  return { method: state.method, path: state.path, query: storedRows(state.query), headers: storedRows(state.headers), auth: state.auth, bodyMode: state.bodyMode, body: state.body, form: storedRows(state.form) }
+  return { method: state.method, path: state.path, query: storedRows(state.query), headers: storedRows(state.headers), auth: state.auth, bodyMode: state.bodyMode, body: state.body, form: storedRows(state.form), captures: state.captures }
 }
 
 /** Builder state reproducing a recorded exchange; credentials are not part of a record. */
@@ -66,6 +70,7 @@ export function builderFromExchange(exchange: HttpExchange): BuilderState {
     bodyMode,
     body: bodyMode === 'form' ? '' : body,
     form,
+    captures: [],
   }
 }
 
@@ -108,6 +113,7 @@ export function builderFromCurl(parsed: ParsedCurl, target: HttpTargetSummary): 
     bodyMode,
     body,
     form,
+    captures: [],
   }
 }
 
@@ -130,9 +136,15 @@ export function toRequestInput(state: BuilderState): HttpRequestInput {
   return { method: state.method, path: state.path, query: rowsToPairs(state.query), headers, body, ...(state.auth.type === 'none' ? {} : { auth: state.auth }) }
 }
 
-/** URL the host will request for a builder state (query auth excluded); an error message when it cannot be built. */
-export function previewUrl(target: HttpTargetSummary, state: BuilderState): { url: string } | { error: string } {
-  const vars = target.variables
+const VALUE_MASK = '••••••'
+
+/**
+ * URL the host will request for a builder state (query auth excluded); an
+ * error message when it cannot be built. Captured variables show masked: the
+ * browser does not hold their values.
+ */
+export function previewUrl(target: HttpTargetSummary, state: BuilderState, captured: readonly HttpCapturedValue[] = []): { url: string } | { error: string } {
+  const vars = { ...target.variables, ...Object.fromEntries(captured.map(value => [value.name, VALUE_MASK])) }
   // A request without a target has nothing to preview until a URL is typed.
   if (target.baseUrl === '' && state.path.trim() === '') return { url: '' }
   try {
@@ -173,10 +185,10 @@ function authSummary(target: HttpTargetSummary): Array<[string, string]> {
   const auth = target.auth
   switch (auth.type) {
     case 'none': return [[tt('form.auth'), tt('form.auth.none')]]
-    case 'bearer': return [[tt('form.auth'), tt('form.auth.bearer')], [tt('form.auth.token'), auth.hint]]
-    case 'basic': return [[tt('form.auth'), tt('form.auth.basic')], [tt('form.auth.username'), auth.username], [tt('form.auth.password'), '••••••']]
-    case 'header': return [[tt('form.auth'), tt('form.auth.header')], [tt('form.auth.headerName'), auth.name], [tt('form.auth.value'), auth.hint]]
-    case 'query': return [[tt('form.auth'), tt('form.auth.query')], [tt('form.auth.queryName'), auth.name], [tt('form.auth.value'), auth.hint]]
+    case 'bearer': return [[tt('form.auth'), tt('form.auth.bearer')], [tt('form.auth.token'), auth.missing ? '—' : auth.hint]]
+    case 'basic': return [[tt('form.auth'), tt('form.auth.basic')], [tt('form.auth.username'), auth.username], [tt('form.auth.password'), auth.missing ? '—' : VALUE_MASK]]
+    case 'header': return [[tt('form.auth'), tt('form.auth.header')], [tt('form.auth.headerName'), auth.name], [tt('form.auth.value'), auth.missing ? '—' : auth.hint]]
+    case 'query': return [[tt('form.auth'), tt('form.auth.query')], [tt('form.auth.queryName'), auth.name], [tt('form.auth.value'), auth.missing ? '—' : auth.hint]]
   }
 }
 
@@ -253,16 +265,21 @@ export interface RequestPaneProps {
   onCreateTarget: () => void
   /** Short status line for the panel banner. */
   onNotice: (text: string) => void
+  /** Captured variables of the scope. */
+  captured: HttpCapturedValue[]
+  /** Title of a saved request of the scope by id. */
+  requestTitle: (id: string) => string | undefined
+  onClearValue: (name: string) => void
 }
 
-/** Request pane: URL bar, then Params / Body / Headers / Auth tabs. */
+/** Request pane: URL bar, then Params / Body / Headers / Auth / Capture tabs. */
 export function RequestPane(props: RequestPaneProps): JSX.Element {
   const { state, onChange, target, tab } = props
   const [copied, setCopied] = useState(false)
   const set = (patch: Partial<BuilderState>): void => { onChange({ ...state, ...patch }) }
   const bodyAllowed = state.method !== 'GET' && state.method !== 'HEAD'
   const jsonError = state.bodyMode === 'json' && state.body.trim() !== '' ? (() => { try { JSON.parse(state.body); return undefined } catch (error) { return error instanceof Error ? error.message : String(error) } })() : undefined
-  const preview = previewUrl(target, state)
+  const preview = previewUrl(target, state, props.captured)
   const fixedHeaders = Object.entries(target.headers)
   const direct = target.id === DIRECT_TARGET_ID
   /** The request's own authentication is in effect when the target brings none. */
@@ -276,6 +293,7 @@ export function RequestPane(props: RequestPaneProps): JSX.Element {
       const type = ownAuth ? state.auth.type : target.auth.type
       return type === 'none' ? undefined : tt(`form.auth.${type}` as HttpKey)
     }
+    if (value === 'captures') { const n = activeCaptures(state.captures); return n > 0 ? String(n) : undefined }
     return undefined
   }
 
@@ -371,7 +389,7 @@ export function RequestPane(props: RequestPaneProps): JSX.Element {
                 )}
               </div>
               {(state.bodyMode === 'json' || state.bodyMode === 'text') && (
-                <textarea className="dsh-http-editor" value={state.body} placeholder={state.bodyMode === 'json' ? tt('request.bodyPlaceholder') : ''} onChange={(e) => { set({ body: e.target.value }) }} onKeyDown={onEditorKeyDown} spellCheck={false} disabled={props.sending} />
+                <CodeEditor value={state.body} language={state.bodyMode === 'json' ? 'json' : undefined} placeholder={state.bodyMode === 'json' ? tt('request.bodyPlaceholder') : ''} onChange={(body) => { set({ body }) }} onKeyDown={onEditorKeyDown} disabled={props.sending} ariaLabel={tt('request.tab.body')} />
               )}
               {state.bodyMode === 'form' && (
                 <KeyValueEditor rows={state.form} onChange={(form) => { set({ form }) }} toggle tools disabled={props.sending} />
@@ -409,8 +427,13 @@ export function RequestPane(props: RequestPaneProps): JSX.Element {
               <tbody>{authSummary(target).map(([name, value]) => <tr key={name}><th>{name}</th><td>{value}</td></tr>)}</tbody>
             </table>
             <p className="dsh-http-note">{tt('request.authNote')}</p>
+            {target.auth.type !== 'none' && target.auth.missing === true && <div className="dsh-http-formError">{tt('request.authMissing')}</div>}
             <div><button type="button" className="dsh-http-ghost" onClick={props.onEditTarget}>{tt('targets.edit')}</button></div>
           </div>
+        )}
+
+        {tab === 'captures' && (
+          <CaptureEditor rules={state.captures} onChange={(captures) => { set({ captures }) }} disabled={props.sending} captured={props.captured} requestTitle={props.requestTitle} onClear={props.onClearValue} />
         )}
       </div>
     </div>

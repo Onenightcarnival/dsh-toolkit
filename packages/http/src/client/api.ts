@@ -1,6 +1,6 @@
 /** Browser-side client for the /api/dsh-http route family (same origin, cookie auth). */
 
-import { HTTP_API, type HttpExchange, type HttpSendLine, type HttpSseEvent, type HttpStreamHead, type HttpRequestInput, type HttpSavedRequest, type HttpSavedRequestPayload, type HttpSettings, type HttpTargetPayload, type HttpTargetSummary, type HttpTestResult } from '../protocol.ts'
+import { HTTP_API, type HttpBundle, type HttpCapturedValue, type HttpExchange, type HttpImportConflict, type HttpImportResult, type HttpSendLine, type HttpSseEvent, type HttpStreamHead, type HttpRequestInput, type HttpSavedRequest, type HttpSavedRequestPayload, type HttpSettings, type HttpTargetPayload, type HttpTargetSummary, type HttpTestResult } from '../protocol.ts'
 import { tt } from './locales.ts'
 
 export class HttpApiError extends Error {
@@ -108,6 +108,26 @@ export class HttpApi {
     take(buffer)
     if (exchange === undefined) throw new HttpApiError(tt('error.incomplete'))
     return exchange
+  }
+
+  /** Captured variables of a scope: names and hints, never the values. */
+  async values(targetId: string): Promise<HttpCapturedValue[]> {
+    return (await readJson<{ values: HttpCapturedValue[] }>(await fetch(`${HTTP_API.values}?target=${encodeURIComponent(targetId)}`, { credentials: 'same-origin' }))).values
+  }
+
+  async deleteValue(targetId: string, name: string): Promise<void> {
+    await readJson(await fetch(`${HTTP_API.values}?target=${encodeURIComponent(targetId)}&name=${encodeURIComponent(name)}`, { method: 'DELETE', credentials: 'same-origin' }))
+  }
+
+  /** The configuration as an export document, without secrets. */
+  async exportBundle(): Promise<HttpBundle> {
+    return (await readJson<{ bundle: HttpBundle }>(await fetch(HTTP_API.transfer, { credentials: 'same-origin' }))).bundle
+  }
+
+  /** Import an export document; without `conflict` the host validates it and reports the colliding names only. */
+  async importBundle(bundle: unknown, conflict?: HttpImportConflict): Promise<HttpImportResult> {
+    const body = conflict === undefined ? { bundle, dryRun: true } : { bundle, conflict }
+    return (await readJson<{ result: HttpImportResult }>(await fetch(HTTP_API.transfer, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body), credentials: 'same-origin' }))).result
   }
 
   async history(targetId?: string, limit = 100): Promise<HttpExchange[]> {
