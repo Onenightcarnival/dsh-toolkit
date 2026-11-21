@@ -52,7 +52,7 @@ test('gateway server: auth, models, three protocols, usage ledger', async (t) =>
   const full = keys.create('full', null).key
   const limited = keys.create('limited', ['echo:fast']).key
   let streamImpl: (options: GenerateOptions) => AsyncIterable<StreamChunk> = echo
-  const catalog = new ModelCatalog({ listProviders: () => [{ id: 'echo', name: 'Echo' }], listModels: async () => [{ id: 'fast', name: 'Fast' }, { id: 'slow', name: 'Slow' }] }, () => settings, () => undefined)
+  const catalog = new ModelCatalog({ listProviders: () => [{ id: 'echo', name: 'Echo' }], listModels: async () => [{ id: 'fast', name: 'Fast' }, { id: 'slow', name: 'Slow' }] }, () => settings)
   const server = createGatewayServer({ llm: { stream: options => streamImpl(options) }, catalog, keys, usage, resolveImage: async () => { throw new Error('no images') }, maxBodyBytes: 1024 * 1024, log: { info() {}, warn() {} } })
   const { port } = await listen(server, '127.0.0.1', 0)
   const base = `http://127.0.0.1:${port}`

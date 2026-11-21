@@ -6,6 +6,12 @@ import {
   createBrowserSnapshotMessage,
 } from '../src/browser-context.ts'
 
+/** Text of the first content block; undefined for other block types. */
+function textOf(message: ReturnType<typeof createBrowserSnapshotMessage>): string | undefined {
+  const block = message.content[0]
+  return block?.type === 'text' ? block.text : undefined
+}
+
 function fakeAgent(id: string): Agent & { inject: ReturnType<typeof vi.fn> } {
   return { id, inbox: { nextStep: [] }, inject: vi.fn() } as unknown as Agent & { inject: ReturnType<typeof vi.fn> }
 }
@@ -27,14 +33,14 @@ describe('browser page context', () => {
       type: 'text',
       text: expect.stringContaining('browser page context was refreshed'),
     }])
-    expect(message.content[0].text).toContain('already completed browser_snapshot')
-    expect(message.content[0].text).toContain('do not take an immediate duplicate snapshot')
+    expect(textOf(message)).toContain('already completed browser_snapshot')
+    expect(textOf(message)).toContain('do not take an immediate duplicate snapshot')
   })
 
   it('repairs malformed page context in both message content and source sections', () => {
     const message = createBrowserSnapshotMessage('Releases 🚀 \uD83D… \uDE80')
-    expect(message.content[0].text).toContain('Releases 🚀 �… �')
-    expect(message.source.sections?.[0]?.text).toBe(message.content[0].text)
+    expect(textOf(message)).toContain('Releases 🚀 �… �')
+    expect((message.source as { sections?: { text: string }[] }).sections?.[0]?.text).toBe(textOf(message))
     expect(JSON.stringify(message)).not.toContain('\\ud83d')
   })
 
@@ -67,7 +73,7 @@ describe('browser page context', () => {
     const get = vi.fn()
       .mockReturnValueOnce(undefined)
       .mockReturnValueOnce(agent)
-    const injector = new BrowserContextInjector({ get } as unknown as Pick<AgentRegistry, 'get'>)
+    const injector = new BrowserContextInjector({ get })
 
     injector.inject('session-race', 'Queued page')
     injector.inject('session-race', 'Live page')

@@ -207,18 +207,6 @@
       ]
     },
     {
-      // Tests outside their package's TypeScript program.
-      "files": [
-        "packages/{browser-bridge,gateway,memory}/{test,tests}/**/*.{ts,tsx}"
-      ],
-      "rules": {
-        "typescript/no-unnecessary-type-assertion": "off"
-      },
-      "plugins": [
-        "typescript"
-      ]
-    },
-    {
       // Official rules not enforced in this workspace.
       "files": [
         "**/*.{ts,tsx}"

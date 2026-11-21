@@ -14,7 +14,7 @@ function fixture(t: { after(fn: () => void): void }) {
   t.after(() => { store.close(); rmSync(dir, { recursive: true, force: true }) })
   const tools = memoryTools(store)
   const context = { callId: 'call-test', agent: { session: { id: 'session-test' } } } as unknown as ToolRunContext
-  const run = async (name: string, args: unknown = {}) => JSON.parse(await tools.find(tool => tool.name === name)!.execute(args as never, context) as string)
+  const run = async (name: string, args: unknown = {}) => JSON.parse(await tools.find(tool => tool.name === name)!.execute(args, context) as string)
   const save = (changes: unknown[], stateToken = `r:${store.read().revision}`) => run('memory_save', { stateToken, summary: 'Verified outcome', changes })
   const seed = () => save([
     { kind: 'lesson', ref: 'lesson', fields: { parentId: '@project', lesson: 'Verified bridge isolation before shipping' } },

@@ -89,7 +89,7 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -b --pretty false",
+    "typecheck": "tsc -b --pretty false && tsc -p tests --noEmit --pretty false",
     "build": "tsc -b --pretty false && tsdown && node build.mjs"
   },
   "devDependencies": {

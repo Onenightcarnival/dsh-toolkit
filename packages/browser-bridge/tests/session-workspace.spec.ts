@@ -28,7 +28,7 @@ function request(payload: Record<string, unknown> = {}, rpcId = 'session-rpc'): 
 }
 
 function apiHarness(workspaceCreate?: (call: HostRpcCall) => Promise<HostRpcResult>) {
-  const sessionCreate = vi.fn(async (): Promise<HostRpcResult> => ({
+  const sessionCreate = vi.fn(async (_call: HostRpcCall): Promise<HostRpcResult> => ({
     ok: true, value: { sessionId: 'session-browser' },
   }))
   const call = vi.fn(async (input: HostRpcCall): Promise<HostRpcResult> => {

@@ -75,7 +75,7 @@ beforeAll(async () => {
     toolTimeoutMs: 10_000,
     caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     injectBrowserSnapshot: () => {},
-    purgeSession: async () => {},
+    purgeSession: async () => 'purged',
   })
   http = createServer((req, res) => {
     if (req.url === '/ext/bridge-config') {

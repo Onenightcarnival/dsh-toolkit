@@ -12,7 +12,7 @@ function contextWith(services: Record<string, unknown>): Context {
 const exec = {
   agent: { options: { provider: 'deepseek-official', model: 'deepseek-v4' } },
   signal: new AbortController().signal,
-}
+} as unknown as Parameters<typeof prepareImageProjection>[1]
 
 describe('decodeImagePayload', () => {
   it('accepts canonical PNG base64 and rejects other shapes', () => {
@@ -25,7 +25,7 @@ describe('decodeImagePayload', () => {
 
 describe('prepareImageProjection', () => {
   it('stores the image and returns text + image blocks when the model accepts images', async () => {
-    const saveImages = vi.fn(async () => [{ id: 'att-1' }])
+    const saveImages = vi.fn(async (_images: unknown[]) => [{ id: 'att-1' }])
     const ctx = contextWith({
       attachments: { saveImages },
       llm: { resolveModelInfo: async () => ({ inputModalities: ['text', 'image'] }) },

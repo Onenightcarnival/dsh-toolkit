@@ -9,7 +9,7 @@ describe('registerBrowserTools', () => {
     const ctx = {
       tools: {
         register: vi.fn((definition: { name: string }) => {
-          registered.push({ name: definition.name, definition: definition as Record<string, unknown> })
+          registered.push({ name: definition.name, definition })
           return () => {}
         }),
       },

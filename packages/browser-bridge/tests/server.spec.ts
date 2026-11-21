@@ -587,7 +587,7 @@ describe('BridgeServer', () => {
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
     await waitFor(() => frames.filter(f => f.t === 'event').length >= 2)
-    const events = frames.filter(f => f.t === 'event') as Extract<BridgeFrame, { t: 'event' }>[]
+    const events = frames.filter(f => f.t === 'event')
     expect(events.map(e => e.frame.method)).toEqual(['session/subscribed', 'session/queue'])
     ws.close()
   })

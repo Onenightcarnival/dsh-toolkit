@@ -178,6 +178,7 @@ async function loadComposition(): Promise<{ ctx: Context; configPath: string; po
   })
   await context.loader.await()
   const web = context.get('webServer') as typeof WebServer.prototype
+  if (web.port === undefined) throw new Error('web server has no port')
   return { ctx: context, configPath, port: web.port }
 }
 
@@ -261,7 +262,7 @@ describe('real Loader composition', () => {
     expect(agent.inbox.nextStep[0]?.content).toContainEqual({ type: 'text', text: expect.stringContaining('provisional tab') })
 
     const steering = createUserMessage({
-      content: [{ type: 'text', text: 'Keep my page selection.' }], source: { kind: 'human' },
+      content: [{ type: 'text', text: 'Keep my page selection.' }], source: { kind: 'user' },
     })
     agent.inbox.append('next-step', steering)
     await followPage('live-page', 'Page: current tab')
@@ -271,12 +272,12 @@ describe('real Loader composition', () => {
     expect(agent.inbox.nextStep).toHaveLength(2)
     expect(agent.inbox.nextStep[0]?.id).toBe(steering.id)
     expect(JSON.stringify(agent.inbox.nextStep)).not.toContain('provisional tab')
-    expect(agent.session.snapshotEvents().some(event => event.type === 'agent/inbox/spliced'
     // oxlint-disable-next-line typescript/no-deprecated -- The assertion inspects the session log.
+    expect(agent.session.snapshotEvents().some(event => event.type === 'agent/inbox/spliced'
       && event.data.outcome === 'canceled')).toBe(true)
 
     agent.followup(createUserMessage({
-      content: [{ type: 'text', text: 'Summarize this page.' }], source: { kind: 'human' },
+      content: [{ type: 'text', text: 'Summarize this page.' }], source: { kind: 'user' },
     }))
     await agent.whenIdle()
 

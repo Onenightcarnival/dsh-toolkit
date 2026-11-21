@@ -8,11 +8,11 @@ function apiHarness() {
     ok: true,
     value: { sessionId: (call.payload as { sessionId: string }).sessionId },
   }))
-  const sessionHistory = vi.fn(async (): Promise<HostRpcResult> => ({
+  const sessionHistory = vi.fn(async (_call: HostRpcCall): Promise<HostRpcResult> => ({
     ok: true,
     value: { events: [{ event: { type: 'user/message' } }], hasMore: false },
   }))
-  const sessionPrompt = vi.fn(async (): Promise<HostRpcResult> => ({
+  const sessionPrompt = vi.fn(async (_call: HostRpcCall): Promise<HostRpcResult> => ({
     ok: true,
     value: { accepted: true },
   }))

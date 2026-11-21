@@ -123,6 +123,7 @@ pnpm --filter dsh-browser-extension run build:firefox
 | 客户端内联库 | `@deepseek-ai/dsh-util-crypto` 编译进客户端产物；引用它的包在 devDependencies 中声明 |
 | 订阅认证依赖 | `@cortexkit/antigravity-auth-core` 为 subscriptions 与 toolkit 的运行时依赖 |
 | 集成包 | 直接编译九个子包的源码；类型检查覆盖同一组源码 |
+| 类型检查范围 | 各包的 `typecheck` 覆盖 TypeScript 源码与 TypeScript 测试；browser-bridge 的测试使用 `tests/tsconfig.json` |
 | 运行时版本 | `pnpm-workspace.yaml` 的 overrides 统一锁定 |
 
 ### 安装验证
