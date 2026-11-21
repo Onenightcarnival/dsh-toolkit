@@ -108,11 +108,12 @@ The tool is oxlint; the rule set comes from [`.oxlintrc.json` of deepseek-ai/dee
 | Item | Contract |
 |---|---|
 | `.oxlintrc.format.json` | Format rules with an automatic fix: 2-space indent, no semicolons, single quotes, multiline trailing commas, arrow parameter parentheses, type member delimiters |
-| `.oxlintrc.json` | Extends the format rules; TypeScript uses type-aware rules, JavaScript uses syntax rules; the separate rule group at the end lists the official rules this repository leaves off |
+| `.oxlintrc.json` | Extends the format rules; TypeScript uses type-aware rules, JavaScript uses syntax rules; the rule groups whose comment starts with `Official … not enforced` list the official rules this repository leaves off |
 | Scope | `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs` under `packages`, `extensions`, `benchmark`, `scripts` |
 | Ignored | `lib/`, `dist/`, `dist-firefox/`, `coverage/`, `node_modules/`, `*.config.ts` |
 | Runtime | Type-aware rules in `lint` read each package's `tsconfig.json` and the installed dependencies; `format` and `format:check` run without type analysis |
 | `lint:fix` | Applies the safe automatic fixes of every rule |
+| `.git-blame-ignore-revs` | Format-only commits; `git blame --ignore-revs-file .git-blame-ignore-revs` skips them |
 
 ### Build contract
 

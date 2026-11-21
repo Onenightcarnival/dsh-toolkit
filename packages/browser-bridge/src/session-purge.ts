@@ -142,5 +142,6 @@ export async function purgeSessionFiles(deps: SessionPurgeDeps, sessionId: strin
         })
     }
   }
+  // oxlint-disable-next-line typescript/only-throw-error -- Rethrows the recorded failure unchanged.
   if (failure !== undefined) throw failure
 }

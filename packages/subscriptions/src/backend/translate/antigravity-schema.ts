@@ -83,7 +83,7 @@ function absorb(schema: Schema, extra: Schema): void {
   Object.assign(schema, rest)
   if (object(properties)) schema.properties = { ...object(schema.properties) ? schema.properties : {}, ...properties }
   if (Array.isArray(required)) {
-    schema.required = [...new Set([...Array.isArray(schema.required) ? schema.required : [], ...required])]
+    schema.required = [...new Set<unknown>([...Array.isArray(schema.required) ? schema.required as unknown[] : [], ...required as unknown[]])]
   }
 }
 
@@ -109,7 +109,7 @@ function custom(value: unknown): unknown {
       out[key] = Object.fromEntries(Object.entries(value).map(([name, property]) => [name, custom(property)]))
     } else if (key === 'items') out[key] = custom(value)
     else if (key === 'type' && Array.isArray(value)) {
-      const types = value.filter(type => type !== 'null')
+      const types = (value as unknown[]).filter(type => type !== 'null')
       const type = types.length === 1 ? types[0]
         : types.length > 0 && types.every(entry => NUMERIC.has(entry as string)) ? 'number' : undefined
       if (type !== undefined) out[key] = type

@@ -35,6 +35,7 @@ const PLUGINS: Record<Module, unknown> = {
 
 type Slots = PinSlots & {
   inject(name: string, register: () => () => void): () => void
+  // oxlint-disable-next-line typescript/no-explicit-any -- The slot registry accepts components of any props.
   register(options: Record<string, unknown>, component: ComponentType<any>): () => void
 }
 

@@ -91,7 +91,7 @@ function mockChrome(initialTabs: chrome.tabs.Tab[], storedContext?: unknown) {
       onFocusChanged: chromeEvent<[number]>(),
       onRemoved: chromeEvent<[number]>(),
     },
-  } as unknown as typeof chrome)
+  })
   return { onConnect, onRemoved, onReplaced, query, sessionData, sessionSet, tabs }
 }
 

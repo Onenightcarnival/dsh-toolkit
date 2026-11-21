@@ -93,7 +93,7 @@ async function ensureReady(): Promise<void> {
     (loaded) => {
       current = loaded
     },
-    (error) => {
+    (error: unknown) => {
       loadError = error
       current = EMPTY
     },

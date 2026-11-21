@@ -149,14 +149,14 @@ describe('tool-driven session checkpoints', () => {
         onFocusChanged: chromeEvent<[number]>(),
         onRemoved: chromeEvent<[number]>(),
       },
-    } as unknown as typeof chrome)
+    })
     vi.stubGlobal('WebSocket', FakeWebSocket)
     await import('../src/background/index.ts')
 
     const panel = panelPort()
     onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await vi.waitFor(() => { expect(socket.sent).toContainEqual(expect.objectContaining({ t: 'hello' })) })
     socket.receive({

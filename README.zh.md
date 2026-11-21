@@ -108,11 +108,12 @@ pnpm --filter dsh-browser-extension run build:firefox
 | 项目 | 约定 |
 |---|---|
 | `.oxlintrc.format.json` | 可自动修复的格式规则：2 空格缩进、无分号、单引号、多行尾逗号、箭头函数参数括号、类型成员分隔符 |
-| `.oxlintrc.json` | 继承格式规则；TypeScript 使用类型感知规则，JavaScript 使用语法规则；末尾的独立规则组列出本仓库未启用的官方规则 |
+| `.oxlintrc.json` | 继承格式规则；TypeScript 使用类型感知规则，JavaScript 使用语法规则；注释以 `Official … not enforced` 开头的规则组列出本仓库未启用的官方规则 |
 | 范围 | `packages`、`extensions`、`benchmark`、`scripts` 下的 `.ts`、`.tsx`、`.js`、`.mjs`、`.cjs` |
 | 忽略 | `lib/`、`dist/`、`dist-firefox/`、`coverage/`、`node_modules/`、`*.config.ts` |
 | 运行时 | `lint` 的类型感知规则读取各包的 `tsconfig.json` 与已安装的依赖；`format` 与 `format:check` 不做类型分析 |
 | `lint:fix` | 应用全部规则的安全自动修复 |
+| `.git-blame-ignore-revs` | 纯格式提交的列表；`git blame --ignore-revs-file .git-blame-ignore-revs` 跳过这些提交 |
 
 ### 构建契约
 

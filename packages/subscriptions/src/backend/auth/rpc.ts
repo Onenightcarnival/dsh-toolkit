@@ -217,8 +217,6 @@ interface FetchRouteCompat {
   readonly fetch: (request: Request) => Promise<Response>
 }
 
-type FetchRegisterCompat = (route: FetchRouteCompat) => () => Promise<void>
-
 /** Connection `client-request` envelope, as the browser rpc caller sends it. */
 interface ClientRequestEnvelope {
   type: 'client-request'
@@ -377,7 +375,7 @@ function readImageRef(payload: unknown): ImageAttachmentRef {
     bytes: record.bytes as number,
     width: record.width as number,
     height: record.height as number,
-    ...name === undefined ? {} : { name: name as string },
+    ...name === undefined ? {} : { name },
   }
 }
 
@@ -577,9 +575,9 @@ export function registerAuthRpc(
   ctx: Context,
   controller: AuthController,
   speed: SpeedController,
-  proxy: ProxyConfigController | undefined = undefined,
-  modelDefaults: ModelDefaultsController | undefined = undefined,
-  providerSettings: ProviderSettingsController | undefined = undefined,
+  proxy?: ProxyConfigController,
+  modelDefaults?: ModelDefaultsController,
+  providerSettings?: ProviderSettingsController,
 ): void {
   // `connection` is not in the inject list (headless compositions lack it);
   // registration waits until the service exists. Endpoints are exact Fetch
@@ -594,7 +592,7 @@ export function registerAuthRpc(
         return failure(error)
       }
     }
-    const register = connection.fetch.register as unknown as FetchRegisterCompat
+    const register = (route: FetchRouteCompat): (() => Promise<void>) => connection.fetch.register(route)
     for (const endpoint of SUBSCRIPTIONS_AUTH_ENDPOINTS) {
       ctx.effect(
         () => register(fetchRouteFor(endpoint, handler)),

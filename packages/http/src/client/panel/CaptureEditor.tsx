@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { HTTP_CAPTURE_REFRESH, HTTP_CAPTURE_SOURCES, MAX_CAPTURE_RULES, blankCapture, type HttpCapture, type HttpCaptureRefresh, type HttpCaptureSource, type HttpCapturedValue } from '../../protocol.ts'
 import { lifetimeText, parseLifetime } from '../lifetime.ts'
-import { tt, type HttpKey } from '../locales.ts'
+import { tt } from '../locales.ts'
 import { shortTime } from './common.tsx'
 
 export interface CaptureEditorProps {
@@ -53,9 +53,9 @@ export function CaptureEditor(props: CaptureEditorProps): JSX.Element {
                 <span>{tt('capture.value')}</span>
                 <div className="dsh-http-ruleSource">
                   <select className="dsh-http-select" value={rule.source} aria-label={tt('capture.source')} disabled={props.disabled} onChange={(e) => { update(index, { source: e.target.value as HttpCaptureSource }) }}>
-                    {HTTP_CAPTURE_SOURCES.map(source => <option key={source} value={source}>{tt(`capture.source.${source}` as HttpKey)}</option>)}
+                    {HTTP_CAPTURE_SOURCES.map(source => <option key={source} value={source}>{tt(`capture.source.${source}`)}</option>)}
                   </select>
-                  <input className="dsh-http-input" data-mono value={rule.path} placeholder={tt(`capture.path.${rule.source}` as HttpKey)} aria-label={tt(`capture.path.${rule.source}` as HttpKey)} disabled={props.disabled} autoCapitalize="off" spellCheck={false} onChange={(e) => { update(index, { path: e.target.value }) }} />
+                  <input className="dsh-http-input" data-mono value={rule.path} placeholder={tt(`capture.path.${rule.source}`)} aria-label={tt(`capture.path.${rule.source}`)} disabled={props.disabled} autoCapitalize="off" spellCheck={false} onChange={(e) => { update(index, { path: e.target.value }) }} />
                 </div>
               </div>
               <label className="dsh-http-ruleField" title={tt('capture.lifetime.hint')}>
@@ -65,7 +65,7 @@ export function CaptureEditor(props: CaptureEditorProps): JSX.Element {
               <label className="dsh-http-ruleField">
                 <span>{tt('capture.refresh')}</span>
                 <select className="dsh-http-select" value={rule.refresh} disabled={props.disabled} onChange={(e) => { update(index, { refresh: e.target.value as HttpCaptureRefresh }) }}>
-                  {HTTP_CAPTURE_REFRESH.map(mode => <option key={mode} value={mode}>{tt(`capture.refresh.${mode}` as HttpKey)}</option>)}
+                  {HTTP_CAPTURE_REFRESH.map(mode => <option key={mode} value={mode}>{tt(`capture.refresh.${mode}`)}</option>)}
                 </select>
               </label>
             </div>

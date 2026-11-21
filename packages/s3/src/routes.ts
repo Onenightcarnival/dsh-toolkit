@@ -8,7 +8,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename } from 'node:path'
 import { S3Engine, cleanKey, guessMime } from './engine.ts'
 import { errorMessage, isLoopbackRequest, readJsonBody, writeJson } from './http.ts'
-import { S3_API, type S3ProfilePayload } from './protocol.ts'
+import { S3_API } from './protocol.ts'
 import type { ProfileStore } from './store.ts'
 
 /** Upload bodies above this are refused. */
@@ -94,7 +94,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
           const body = await readJsonBody(req)
           if (body === null) return fail(res, 'invalid JSON body')
           try {
-            writeJson(res, 201, { profile: store.summarize(store.create(body as S3ProfilePayload)) })
+            writeJson(res, 201, { profile: store.summarize(store.create(body)) })
           } catch (error) { fail(res, error) }
           return
         }
@@ -104,7 +104,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
           const body = await readJsonBody(req)
           if (body === null) return fail(res, 'invalid JSON body')
           try {
-            writeJson(res, 200, { profile: store.summarize(store.update(id, body as S3ProfilePayload)) })
+            writeJson(res, 200, { profile: store.summarize(store.update(id, body)) })
           } catch (error) { fail(res, error) }
           return
         }

@@ -69,7 +69,7 @@ const service = ctx.get ? ctx.get('dshOtel') : ctx.dshOtel
 assert.ok(service, 'dshOtel service registered')
 
 // Initially unconfigured.
-let status = await service.status()
+const status = await service.status()
 assert.equal(status.ok, true)
 assert.equal(status.value.configured, false)
 assert.equal(status.value.running, false)

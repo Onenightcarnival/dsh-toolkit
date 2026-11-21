@@ -113,7 +113,7 @@ describe('panel protocol', () => {
 
     receive?.({ type: 'approval.request', request })
     receive?.({ type: 'approval.resolved', id: request.id })
-    api.respondToApproval(request.id, 'trust-session')
+    void api.respondToApproval(request.id, 'trust-session')
 
     expect(requestListener).toHaveBeenCalledWith(request)
     expect(resolvedListener).toHaveBeenCalledWith(request.id)
@@ -145,7 +145,7 @@ describe('panel protocol', () => {
     }
 
     receive?.({ type: 'tab-affinity', state })
-    api.resolveTabAffinity(state.revision, 'follow', 'session-1')
+    void api.resolveTabAffinity(state.revision, 'follow', 'session-1')
 
     expect(listener).toHaveBeenCalledWith(state)
     expect(postMessage).toHaveBeenCalledWith({

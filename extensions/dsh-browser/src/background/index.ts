@@ -40,7 +40,7 @@ import {
 } from '@onenightcarnival/dsh-bridge-browser/src/protocol.ts'
 import type { ServerFrame } from '@onenightcarnival/dsh-bridge-browser/src/protocol.ts'
 import { BRIDGE_CONFIG_PATH, BRIDGE_PATH } from '@onenightcarnival/dsh-bridge-browser/src/protocol.ts'
-import { BridgeClient, type BridgeState } from './bridge.ts'
+import { BridgeClient } from './bridge.ts'
 import { forgetPageHooks } from './page-hooks.ts'
 import { detachAllDebuggers, detachDebugger } from './debugger-input.ts'
 import { runBatch } from './batch.ts'
@@ -188,7 +188,7 @@ const tabAffinity = new TabAffinityController()
 const focusedWindow = new FocusedWindowTracker()
 const selections = new SelectionTracker()
 const pageSessionContexts = new PageSessionContextTracker({
-  read: async () => (await chrome.storage.session.get(PAGE_SESSION_CONTEXT_STORAGE_KEY))[PAGE_SESSION_CONTEXT_STORAGE_KEY],
+  read: async () => (await chrome.storage.session.get(PAGE_SESSION_CONTEXT_STORAGE_KEY))[PAGE_SESSION_CONTEXT_STORAGE_KEY] as unknown,
   write: async (value) => {
     await chrome.storage.session.set({ [PAGE_SESSION_CONTEXT_STORAGE_KEY]: value })
   },
@@ -254,6 +254,7 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
       },
       (error: unknown) => {
         signal.removeEventListener('abort', onAbort)
+        // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Forwards the source promise's rejection reason unchanged.
         reject(error)
       },
     )
@@ -282,8 +283,7 @@ async function persistSettings(next: Partial<Settings>): Promise<void> {
   syncSelectionWatch()
   let accessTransition: Promise<void> | undefined
   if (revokesUnrestrictedAccess) {
-    let trackedRevocation!: Promise<void>
-    trackedRevocation = revokeUnrestrictedAccess().finally(() => {
+    const trackedRevocation: Promise<void> = revokeUnrestrictedAccess().finally(() => {
       if (unrestrictedRevocation !== trackedRevocation) return
       unrestrictedRevocation = undefined
       syncSelectionWatch()
@@ -338,7 +338,7 @@ const settingsReady = loadSettings().then((loaded) => {
 })
 
 function armBridgeKeepalive(): void {
-  chrome.alarms.create(BRIDGE_KEEPALIVE_ALARM, { periodInMinutes: 0.5 })
+  void chrome.alarms.create(BRIDGE_KEEPALIVE_ALARM, { periodInMinutes: 0.5 })
 }
 
 function disarmBridgeKeepalive(): void {
@@ -346,7 +346,7 @@ function disarmBridgeKeepalive(): void {
 }
 
 function broadcastStatus(): void {
-  const payload = { type: 'status', state: bridge?.state ?? ('stopped' as BridgeState), caps }
+  const payload = { type: 'status', state: bridge?.state ?? 'stopped', caps }
   for (const port of panelPorts) {
     try { port.postMessage(payload) } catch { /* port already closed */ }
   }
@@ -924,12 +924,12 @@ async function authorizeToolCall(
     return 'approved'
   }
   if (decision === 'trust-session' && prompt.kind === 'action' && prompt.canTrust && prompt.origins.length === 1) {
-    sessionTrustedActionOrigins.add(prompt.origins[0]!)
+    sessionTrustedActionOrigins.add(prompt.origins[0])
     return 'approved'
   }
   // `trust-origin` is accepted on the wire; the panel manages permanent trust in Settings.
   if (decision === 'trust-origin' && prompt.kind === 'action' && prompt.canTrust && prompt.origins.length === 1) {
-    await persistSettings({ trustedActionOrigins: [...settings.trustedActionOrigins, prompt.origins[0]!] })
+    await persistSettings({ trustedActionOrigins: [...settings.trustedActionOrigins, prompt.origins[0]] })
     return 'approved'
   }
   return decision === 'allow-once' ? 'approved' : 'denied'
@@ -1353,7 +1353,7 @@ chrome.runtime.onConnect.addListener((port) => {
     if (!panelPorts.has(port)) return
     if (bridge === null || bridge.state === 'stopped') return startBridge()
   })
-  try { port.postMessage({ type: 'status', state: bridge?.state ?? ('stopped' as BridgeState), caps }) } catch { /* port closed */ }
+  try { port.postMessage({ type: 'status', state: bridge?.state ?? 'stopped', caps }) } catch { /* port closed */ }
   void affinityReady.then(async () => {
     await syncActiveTab()
     try { port.postMessage({ type: 'tab-affinity', state: tabAffinity.snapshot() }) } catch { /* port closed */ }
@@ -1582,7 +1582,7 @@ chrome.runtime.onConnect.addListener((port) => {
       }
       case 'request-status':
         try {
-          port.postMessage({ type: 'status', state: bridge?.state ?? ('stopped' as BridgeState), caps })
+          port.postMessage({ type: 'status', state: bridge?.state ?? 'stopped', caps })
           port.postMessage({ type: 'tab-affinity', state: tabAffinity.snapshot() })
           const statusWindowId = panelWindows.get(port)
           if (statusWindowId !== undefined) {
@@ -1596,6 +1596,8 @@ chrome.runtime.onConnect.addListener((port) => {
           const resumeWindowId = panelWindows.get(port)
           if (resumeWindowId !== undefined) void postResumeHint(port, resumeWindowId)
         } catch { /* port closed */ }
+        break
+      default:
         break
     }
   })

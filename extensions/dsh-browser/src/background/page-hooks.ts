@@ -52,12 +52,12 @@ function installHooks(): boolean {
     network: [] as Array<{ kind: string; method: string; url: string; status: number; ok: boolean; ms: number; at: number }>,
     policy: { action: 'dismiss', text: '', once: false } as { action: 'accept' | 'dismiss'; text?: string; once: boolean },
   }
-  const cap = <T>(list: T[], max: number): void => { if (list.length > max) list.splice(0, list.length - max) }
+  const cap = (list: unknown[], max: number): void => { if (list.length > max) list.splice(0, list.length - max) }
   const stringify = (value: unknown): string => {
     try {
       if (typeof value === 'string') return value
       if (value instanceof Error) return `${value.name}: ${value.message}`
-      return JSON.stringify(value, (_key, v) => (typeof v === 'bigint' ? String(v) : v)) ?? String(value)
+      return JSON.stringify(value, (_key, v: unknown) => (typeof v === 'bigint' ? String(v) : v)) ?? String(value)
     } catch {
       return String(value)
     }
@@ -119,7 +119,9 @@ function installHooks(): boolean {
       }
     }
   }
+  // oxlint-disable-next-line typescript/unbound-method -- Original prototype method, invoked with the request as `this`.
   const xhrOpen = XMLHttpRequest.prototype.open
+  // oxlint-disable-next-line typescript/unbound-method -- Original prototype method, invoked with the request as `this`.
   const xhrSend = XMLHttpRequest.prototype.send
   XMLHttpRequest.prototype.open = function (this: XMLHttpRequest & { __dsh?: { method: string; url: string } }, method: string, url: string | URL, ...rest: unknown[]): void {
     this.__dsh = { method: String(method).toUpperCase(), url: String(url).slice(0, 500) }
@@ -158,6 +160,7 @@ function setDialogPolicy(action: 'accept' | 'dismiss', text: string | undefined,
 function evaluateInPage(code: string): { ok: true; value: unknown } | { ok: false; error: string } {
   try {
     // A page CSP without 'unsafe-eval' makes this throw; the caller reports it.
+    // oxlint-disable-next-line typescript/no-implied-eval -- Evaluates the expression the caller supplied for this page.
     const fn = new Function(`return (${code}\n)`) as () => unknown
     let value = fn()
     if (value !== null && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function') {
@@ -165,7 +168,7 @@ function evaluateInPage(code: string): { ok: true; value: unknown } | { ok: fals
     }
     if (typeof value === 'function') value = `[function ${(value as { name?: string }).name ?? ''}]`
     if (value === undefined) value = null
-    return { ok: true, value: JSON.parse(JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? String(v) : v)) ?? 'null') }
+    return { ok: true, value: JSON.parse(JSON.stringify(value, (_k, v: unknown) => (typeof v === 'bigint' ? String(v) : v)) ?? 'null') }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? `${error.name}: ${error.message}` : String(error) }
   }

@@ -78,7 +78,7 @@ export class BrowserContextInjector {
     // Refresh insertion order when the same provisional session follows again.
     this.pending.delete(sessionId)
     while (this.pending.size >= this.maxPending) {
-      const oldest = this.pending.keys().next().value as string | undefined
+      const oldest = this.pending.keys().next().value
       if (oldest === undefined) break
       this.pending.delete(oldest)
     }

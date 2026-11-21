@@ -19,7 +19,7 @@ export function Structure(props: StructureProps): JSX.Element {
   useEffect(() => {
     let cancelled = false
     setDdl(undefined); setError(undefined)
-    api.ddl(connectionId, table).then((text) => { if (!cancelled) setDdl(text) }, (err) => { if (!cancelled) setError(errorMessage(err)) })
+    api.ddl(connectionId, table).then((text) => { if (!cancelled) setDdl(text) }, (err: unknown) => { if (!cancelled) setError(errorMessage(err)) })
     return () => { cancelled = true }
   }, [api, connectionId, table.schema, table.name, table.kind])
 

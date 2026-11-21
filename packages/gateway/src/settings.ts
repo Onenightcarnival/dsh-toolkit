@@ -51,7 +51,7 @@ function validPricing(value: unknown): Record<string, ModelPrice> {
   if (entries.length > MAX_ENTRIES) throw new SettingsError('pricing', `at most ${MAX_ENTRIES} prices`)
   const out: Record<string, ModelPrice> = {}
   for (const [id, price] of entries) {
-    if (!isGatewayModelId(id)) throw new SettingsError('pricing', `"${id}" is not a provider:model id`)
+    if (!isGatewayModelId(id)) throw new SettingsError('pricing', `"${String(id)}" is not a provider:model id`)
     const { input, output } = (price ?? {}) as Partial<ModelPrice>
     for (const [name, amount] of [['input', input], ['output', output]] as const) {
       if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) throw new SettingsError('pricing', `${id}: ${name} price must be a non-negative number`)

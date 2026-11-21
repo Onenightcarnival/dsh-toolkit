@@ -86,6 +86,7 @@ export class ImageAccountPool {
       this.options.onWarn?.(`image pool ${provider}: account ${members.indexOf(account) + 1}/${members.length} rejected (${failure.code}); checking remaining accounts`)
       lastError = failure
     }
+    // oxlint-disable-next-line typescript/only-throw-error -- Rethrows the recorded failure unchanged.
     if (lastError !== undefined) throw lastError
     const recovery = this.health.earliestRecovery(new Set(members.map(account => memberKey(provider, account, 'images'))))
     throw new LlmError(`${provider}_image_generate: all ${provider} image accounts are cooling down`, 'RATE_LIMIT', {

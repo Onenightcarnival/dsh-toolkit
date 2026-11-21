@@ -95,9 +95,9 @@ describe('selection helpers', () => {
   })
 
   it('picks the default effort for a new model and keeps the effort when re-picking the same one', () => {
-    const group = catalog.groups[0]!
-    const v4 = group.models[1]!
-    const flash = group.models[0]!
+    const group = catalog.groups[0]
+    const v4 = group.models[1]
+    const flash = group.models[0]
     expect(selectionForModel(group, v4, null)).toEqual({ provider: 'deepseek', model: 'deepseek-v4', reasoningEffort: 'high' })
     expect(selectionForModel(group, v4, { provider: 'deepseek', model: 'deepseek-v4', reasoningEffort: 'low' }))
       .toEqual({ provider: 'deepseek', model: 'deepseek-v4', reasoningEffort: 'low' })

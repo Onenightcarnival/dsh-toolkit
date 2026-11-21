@@ -33,7 +33,12 @@
       ],
       "rules": {
         "no-var": "error",
-        "prefer-const": "error",
+        "prefer-const": [
+          "error",
+          {
+            "ignoreReadBeforeAssign": true // Closures declared before the first assignment read the binding.
+          }
+        ],
         "prefer-rest-params": "error",
         "prefer-spread": "error",
         "no-array-constructor": "error",
@@ -88,7 +93,6 @@
         "typescript/no-redundant-type-constituents": "error",
         "typescript/no-require-imports": "error",
         "typescript/no-this-alias": "error",
-        "typescript/no-unnecessary-boolean-literal-compare": "error",
         "typescript/no-unnecessary-template-expression": "error",
         "typescript/no-unnecessary-type-arguments": "error",
         "typescript/no-unnecessary-type-assertion": "error",
@@ -167,13 +171,37 @@
         "extensions/*/tests/**/*.{ts,tsx}"
       ],
       "rules": {
-        "typescript/no-invalid-void-type": "error",
+        "typescript/no-invalid-void-type": "error"
+      },
+      "plugins": [
+        "typescript"
+      ]
+    },
+    {
+      // Official rules not enforced in tests.
+      "files": [
+        "packages/*/{test,tests}/**/*.{ts,tsx}",
+        "extensions/*/tests/**/*.{ts,tsx}"
+      ],
+      "rules": {
         "typescript/no-unsafe-argument": "off",
         "typescript/no-unsafe-assignment": "off",
         "typescript/no-unsafe-call": "off",
         "typescript/no-unsafe-member-access": "off",
         "typescript/no-unsafe-return": "off",
         "typescript/unbound-method": "off"
+      },
+      "plugins": [
+        "typescript"
+      ]
+    },
+    {
+      // Tests outside their package's TypeScript program.
+      "files": [
+        "packages/{browser-bridge,gateway,memory}/{test,tests}/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "typescript/no-unnecessary-type-assertion": "off"
       },
       "plugins": [
         "typescript"
@@ -191,6 +219,7 @@
         "typescript/no-deprecated": "off",
         "typescript/no-dynamic-delete": "off",
         "typescript/no-non-null-assertion": "off",
+        "typescript/no-unnecessary-boolean-literal-compare": "off",
         "typescript/no-unnecessary-condition": "off",
         "typescript/no-unnecessary-type-conversion": "off",
         "typescript/require-await": "off"
@@ -200,13 +229,30 @@
       ]
     },
     {
+      // Official layout rule not enforced in this workspace; it has no automatic fix.
+      "files": [
+        "**/*.{ts,tsx,js,mjs,cjs}"
+      ],
+      "rules": {
+        "@stylistic/max-len": "off" // Official value: 140, ignoring URLs, strings and template literals.
+      },
+      "jsPlugins": [
+        "@stylistic/eslint-plugin"
+      ]
+    },
+    {
       // Syntax rules of the shared set for JavaScript sources and scripts.
       "files": [
         "**/*.{js,mjs,cjs}"
       ],
       "rules": {
         "no-var": "error",
-        "prefer-const": "error",
+        "prefer-const": [
+          "error",
+          {
+            "ignoreReadBeforeAssign": true // Closures declared before the first assignment read the binding.
+          }
+        ],
         "prefer-rest-params": "error",
         "prefer-spread": "error",
         "no-array-constructor": "error",

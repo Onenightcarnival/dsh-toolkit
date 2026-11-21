@@ -223,6 +223,7 @@ async function discoverWithFallback(
       if (isAuthFailure(cause)) break
     }
   }
+  // oxlint-disable-next-line typescript/only-throw-error -- Rethrows the recorded failure unchanged.
   throw lastCause ?? new PanelRpcError('model-discovery-failed', 'model discovery failed', {})
 }
 
@@ -1101,7 +1102,7 @@ export function App(): React.JSX.Element {
   const loadModelCatalog = useCallback(async (): Promise<void> => {
     setModelCatalogLoading(true)
     try {
-      const catalog = parseModelCatalog(await api.rpc<unknown>('session.modelCatalog', {}))
+      const catalog = parseModelCatalog(await api.rpc('session.modelCatalog', {}))
       if (catalog === null) throw new Error('unexpected catalog shape')
       modelCatalogRef.current = catalog
       setModelCatalog(catalog)
@@ -1574,12 +1575,12 @@ export function App(): React.JSX.Element {
         }
         const drafts = Object.entries(providers)
           .filter(([key]) => key.startsWith(RELAY_ROUTE_PREFIX))
-          .map(([key, route]) => ({
+          .map(([key, route]): RelayProfileDraft => ({
             key,
             name: typeof route.displayName === 'string' && route.displayName !== '' ? route.displayName : key,
-            protocol: (route.api === 'anthropic-messages' || route.api === 'openai-codex-responses'
+            protocol: route.api === 'anthropic-messages' || route.api === 'openai-codex-responses'
               ? route.api
-              : 'openai-completions') as RelayProfileDraft['protocol'],
+              : 'openai-completions',
             baseUrl: typeof route.baseURL === 'string' ? route.baseURL : '',
             token: '',
             tokenConfigured: route.apiKeyEnv !== undefined && configuredRefs.has(route.apiKeyEnv),
@@ -1808,7 +1809,7 @@ export function App(): React.JSX.Element {
   const sessionMenuTitle = sessionTitle ?? copy.app.newSession
   const approvalDialog = !approvalReadyForSession(queuedApproval, sessionRef.current, sessionChanging)
     ? null
-    : <ApprovalDialog request={queuedApproval!} onDecision={decideApproval} copy={copy} />
+    : <ApprovalDialog request={queuedApproval} onDecision={(decision) => { void decideApproval(decision) }} copy={copy} />
 
   if (showSettings) {
     return (
@@ -2066,7 +2067,7 @@ export function App(): React.JSX.Element {
           ))}
         </section>
         <div className="settings-actions">
-          <button className="primary" onClick={saveSettings}>{copy.settings.save}</button>
+          <button className="primary" onClick={() => { void saveSettings() }}>{copy.settings.save}</button>
           <button className="secondary" onClick={() => setShowSettings(false)}>{copy.settings.cancel}</button>
         </div>
         <p className="hint">{copy.settings.snapshotHint(caps?.snapshotMaxChars ?? DEFAULT_SNAPSHOT_MAX_CHARS)}</p>
@@ -2106,7 +2107,7 @@ export function App(): React.JSX.Element {
           onStep={direction => changeUiScale(stepUiScale(uiScaleRef.current, direction))}
           onReset={() => changeUiScale(DEFAULT_UI_SCALE)} />
       )}
-      <TabAffinityBanner state={tabAffinity} copy={copy} onDecision={decideTabAffinity} />
+      <TabAffinityBanner state={tabAffinity} copy={copy} onDecision={(decision) => { void decideTabAffinity(decision) }} />
       {showSessionPicker && (
         <section className="session-picker" aria-label={copy.app.sessions}>
           <div className="session-picker-head">

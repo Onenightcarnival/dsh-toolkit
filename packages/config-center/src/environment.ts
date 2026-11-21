@@ -77,8 +77,8 @@ export class ManagedEnvironment {
     const alias = process.platform === 'win32' ? command.toLowerCase().replace(/\.exe$/, '') : command
     if (alias === 'uv' || alias === 'uvx') return alias
     const local = relative(join(this.root, 'uv'), resolve(command)).split(sep)
-    if (local.length !== 3 || !/^\d+\.\d+\.\d+$/.test(local[0]!) || local[1] !== this.target) return undefined
-    const name = basename(local[2]!, this.suffix)
+    if (local.length !== 3 || !/^\d+\.\d+\.\d+$/.test(local[0]) || local[1] !== this.target) return undefined
+    const name = basename(local[2], this.suffix)
     return name === 'uv' || name === 'uvx' ? name : undefined
   }
 
@@ -139,7 +139,7 @@ export class ManagedEnvironment {
     this.phase = 'installing'
     this.error = undefined
     this.progress = undefined
-    this.operation = this.installRelease().then(afterInstall).then(() => { this.phase = undefined }, (error) => {
+    this.operation = this.installRelease().then(afterInstall).then(() => { this.phase = undefined }, (error: unknown) => {
       this.phase = 'error'
       this.error = error instanceof Error ? error.message : String(error)
     }).finally(() => { this.operation = undefined; this.progress = undefined })
@@ -155,7 +155,7 @@ export class ManagedEnvironment {
       let preserveBackup = false
       try {
         const extension = process.platform === 'win32' ? 'zip' : 'tar.gz'
-        const archiveName = `uv-${this.release!.triple}.${extension}`
+        const archiveName = `uv-${this.release.triple}.${extension}`
         this.phase = 'downloading'
         const response = await this.download(`https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/${archiveName}`, { signal: AbortSignal.timeout(300_000), redirect: 'follow' })
         if (!response.ok || !response.body) throw new Error(`uv 下载失败：HTTP ${response.status}`)
@@ -170,13 +170,13 @@ export class ManagedEnvironment {
         }
         const bytes = Buffer.concat(chunks)
         this.phase = 'verifying'
-        verifyArchive(bytes, this.release!.sha256)
+        verifyArchive(bytes, this.release.sha256)
         const archive = join(temporary, archiveName)
         await writeFile(archive, bytes)
-        const entries = ['uv', 'uvx'].map(name => process.platform === 'win32' ? name + this.suffix : `uv-${this.release!.triple}/${name}`)
+        const entries = ['uv', 'uvx'].map(name => process.platform === 'win32' ? name + this.suffix : `uv-${this.release.triple}/${name}`)
         this.phase = 'installing'
         await execute('tar', ['-xmf', archive, '-C', temporary, ...entries], { windowsHide: true, timeout: 60_000 })
-        const extracted = process.platform === 'win32' ? temporary : join(temporary, `uv-${this.release!.triple}`)
+        const extracted = process.platform === 'win32' ? temporary : join(temporary, `uv-${this.release.triple}`)
         const candidate = join(temporary, 'ready')
         await mkdir(candidate)
         for (const name of ['uv', 'uvx']) {

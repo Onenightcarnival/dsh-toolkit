@@ -43,7 +43,7 @@ function renderTable(table: Element, base: string): string {
   if (rows.length === 0) return ''
   const width = Math.max(...rows.map(row => row.length))
   const pad = (row: string[]): string[] => [...row, ...Array.from({ length: width - row.length }, () => '')]
-  const header = pad(rows[0] as string[])
+  const header = pad(rows[0])
   const lines = [`| ${header.join(' | ')} |`, `| ${header.map(() => '---').join(' | ')} |`]
   for (const row of rows.slice(1)) lines.push(`| ${pad(row).join(' | ')} |`)
   const caption = table.querySelector('caption')?.textContent?.trim()

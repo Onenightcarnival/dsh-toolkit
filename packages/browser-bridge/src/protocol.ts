@@ -237,9 +237,7 @@ function isCaps(value: unknown): value is BridgeCaps {
 }
 
 function isToolError(value: unknown): value is ToolError {
-  return typeof value === 'object' && value !== null
-    && typeof (value as Record<string, unknown>).code === 'string'
-    && typeof (value as Record<string, unknown>).message === 'string'
+  return isWireError(value)
 }
 
 function isWireError(value: unknown): value is { code: string; message: string } {

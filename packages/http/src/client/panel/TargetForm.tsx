@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { DEFAULT_TIMEOUT_MS, HTTP_AUTH_TYPES, type HttpAuth, type HttpAuthPayload, type HttpAuthType, type HttpTargetPayload, type HttpTargetSummary } from '../../protocol.ts'
-import { tt, type HttpKey } from '../locales.ts'
+import { tt } from '../locales.ts'
 import { Modal, errorMessage } from './common.tsx'
 import { KeyValueEditor, recordToRows, rowsToRecord, type KeyValueRow } from './KeyValueEditor.tsx'
 
@@ -104,7 +104,7 @@ export function TargetForm(props: TargetFormProps): JSX.Element {
           <span className="dsh-http-fieldLabel">{tt('form.auth')}</span>
           <div className="dsh-http-segments" role="radiogroup">
             {HTTP_AUTH_TYPES.map(type => (
-              <button key={type} type="button" role="radio" aria-checked={authType === type} className="dsh-http-segment" {...(authType === type ? { 'data-active': '' } : {})} onClick={() => { setAuthType(type) }}>{tt(`form.auth.${type}` as HttpKey)}</button>
+              <button key={type} type="button" role="radio" aria-checked={authType === type} className="dsh-http-segment" {...(authType === type ? { 'data-active': '' } : {})} onClick={() => { setAuthType(type) }}>{tt(`form.auth.${type}`)}</button>
             ))}
           </div>
         </div>

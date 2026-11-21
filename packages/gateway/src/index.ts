@@ -11,7 +11,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { errorMessage, isLoopbackRequest, readJsonBody, writeJson } from '../../config-center/src/http.ts'
-import { createImageResolver, type AttachmentsLike } from './images.ts'
+import { createImageResolver } from './images.ts'
 import { KeyError, KeyStore } from './keys.ts'
 import { ModelCatalog } from './models.ts'
 import { API, type GatewayStatus } from './protocol.ts'
@@ -53,7 +53,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   if (created !== undefined) ctx.logger.info(`gateway: API key "${INITIAL_KEY_NAME}" generated; copy it from Settings → API gateway`)
 
   const catalog = new ModelCatalog(ctx.llm, () => settings.get())
-  const resolveImage = createImageResolver({ attachments: () => ctx.get('attachments') as AttachmentsLike | undefined })
+  const resolveImage = createImageResolver({ attachments: () => ctx.get('attachments') })
   const log = { info: (message: string) => { ctx.logger.info(message) }, warn: (message: string) => { ctx.logger.warn(message) } }
 
   // ---- listener lifecycle: one apply at a time, in submission order ----

@@ -88,7 +88,7 @@ export function GatewayPanel({ api, close }: { api: GatewayApi; close: () => voi
       <button className="gw-close" aria-label={tt('close')} title={tt('close')} onClick={close}>×</button>
     </div>
     <div className="gw-tabs" role="tablist" aria-label={tt('title')}>
-      {TABS.map(value => <button key={value} role="tab" id={`gw-tab-${value}`} aria-selected={tab === value} aria-controls={`gw-panel-${value}`} onClick={() => setTab(value)}>{tt(`tab.${value}` as Key)}</button>)}
+      {TABS.map(value => <button key={value} role="tab" id={`gw-tab-${value}`} aria-selected={tab === value} aria-controls={`gw-panel-${value}`} onClick={() => setTab(value)}>{tt(`tab.${value}`)}</button>)}
     </div>
     <div className="gw-body" role="tabpanel" id={`gw-panel-${tab}`} aria-labelledby={`gw-tab-${tab}`}>
       {notice && <p role={notice.kind === 'err' ? 'alert' : 'status'} className={`gw-notice ${notice.kind === 'info' ? '' : notice.kind}`}>{notice.text}</p>}

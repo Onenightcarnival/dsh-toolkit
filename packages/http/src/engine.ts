@@ -342,7 +342,7 @@ export function validateInput(input: unknown): HttpRequestInput {
       throw new HttpPolicyError(error instanceof Error ? error.message : String(error))
     }
   }
-  return { method, path, query, headers: cleanMap(headers as Record<string, string> | undefined), body: raw.body as string | undefined, requestId, auth }
+  return { method, path, query, headers: cleanMap(headers as Record<string, string> | undefined), body: raw.body, requestId, auth }
 }
 
 /** Reads the response as received and returns the values to mask in everything recorded and returned. */

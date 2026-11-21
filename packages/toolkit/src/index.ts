@@ -40,7 +40,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   const mounted = Object.fromEntries(MODULES.map(m => [m, config[m] !== false])) as ModuleMap
   for (const module of MODULES) {
     if (!mounted[module]) continue
-    ctx.plugin(PLUGINS[module] as Parameters<Context['plugin']>[0], (config[module] ?? {}) as Record<string, unknown>)
+    ctx.plugin(PLUGINS[module] as Parameters<Context['plugin']>[0], config[module] ?? {})
   }
   ctx.effect(() => ctx.webServer.register({
     kind: 'exact',

@@ -33,6 +33,7 @@ export const RDB_GUIDANCE = '本机已安装 dsh-rdb 插件（关系数据库工
 const MOUNTED = Symbol.for('dsh-web.mounted-plugins')
 
 /** One active registration per package and process; disposal releases the slot. */
+// oxlint-disable-next-line typescript/no-explicit-any -- Generic callable constraint; `unknown[]` rejects functions with typed parameters.
 function mountOnce<T extends (...args: any[]) => unknown>(packageName: string, fn: T): T {
   return ((...args: unknown[]) => {
     const registry = globalThis as { [MOUNTED]?: Set<string> }
@@ -52,7 +53,7 @@ function applyImpl(ctx: Context, config?: Config): void {
   const engine = new RdbEngine(store)
   ctx.effect(() => () => { void engine.dispose() }, 'dsh-rdb: engine')
 
-  let disposeTools: (() => void) | undefined
+  let disposeTools: (() => Promise<void>) | undefined
   let disposeSection: (() => void) | undefined
 
   const tools = allTools(store, engine)
@@ -62,7 +63,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     const have = disposeTools !== undefined
     if (want === have) return
     if (!want) {
-      disposeTools?.()
+      void disposeTools?.()
       disposeTools = undefined
       disposeSection?.()
       disposeSection = undefined

@@ -57,7 +57,7 @@ export function DataGrid(props: DataGridProps): JSX.Element {
   }, [api, connectionId, table.schema, table.name, offset, sort, applied])
 
   useEffect(() => { reset(); setOffset(0); setSort(undefined); setApplied([]); setPage(undefined) }, [connectionId, table.schema, table.name])
-  useEffect(() => { void load(offset, sort, applied) }, [connectionId, table.schema, table.name, offset, sort, applied]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(offset, sort, applied) }, [connectionId, table.schema, table.name, offset, sort, applied])
 
   const columns = page?.columns ?? info.columns.map(c => ({ name: c.name, type: c.type }))
   const colIndex = useMemo(() => new Map(columns.map((c, i) => [c.name, i])), [columns])
@@ -178,7 +178,7 @@ export function DataGrid(props: DataGridProps): JSX.Element {
             <tbody>
               {(page?.rows ?? []).map((row, r) => (
                 <tr key={r} {...(deletes.has(r) ? { 'data-deleted': '' } : {})} {...(updates.has(r) ? { 'data-changed': '' } : {})}>
-                  {editable && <td className="dsh-rdb-colCheck"><input type="checkbox" className="dsh-rdb-check" checked={selected.has(r)} onChange={() => { setSelected((prev) => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n }) }} /></td>}
+                  {editable && <td className="dsh-rdb-colCheck"><input type="checkbox" className="dsh-rdb-check" checked={selected.has(r)} onChange={() => { setSelected((prev) => { const n = new Set(prev); if (n.has(r)) n.delete(r); else n.add(r); return n }) }} /></td>}
                   {row.map((v, c) => {
                     const name = columns[c]?.name
                     const patched = updates.get(r)

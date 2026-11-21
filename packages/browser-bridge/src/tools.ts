@@ -187,7 +187,7 @@ function screenshotTool(
     timeoutMs: options.toolTimeoutMs,
     output: TEXT_OUTPUT,
     execute: async (args, exec) => {
-      const a = args as { annotate?: boolean }
+      const a = args
       const result = await raw(exec, 'browser_screenshot', a.annotate === undefined ? {} : { annotate: a.annotate })
       const value = normalizeTextResult(result, 'browser_screenshot')
       const image = imagePayloadOf(result)
@@ -244,7 +244,7 @@ function defineTools(call: Call, options: BrowserToolsOptions, bridgeCall: Bridg
     timeoutMs: options.toolTimeoutMs,
     output: TEXT_OUTPUT,
     execute: (args, exec) => {
-      const a = args as { delta?: boolean; region?: string }
+      const a = args
       return call(exec, 'browser_snapshot', {
         ...a.delta !== undefined ? { delta: a.delta } : {},
         ...a.region !== undefined ? { region: a.region } : {},
@@ -280,7 +280,7 @@ function defineTools(call: Call, options: BrowserToolsOptions, bridgeCall: Bridg
     timeoutMs: options.toolTimeoutMs,
     output: TEXT_OUTPUT,
     execute: (args, exec) => {
-      const a = args as { index: number; frame?: number; text: string; replace?: boolean }
+      const a = args
       return call(exec, 'browser_type', {
         index: a.index,
         ...a.frame !== undefined ? { frame: a.frame } : {},
@@ -314,7 +314,7 @@ function defineTools(call: Call, options: BrowserToolsOptions, bridgeCall: Bridg
     timeoutMs: options.toolTimeoutMs,
     output: TEXT_OUTPUT,
     execute: (args, exec) => {
-      const a = args as { direction?: 'up' | 'down' | 'top' | 'bottom'; amount?: number; index?: number; frame?: number }
+      const a = args
       return call(exec, 'browser_scroll', {
         ...a.direction !== undefined ? { direction: a.direction } : {},
         ...a.amount !== undefined ? { amount: a.amount } : {},
@@ -348,7 +348,7 @@ function defineTools(call: Call, options: BrowserToolsOptions, bridgeCall: Bridg
     timeoutMs: options.toolTimeoutMs,
     output: TEXT_OUTPUT,
     execute: (args, exec) => {
-      const a = args as { url: string; active?: boolean }
+      const a = args
       return call(exec, 'browser_open_tab', {
         url: a.url,
         ...a.active !== undefined ? { active: a.active } : {},
@@ -466,7 +466,7 @@ function defineTools(call: Call, options: BrowserToolsOptions, bridgeCall: Bridg
     timeoutMs: options.toolTimeoutMs * 2,
     output: TEXT_OUTPUT,
     execute: async (args, exec) => {
-      const a = args as { index: number; paths: string[]; frame?: number }
+      const a = args
       if (a.paths.length === 0) throw new Error('paths must list at least one file')
       const files = await readUploadFiles(exec, a.paths)
       const payload = { index: a.index, files, ...a.frame !== undefined ? { frame: a.frame } : {} }
@@ -536,7 +536,7 @@ function defineTools(call: Call, options: BrowserToolsOptions, bridgeCall: Bridg
     timeoutMs: options.toolTimeoutMs,
     output: TEXT_OUTPUT,
     execute: (args, exec) => {
-      const a = args as { ms?: number; frame?: number }
+      const a = args
       return call(exec, 'browser_wait', {
         ...a.ms !== undefined ? { ms: a.ms } : {},
         ...a.frame !== undefined ? { frame: a.frame } : {},

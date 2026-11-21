@@ -244,7 +244,7 @@ export class MysqlConnection implements DbConnection {
     for (const r of rows) {
       const name = String(r.name)
       const idx = byName.get(name) ?? { name, columns: [], unique: Number(r.non_unique) === 0, primary: name === 'PRIMARY' }
-      idx.columns.push(String(r.col ?? `expr#${r.seq}`))
+      idx.columns.push(String(r.col ?? `expr#${String(r.seq)}`))
       byName.set(name, idx)
     }
     return [...byName.values()]

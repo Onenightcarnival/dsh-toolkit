@@ -29,19 +29,19 @@ export function SkillsPage({ api, close }: { api: ConfigCenterApi; close: () => 
   }
   useEffect(() => {
     let active = true
-    void api.skills().then((next) => { if (active) applyList(next) }).catch((value) => { if (active) error(value) })
+    void api.skills().then((next) => { if (active) applyList(next) }).catch((value: unknown) => { if (active) error(value) })
     return () => { active = false }
   }, [api, revision])
   useEffect(() => {
     let active = true
     setDetail(undefined); setFile(''); setPreview(undefined); setPreviewError('')
-    if (selected) void api.skillDetail(selected).then((next) => { if (active) { setDetail(next); setFile(next.entryFile) } }).catch((value) => { if (active) error(value) })
+    if (selected) void api.skillDetail(selected).then((next) => { if (active) { setDetail(next); setFile(next.entryFile) } }).catch((value: unknown) => { if (active) error(value) })
     return () => { active = false }
   }, [api, selected, revision])
   useEffect(() => {
     let active = true
     setPreview(undefined); setPreviewError('')
-    if (selected && file) void api.skillFile(selected, file).then((next) => { if (active) setPreview(next) }).catch((value) => { if (active) setPreviewError(value instanceof Error ? value.message : String(value)) })
+    if (selected && file) void api.skillFile(selected, file).then((next) => { if (active) setPreview(next) }).catch((value: unknown) => { if (active) setPreviewError(value instanceof Error ? value.message : String(value)) })
     return () => { active = false }
   }, [api, selected, file, revision])
   const run = async (operation: () => Promise<unknown>): Promise<void> => {

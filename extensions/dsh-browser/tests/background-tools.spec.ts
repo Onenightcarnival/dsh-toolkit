@@ -686,7 +686,7 @@ describe('dispatchToolCall', () => {
     })
     await dispatchToolCall(CALL, 'auto')
     chromeMock.sendMessage.mockClear()
-    frames[1] = { ...frames[1]!, documentId: 'child-v2' }
+    frames[1] = { ...frames[1], documentId: 'child-v2' }
 
     const answer = await dispatchToolCall(
       { id: 'stale-click', name: 'browser_click', args: { frame: 3, index: 4 } },
@@ -705,7 +705,7 @@ describe('dispatchToolCall', () => {
     ]
     const chromeMock = mockChrome({ tab: { id: 31, url: 'https://app.example/' }, frames })
     const authorize = vi.fn(async () => {
-      frames[0] = { ...frames[0]!, documentId: 'top-v2', url: 'https://evil.example/' }
+      frames[0] = { ...frames[0], documentId: 'top-v2', url: 'https://evil.example/' }
       return 'approved' as const
     })
 
@@ -726,7 +726,7 @@ describe('dispatchToolCall', () => {
     ]
     const chromeMock = mockChrome({ tab: { id: 32, url: 'https://app.example/one' }, frames })
     const authorize = vi.fn(async () => {
-      frames[0] = { ...frames[0]!, documentId: 'top-v2', url: 'https://app.example/two' }
+      frames[0] = { ...frames[0], documentId: 'top-v2', url: 'https://app.example/two' }
       return 'approved' as const
     })
 
@@ -763,7 +763,7 @@ describe('dispatchToolCall', () => {
     await dispatchToolCall(deltaCall, 'auto')
     expect(seen.splice(0)).toEqual([{ frameId: 0, delta: true }, { frameId: 6, delta: true }])
 
-    frames[1] = { ...frames[1]!, documentId: 'child-v2', url: 'https://widget.example/two' }
+    frames[1] = { ...frames[1], documentId: 'child-v2', url: 'https://widget.example/two' }
     await dispatchToolCall(deltaCall, 'auto')
     expect(seen).toEqual([{ frameId: 0, delta: true }, { frameId: 6, delta: false }])
     expect(chromeMock.getAllFrames).toHaveBeenCalledTimes(3)

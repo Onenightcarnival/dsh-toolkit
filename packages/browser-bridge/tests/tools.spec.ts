@@ -306,7 +306,7 @@ describe('registerBrowserTools', () => {
         ],
       }, exec.signal, 2_000, 's')
 
-      await expect(run({ index: 4, paths: ['../' + outside.split('/').pop() + '/secret.txt'] })).rejects.toThrow(/outside the session working directory/)
+      await expect(run({ index: 4, paths: [`../${outside.split('/').pop()}/secret.txt`] })).rejects.toThrow(/outside the session working directory/)
       await expect(run({ index: 4, paths: [join(outside, 'secret.txt')] })).rejects.toThrow(/outside the session working directory/)
       await expect(run({ index: 4, paths: ['docs'] })).rejects.toThrow(/not a regular file/)
       await expect(run({ index: 4, paths: [] })).rejects.toThrow(/at least one file/)

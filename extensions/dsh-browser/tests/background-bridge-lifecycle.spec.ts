@@ -129,7 +129,7 @@ function mockChrome(options: {
       onFocusChanged: chromeEvent<[number]>(),
       onRemoved: chromeEvent<[number]>(),
     },
-  } as unknown as typeof chrome)
+  })
   return { alarms, onConnect, tabs: chrome.tabs }
 }
 
@@ -193,7 +193,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({
@@ -224,7 +224,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const originalSocket = FakeWebSocket.instances[0]!
+    const originalSocket = FakeWebSocket.instances[0]
     originalSocket.open()
     await Promise.resolve()
     originalSocket.receive({
@@ -249,7 +249,7 @@ describe('background bridge lifecycle', () => {
     const reopened = panelPort()
     chromeMock.onConnect.emit(reopened.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(2) })
-    expect(FakeWebSocket.instances[1]!.url).toBe('ws://127.0.0.1:3081/ext/bridge')
+    expect(FakeWebSocket.instances[1].url).toBe('ws://127.0.0.1:3081/ext/bridge')
   })
 
   it('acknowledges a policy setting only after persistence without restarting the bridge', async () => {
@@ -265,7 +265,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({
@@ -318,7 +318,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({
@@ -433,7 +433,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({
@@ -503,7 +503,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({
@@ -571,7 +571,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({
@@ -643,7 +643,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const originalSocket = FakeWebSocket.instances[0]!
+    const originalSocket = FakeWebSocket.instances[0]
     originalSocket.open()
     await Promise.resolve()
     originalSocket.receive({
@@ -665,7 +665,7 @@ describe('background bridge lifecycle', () => {
       settings: { bridgeUrl: 'wss://replacement.example/ext/bridge' },
     })
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(2) })
-    const replacementSocket = FakeWebSocket.instances[1]!
+    const replacementSocket = FakeWebSocket.instances[1]
     replacementSocket.open()
     await Promise.resolve()
     replacementSocket.receive({
@@ -717,7 +717,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const original = FakeWebSocket.instances[0]!
+    const original = FakeWebSocket.instances[0]
     original.open()
     await Promise.resolve()
     original.receive({ t: 'hello.ok', caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 } })
@@ -736,7 +736,7 @@ describe('background bridge lifecycle', () => {
     await vi.waitFor(() => { expect(checkpointStarted).toBe(true) })
     panel.onMessage.emit({ type: 'settings', settings: { bridgeUrl: 'wss://replacement.example/ext/bridge' } })
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(2) })
-    const replacement = FakeWebSocket.instances[1]!
+    const replacement = FakeWebSocket.instances[1]
     replacement.open()
     await Promise.resolve()
     replacement.receive({ t: 'hello.ok', caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 } })
@@ -773,7 +773,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({
@@ -837,7 +837,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({
@@ -911,7 +911,7 @@ describe('background bridge lifecycle', () => {
     const panel = panelPort()
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await Promise.resolve()
     socket.receive({

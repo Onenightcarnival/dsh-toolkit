@@ -311,7 +311,7 @@ async function elementCenter(tabId: number, frame: TabFrame, call: ToolCall, arg
   }
 }
 
-function isAnswer<T extends object>(value: T | ToolAnswer): value is ToolAnswer {
+function isAnswer(value: object): value is ToolAnswer {
   return typeof (value as ToolAnswer).ok === 'boolean'
 }
 
@@ -374,7 +374,7 @@ async function trustedInputDispatch(
         if (typeof toArgs.index !== 'number' && (typeof toArgs.x !== 'number' || typeof toArgs.y !== 'number')) {
           return { ok: false, error: { code: 'bad-args', message: 'Provide toIndex, or toX and toY, for the drop target.' } }
         }
-        const to = await pointFor(toArgs as Record<string, unknown>)
+        const to = await pointFor(toArgs)
         if (isAnswer(to)) return to
         commitAction?.()
         await debuggerDrag(tabId, from, to)
@@ -615,8 +615,8 @@ async function snapshotAllFrames(
   const sections: string[] = []
   const capturedDocuments = new Map<number, string>()
   for (let index = 0; index < settled.length; index += 1) {
-    const outcome = settled[index]!
-    const frame = frames[index]!
+    const outcome = settled[index]
+    const frame = frames[index]
     if (outcome.status === 'rejected') {
       if (frame.frameId === 0) throw outcome.reason
       sections.push(frameHeader(frame), '(This iframe was inaccessible or destroyed while loading.)')

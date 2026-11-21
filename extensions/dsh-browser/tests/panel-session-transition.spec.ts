@@ -172,7 +172,7 @@ describe('panel session transitions', () => {
       await act(async () => { document.querySelector<HTMLButtonElement>('.session-menu-trigger')!.click() })
       const sessions = document.querySelectorAll<HTMLButtonElement>('.session-list li > button:not(.session-delete)')
       expect(sessions).toHaveLength(2)
-      await act(async () => { sessions[index]!.click() })
+      await act(async () => { sessions[index].click() })
     }
     await selectSession(1)
     expect(panelApi.setActiveSession).toHaveBeenLastCalledWith('session-saved')
@@ -202,7 +202,7 @@ describe('panel session transitions', () => {
     await act(async () => { menu.click() })
     const buttons = document.querySelectorAll<HTMLButtonElement>('.session-delete')
     expect(buttons).toHaveLength(2)
-    await act(async () => { buttons[1]!.click() })
+    await act(async () => { buttons[1].click() })
     expect(rpc).toHaveBeenCalledWith(BRIDGE_SESSION_PURGE_METHOD, { sessionId: 'session-saved' })
     expect(rpc.mock.calls.some(([method]) => method === 'workspace.archiveSession')).toBe(false)
     expect(document.querySelectorAll('.session-delete')).toHaveLength(2)
@@ -375,7 +375,7 @@ describe('panel session transitions', () => {
   })
 
   it('allows starting a new session while current session is working', async () => {
-    let onEventCallback: ((frame: any) => void) | undefined
+    let onEventCallback: ((frame: unknown) => void) | undefined
     panelApi.onEvent = vi.fn((callback) => { onEventCallback = callback; return () => {} })
     panelApi.setActiveSession = vi.fn().mockResolvedValue(undefined)
 

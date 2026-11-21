@@ -66,8 +66,8 @@ export function Browser(props: BrowserProps): JSX.Element {
   const entries = useMemo<Entry[]>(() => {
     const needle = filter.trim().toLowerCase()
     const rows: Entry[] = [
-      ...listing.folders.map(key => ({ kind: 'folder', key }) as Entry),
-      ...listing.objects.map(object => ({ kind: 'object', key: object.key, object }) as Entry),
+      ...listing.folders.map((key): Entry => ({ kind: 'folder', key })),
+      ...listing.objects.map((object): Entry => ({ kind: 'object', key: object.key, object })),
     ]
     return needle === '' ? rows : rows.filter(row => baseName(row.key).toLowerCase().includes(needle))
   }, [listing, filter])

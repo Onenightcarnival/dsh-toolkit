@@ -6,14 +6,14 @@ import { t, zh, type Key } from './locales.ts'
 async function request(input?: Commit | { agentTools: boolean } | { clear: true; baseRevision: number }): Promise<State> {
   const response = await fetch(API, { method: input ? ('clear' in input ? 'DELETE' : 'agentTools' in input ? 'PATCH' : 'POST') : 'GET', credentials: 'same-origin',
     ...(input ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) } : {}) })
-  const body = await response.json()
-  if (!response.ok) throw new Error(body.error || 'generic')
+  const body: unknown = await response.json()
+  if (!response.ok) throw new Error((body as { error?: string }).error || 'generic')
   return body as State
 }
 async function requestDiff(revision: number): Promise<Diff> {
   const response = await fetch(`${API}?diff=${revision}`, { credentials: 'same-origin' })
-  const body = await response.json()
-  if (!response.ok) throw new Error(body.error || 'generic')
+  const body: unknown = await response.json()
+  if (!response.ok) throw new Error((body as { error?: string }).error || 'generic')
   return body as Diff
 }
 function message(error: unknown): string {
@@ -92,7 +92,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
     const target = history ? selectedRevision?.revision : undefined
     if (target === undefined || diffs[target]) return
     let cancelled = false
-    requestDiff(target).then((diff) => { if (!cancelled) setDiffs(current => ({ ...current, [target]: diff })) }).catch((e) => { if (!cancelled) setError(message(e)) })
+    requestDiff(target).then((diff) => { if (!cancelled) setDiffs(current => ({ ...current, [target]: diff })) }).catch((e: unknown) => { if (!cancelled) setError(message(e)) })
     return () => { cancelled = true }
   }, [history, selectedRevision?.revision])
 
@@ -101,11 +101,12 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
     <header className="mem-top"><h1>{t('entry')}</h1>
       <nav><button aria-pressed={history} onClick={() => setHistory(!history)}>{t(history ? 'back' : 'history')}</button><button onClick={() => state && download(state)} disabled={!state}>{t('export')}</button><button onClick={() => importer.current?.click()}>{t('import')}</button><button onClick={() => void refresh()}>{t('refresh')}</button><button className="mem-danger" disabled={!state || busy} onClick={() => setConfirm({ title: 'clearTitle', hint: 'clearHint', input: { clear: true, baseRevision: state!.revision } })}>{t('clear')}</button><button aria-label={t('close')} onClick={close}>×</button></nav>
     </header>
+    {/* oxlint-disable-next-line typescript/no-misused-promises -- The handler catches its own failures. */}
     <input ref={importer} type="file" accept="application/json,.json" hidden onChange={async (event) => {
       const file = event.target.files?.[0]; event.target.value = ''; if (!file || !state) return
       try {
         if (file.size > 2 * 1024 * 1024) throw new Error('invalid')
-        const data = JSON.parse(await file.text())
+        const data = JSON.parse(await file.text()) as Partial<NonNullable<Commit['imported']>>
         if (data.schemaVersion !== SCHEMA_VERSION || !Array.isArray(data.entries)) throw new Error('invalid')
         setConfirm({ title: 'importTitle', hint: 'importHint', input: { baseRevision: state.revision, summary: t('importSummary'), imported: { schemaVersion: data.schemaVersion, entries: data.entries } } })
       } catch (e) { setError(message(e)) }

@@ -5,7 +5,7 @@ import {
   type HttpSavedRequest, type HttpSavedRequestPayload, type HttpTargetSummary,
 } from '../../protocol.ts'
 import { parseCurl, splitQuery, toCurl, type ParsedCurl } from '../curl.ts'
-import { tt, type HttpKey } from '../locales.ts'
+import { tt } from '../locales.ts'
 import { CaptureEditor, activeCaptures } from './CaptureEditor.tsx'
 import { CodeEditor } from './Code.tsx'
 import { copyText, prettyJson, sendShortcut } from './common.tsx'
@@ -199,7 +199,7 @@ function AuthEditor(props: { auth: HttpAuth; onChange: (auth: HttpAuth) => void;
       <div className="dsh-http-toolRow">
         <div className="dsh-http-segments" role="radiogroup" aria-label={tt('form.auth')}>
           {HTTP_AUTH_TYPES.map(type => (
-            <button key={type} type="button" role="radio" aria-checked={auth.type === type} className="dsh-http-segment" {...(auth.type === type ? { 'data-active': '' } : {})} disabled={props.disabled} onClick={() => { if (auth.type !== type) onChange(blankAuth(type)) }}>{tt(`form.auth.${type}` as HttpKey)}</button>
+            <button key={type} type="button" role="radio" aria-checked={auth.type === type} className="dsh-http-segment" {...(auth.type === type ? { 'data-active': '' } : {})} disabled={props.disabled} onClick={() => { if (auth.type !== type) onChange(blankAuth(type)) }}>{tt(`form.auth.${type}`)}</button>
           ))}
         </div>
         <span className="dsh-http-spacer" />
@@ -278,10 +278,10 @@ export function RequestPane(props: RequestPaneProps): JSX.Element {
   const badge = (value: RequestTab): string | undefined => {
     if (value === 'params') { const n = activeCount(state.query); return n > 0 ? String(n) : undefined }
     if (value === 'headers') { const n = activeCount(state.headers); return n > 0 ? String(n) : undefined }
-    if (value === 'body') return bodyAllowed && state.bodyMode !== 'none' ? tt(`request.bodyMode.${state.bodyMode}` as HttpKey) : undefined
+    if (value === 'body') return bodyAllowed && state.bodyMode !== 'none' ? tt(`request.bodyMode.${state.bodyMode}`) : undefined
     if (value === 'auth') {
       const type = ownAuth ? state.auth.type : target.auth.type
-      return type === 'none' ? undefined : tt(`form.auth.${type}` as HttpKey)
+      return type === 'none' ? undefined : tt(`form.auth.${type}`)
     }
     if (value === 'captures') { const n = activeCaptures(state.captures); return n > 0 ? String(n) : undefined }
     return undefined
@@ -340,7 +340,7 @@ export function RequestPane(props: RequestPaneProps): JSX.Element {
           const label = badge(value)
           return (
             <button key={value} type="button" role="tab" aria-selected={tab === value} className="dsh-http-tab" {...(tab === value ? { 'data-active': '' } : {})} onClick={() => { props.onTab(value) }}>
-              {tt(`request.tab.${value}` as HttpKey)}{label !== undefined && <span className="dsh-http-count" {...(/^\d+$/.test(label) ? {} : { 'data-text': '' })}>{label}</span>}
+              {tt(`request.tab.${value}`)}{label !== undefined && <span className="dsh-http-count" {...(/^\d+$/.test(label) ? {} : { 'data-text': '' })}>{label}</span>}
             </button>
           )
         })}
@@ -370,7 +370,7 @@ export function RequestPane(props: RequestPaneProps): JSX.Element {
               <div className="dsh-http-toolRow">
                 <div className="dsh-http-segments" role="radiogroup">
                   {BODY_MODES.map(mode => (
-                    <button key={mode} type="button" role="radio" aria-checked={state.bodyMode === mode} className="dsh-http-segment" {...(state.bodyMode === mode ? { 'data-active': '' } : {})} onClick={() => { set({ bodyMode: mode }) }}>{tt(`request.bodyMode.${mode}` as HttpKey)}</button>
+                    <button key={mode} type="button" role="radio" aria-checked={state.bodyMode === mode} className="dsh-http-segment" {...(state.bodyMode === mode ? { 'data-active': '' } : {})} onClick={() => { set({ bodyMode: mode }) }}>{tt(`request.bodyMode.${mode}`)}</button>
                   ))}
                 </div>
                 <span className="dsh-http-spacer" />

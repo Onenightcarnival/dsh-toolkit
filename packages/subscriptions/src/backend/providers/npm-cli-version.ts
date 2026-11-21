@@ -12,7 +12,7 @@ export function compareVersions(a: string, b: string): number {
   const left = a.split('.').map(Number)
   const right = b.split('.').map(Number)
   const different = left.findIndex((part, index) => part !== right[index])
-  return different === -1 ? 0 : left[different]! - right[different]!
+  return different === -1 ? 0 : left[different] - right[different]
 }
 
 /** Where a presented CLI version came from. */

@@ -13,7 +13,6 @@ import z from '@deepseek-ai/schemastery'
 import { errorChain } from '@deepseek-ai/dsh-llm'
 import type {
   AdapterRegistrationHandle,
-  LlmAdapter,
   LlmModelInfo,
   LlmResolvedModelInfo,
 } from '@deepseek-ai/dsh-llm'
@@ -238,6 +237,7 @@ function planOf(provider: ProviderId, session: StoredSession): string | undefine
     case 'antigravity': return (session as AntigravitySession).plan
     case 'codex': return (session as CodexSession).planType
     case 'grok': return grokTierName((session as GrokSession).accessToken)
+    default: return undefined
   }
 }
 
@@ -288,7 +288,7 @@ export class SubscriptionsAuthController implements AuthController {
     private readonly onAuthChanged: (provider: ProviderId, account?: string) => void,
     private readonly resolveAttachments: () => AttachmentStore | undefined,
     private readonly usageFetchers: UsageFetchers = {},
-    private readonly poolUsage: PoolUsageTracker | undefined = undefined,
+    private readonly poolUsage?: PoolUsageTracker,
     private readonly clientVersions: Partial<Record<ProviderId, () => Promise<CliVersion | undefined>>> = {},
     private readonly antigravityConfig: Config['antigravity'] = {},
   ) {}
@@ -524,7 +524,7 @@ export function apply(ctx: Context, config: Config): void {
   }
   // Resolved per request: the attachments service may start after this plugin.
   const resolveAttachments = (): AttachmentStore | undefined =>
-    ctx.get('attachments') as AttachmentStore | undefined
+    ctx.get('attachments')
 
   // Registration handles: `replace` fires `llm/adapters-updated`, and the model picker re-queries `listModels`.
   const handles = new Map<string, AdapterRegistrationHandle>()
@@ -580,7 +580,7 @@ export function apply(ctx: Context, config: Config): void {
           makeOptions: () => ({ preemptMs: 5 * 60_000, refresh: refreshChatGpt, isPermanent: isChatGptPermanentRefreshError }),
           onAccountRemoved: account => authChanged(provider, account),
         })
-        accountTokens.set(provider, tokens as AccountTokenManager<StoredSession>)
+        accountTokens.set(provider, tokens)
         const adapter = new ChatGptAdapter({ tokens, models: catalog.chatgpt, streamIdleTimeoutMs,
           resolveAttachments, accountCatalogStore: account => accountCatalogStore(provider, account),
           defaultEffortOf: model => defaultEffortOf(provider, model),
@@ -602,7 +602,7 @@ export function apply(ctx: Context, config: Config): void {
           onAccountRemoved: account => authChanged(provider, account),
         })
         antigravityTokens = tokens
-        accountTokens.set(provider, tokens as AccountTokenManager<StoredSession>)
+        accountTokens.set(provider, tokens)
         usageFetchers.antigravity = async (account, signal) => fetchAntigravityUsage(await tokens.session(account), config.antigravity, proxiedFetch, signal)
         const adapter = new AntigravityAdapter({
           models: catalog.antigravity, streamIdleTimeoutMs, rateLimit, tokens,
@@ -630,11 +630,10 @@ export function apply(ctx: Context, config: Config): void {
           onAccountRemoved: (account) => { authChanged('codex', account) },
         })
         codexTokens = tokens
-        accountTokens.set('codex', tokens as AccountTokenManager<StoredSession>)
+        accountTokens.set('codex', tokens)
         usageFetchers.codex = async (account, signal) =>
           fetchCodexUsage(await tokens.session(account), proxiedFetch, signal)
-        let adapter!: CodexAdapter
-        adapter = new CodexAdapter({
+        const adapter: CodexAdapter = new CodexAdapter({
           ...config.codexClientVersion === undefined ? {} : { clientVersion: config.codexClientVersion },
           resolveClientVersion: () => codexVersion.resolve(),
           models: catalog.codex,
@@ -667,7 +666,7 @@ export function apply(ctx: Context, config: Config): void {
           onAccountRemoved: account => authChanged(provider, account),
         })
         grokTokens = tokens
-        accountTokens.set(provider, tokens as AccountTokenManager<StoredSession>)
+        accountTokens.set(provider, tokens)
         usageFetchers.grok = async (account, signal) => fetchGrokUsage(await tokens.session(account), proxiedFetch, signal)
         const adapter = new GrokAdapter({
           models: catalog.grok, streamIdleTimeoutMs, rateLimit, tokens,
@@ -705,6 +704,7 @@ export function apply(ctx: Context, config: Config): void {
           return tokens === undefined ? undefined : async () =>
             fetchCodexUsage(await tokens.session(account), proxiedFetch, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
         }
+        default: return undefined
       }
     }
     poolHealth = new PoolHealthRegistry()
@@ -798,7 +798,7 @@ export function apply(ctx: Context, config: Config): void {
         poolAdapter?.invalidate()
         for (const [route, handle] of handles) handle.replace([route])
       }
-      const visible = new Set((await ctx.llm.listProviders()).map(provider => provider.id))
+      const visible = new Set(ctx.llm.listProviders().map(provider => provider.id))
       const catalog: ModelDefaultsCatalog[] = []
       for (const provider of PROVIDER_IDS) {
         if (!visible.has(provider)) continue

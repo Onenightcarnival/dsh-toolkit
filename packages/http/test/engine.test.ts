@@ -88,7 +88,7 @@ after(async () => {
 })
 
 function target(overrides: Partial<HttpTarget> = {}): HttpTarget {
-  return store.create({ baseUrl: `${origin}/v1`, allowPrivate: true, ...overrides } as never)
+  return store.create({ baseUrl: `${origin}/v1`, allowPrivate: true, ...overrides })
 }
 
 test('substitute, hostMatches, isPrivateAddress, isTextual, maskSecrets', () => {
@@ -124,7 +124,7 @@ test('GET with variables, query, fixed headers and bearer auth; secrets masked; 
   const exchange = await engine.send(t.name, { method: 'GET', path: '/echo/{{id}}', query: { q: '{{id}}' }, headers: { 'X-Req': 'r' } }, { source: 'agent' })
   assert.equal(exchange.error, undefined)
   assert.equal(exchange.response?.status, 404)
-  const seen = JSON.parse(exchange.response!.body) as { url: string; headers: Record<string, string> }
+  const seen = JSON.parse(exchange.response.body) as { url: string; headers: Record<string, string> }
   assert.equal(seen.url, '/v1/echo/42?q=42')
   assert.equal(seen.headers['x-fixed'], 'yes')
   assert.equal(seen.headers['x-req'], 'r')
@@ -156,7 +156,7 @@ test('redirects: same-origin followed, 303 turns POST into GET, other hosts refu
   const followed = await engine.send(t.id, { method: 'GET', path: 'redirect' }, { source: 'panel' })
   assert.equal(followed.response?.status, 200)
   assert.deepEqual(followed.response?.redirects, [`${origin}/v1/echo?from=redirect`])
-  const seen = JSON.parse(followed.response!.body) as { headers: Record<string, string> }
+  const seen = JSON.parse(followed.response.body) as { headers: Record<string, string> }
   assert.equal(seen.headers.authorization, 'Bearer ••••••')
   const post = await engine.send(t.id, { method: 'POST', path: 'redirect-post', body: '{"x":1}' }, { source: 'panel' })
   assert.equal((JSON.parse(post.response!.body) as { method: string; body: string }).method, 'GET')
@@ -246,7 +246,7 @@ test('direct scope: full URL without a target, panel only; typed credential head
   assert.equal(direct.error, undefined)
   assert.equal(direct.targetId, 'direct')
   assert.equal(direct.response?.status, 200)
-  const seen = JSON.parse(direct.response!.body) as { headers: Record<string, string> }
+  const seen = JSON.parse(direct.response.body) as { headers: Record<string, string> }
   assert.equal(seen.headers.authorization, 'Bearer ••••••')
   assert.equal(seen.headers['x-api-key'], '••••••')
   assert.equal(direct.request.headers.Authorization, 'Bearer ••••••')

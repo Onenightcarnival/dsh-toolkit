@@ -22,6 +22,7 @@ export const inject = ['slots', 'locale', 'layout']
 
 interface Slots {
   inject(name: string, register: () => () => void): () => void
+  // oxlint-disable-next-line typescript/no-explicit-any -- The slot registry accepts components of any props.
   register(options: Record<string, unknown>, component: ComponentType<any>): () => void
   entries(name: string): Array<{ options: { id?: string } }>
 }
@@ -45,7 +46,7 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'dsh-config-center: dictionaries')
   try {
-    if (locale !== undefined) setRuntimeTranslate(locale.bind(NS) as typeof tt)
+    if (locale !== undefined) setRuntimeTranslate(locale.bind(NS))
   } catch { /* document-language fallback */ }
 
   const api = new ConfigCenterApi()

@@ -345,7 +345,7 @@ function parseStore(text: string, path: string): SessionMap {
     }
     if (Object.keys(kept).length === 0) continue
     const validDefault = record.default === undefined || record.default in kept
-      ? record.default as string | undefined
+      ? record.default
       : Object.keys(kept)[0]
     ;(store as Record<string, unknown>)[provider] = { ...record, default: validDefault, accounts: kept }
   }
@@ -415,7 +415,7 @@ export async function listAccounts<K extends ProviderId>(
 ): Promise<AccountEntry<SessionOf<K>>[]> {
   const entry = (await loadStore(path))[provider]
   if (entry === undefined) return []
-  const accounts = Object.entries(entry.accounts).map(([key, session]) => ({ key, session }))
+  const accounts = Object.entries(entry.accounts).map(([key, session]) => ({ key, session: session as SessionOf<K> }))
   accounts.sort((a, b) => Number(b.key === entry.default) - Number(a.key === entry.default))
   return accounts
 }
@@ -464,7 +464,7 @@ export async function saveAccountSession<K extends ProviderId>(
         account = reconcileCodexIdentity(
           entry as unknown as ProviderAccounts<CodexSession>,
           session as unknown as CodexSession,
-        ) ?? accountKeyOf('codex', session as unknown as CodexSession)
+        ) ?? accountKeyOf('codex', session)
       }
     }
     ;(store as Record<string, unknown>)[provider] = {

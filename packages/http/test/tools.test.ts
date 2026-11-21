@@ -19,7 +19,7 @@ const engine = new HttpEngine(store, history, fetchImpl)
 
 // allowPrivate skips the DNS check, so the stubbed fetch sees the request.
 const readOnly = store.create({ baseUrl: 'https://ro.example.com/api', auth: { type: 'bearer', token: 'ro-token-value' }, allowPrivate: true })
-const writable = store.create({ baseUrl: 'https://rw.example.com', name: 'rw', allowMutations: true, allowPrivate: true })
+store.create({ baseUrl: 'https://rw.example.com', name: 'rw', allowMutations: true, allowPrivate: true })
 
 type Tool = { execute(args: Record<string, unknown>, ...rest: unknown[]): Promise<unknown>; output?: { render(args: Record<string, unknown>, value: never): Array<{ type: string; text: string }> } }
 
@@ -30,7 +30,7 @@ function assertLossless(value: unknown): void {
 
 async function run(tool: unknown, args: Record<string, unknown>): Promise<{ value: Record<string, unknown>; text: string }> {
   const t = tool as Tool
-  const value = await t.execute(args, {} as never) as Record<string, unknown>
+  const value = await t.execute(args, {}) as Record<string, unknown>
   assertLossless(value)
   const text = t.output?.render(args, value as never).map(block => block.text).join('\n') ?? ''
   return { value, text }

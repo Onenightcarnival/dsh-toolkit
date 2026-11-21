@@ -52,7 +52,7 @@ export class ConfigCenterApi {
     const data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(String(reader.result).split(',')[1])
-      reader.onerror = () => reject(reader.error)
+      reader.onerror = () => reject(reader.error ?? new Error('file read failed'))
       reader.readAsDataURL(file)
     })
     return readJson(await post(API.skillInstall, { data, policy }))

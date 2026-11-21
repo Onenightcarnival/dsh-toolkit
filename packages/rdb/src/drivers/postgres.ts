@@ -82,7 +82,7 @@ export class PgConnection implements DbConnection {
   }
 
   private open(node: HostNode): PgLikeClient {
-    const mod = (this.kind === 'gaussdb' ? gaussModule : pgModule) as unknown as PgLikeModule
+    const mod = (this.kind === 'gaussdb' ? gaussModule : pgModule) as PgLikeModule
     return new mod.Client({
       host: node.host,
       port: node.port,

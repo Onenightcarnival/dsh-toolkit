@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { HttpStreamEnd } from '../../protocol.ts'
 import { deltaText, type SseRow } from '../sse.ts'
-import { tt, type HttpKey } from '../locales.ts'
+import { tt } from '../locales.ts'
 import { CodeView } from './Code.tsx'
 import { prettyJson } from './common.tsx'
 
@@ -69,11 +69,11 @@ export function SseView(props: SseViewProps): JSX.Element {
       <div className="dsh-http-toolRow">
         <div className="dsh-http-segments" data-small role="radiogroup">
           {available.map(value => (
-            <button key={value} type="button" role="radio" aria-checked={current === value} className="dsh-http-segment" {...(current === value ? { 'data-active': '' } : {})} onClick={() => { setMode(value) }}>{tt(`response.stream.${value}` as HttpKey)}</button>
+            <button key={value} type="button" role="radio" aria-checked={current === value} className="dsh-http-segment" {...(current === value ? { 'data-active': '' } : {})} onClick={() => { setMode(value) }}>{tt(`response.stream.${value}`)}</button>
           ))}
         </div>
         <span className="dsh-http-spacer" />
-        {props.ended !== undefined && props.ended !== 'complete' && props.ended !== 'limit' && <span className="dsh-http-note">{tt(`response.stream.ended.${props.ended}` as HttpKey)}</span>}
+        {props.ended !== undefined && props.ended !== 'complete' && props.ended !== 'limit' && <span className="dsh-http-note">{tt(`response.stream.ended.${props.ended}`)}</span>}
       </div>
       <div className="dsh-http-sseScroll" ref={scrollRef} onScroll={(event) => { const element = event.currentTarget; stick.current = element.scrollHeight - element.scrollTop - element.clientHeight < STICK_PX }}>
         {current === 'events' && (

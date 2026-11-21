@@ -89,7 +89,7 @@ function plainDict(node: unknown): Record<string, string> {
 }
 
 function textNode(document: PatchDocument, value: string): Scalar {
-  if (!value.startsWith(JS_PREFIX)) return document.createNode(value) as Scalar
+  if (!value.startsWith(JS_PREFIX)) return document.createNode(value)
   const expression = new Scalar(value.slice(JS_PREFIX.length).trim())
   expression.tag = JS_TAG
   return expression

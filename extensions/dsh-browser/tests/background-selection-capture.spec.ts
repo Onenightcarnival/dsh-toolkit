@@ -101,7 +101,7 @@ function mockChrome(sharePageContent: 'auto' | 'off' = 'auto') {
       onFocusChanged: chromeEvent<[number]>(),
       onRemoved: chromeEvent<[number]>(),
     },
-  } as unknown as typeof chrome)
+  })
   return { onCommitted, onConnect, onMessage, onRemoved, onReplaced, onUpdated, query, sendMessage }
 }
 
@@ -197,7 +197,7 @@ describe('page selection capture', () => {
 
     runtimeMessages.emit(
       { type: 'DSH_SELECTION', selection: capture },
-      { ...sender, tab: tab(7, { active: false }) } as chrome.runtime.MessageSender,
+      { ...sender, tab: tab(7, { active: false }) },
       vi.fn(),
     )
     // The visible tab's own selection proves the rejected one never landed.
@@ -214,7 +214,7 @@ describe('page selection capture', () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       runtimeMessages.emit(
         { type: 'DSH_SELECTION', selection: { ...capture, text: `spam ${attempt}` } },
-        { ...sender, tab: tab(7, { active: false }) } as chrome.runtime.MessageSender,
+        { ...sender, tab: tab(7, { active: false }) },
         vi.fn(),
       )
     }
@@ -243,7 +243,7 @@ describe('page selection capture', () => {
 
     runtimeMessages.emit(
       { type: 'DSH_SELECTION', selection: capture },
-      { ...sender, tab: tab(7, { active: true, windowId: 2 }) } as chrome.runtime.MessageSender,
+      { ...sender, tab: tab(7, { active: true, windowId: 2 }) },
       vi.fn(),
     )
     await new Promise((resolve) => { setTimeout(resolve, 0) })

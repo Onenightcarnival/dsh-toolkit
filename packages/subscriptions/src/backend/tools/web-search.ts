@@ -120,7 +120,7 @@ function isSearchMeta(value: unknown): value is { sources: WebSearchResult['sour
   if (!value || typeof value !== 'object') return false
   const meta = value as Record<string, unknown>
   return typeof meta.truncated === 'boolean' && (meta.answer === undefined || typeof meta.answer === 'string')
-    && Array.isArray(meta.sources) && meta.sources.every(source => source && typeof source === 'object'
+    && Array.isArray(meta.sources) && (meta.sources as Record<string, unknown>[]).every(source => source && typeof source === 'object'
       && typeof source.url === 'string' && (source.title === undefined || typeof source.title === 'string')
       && (source.snippet === undefined || typeof source.snippet === 'string'))
 }

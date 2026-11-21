@@ -6,7 +6,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { RdbEngine, errorText, toCsv } from './engine.ts'
 import { isLoopbackRequest, readJsonBody, writeJson } from './http.ts'
-import { RDB_API, type DbProfilePayload, type RowChange, type RowFilter } from './protocol.ts'
+import { RDB_API, type RowChange, type RowFilter } from './protocol.ts'
 import type { ProfileStore } from './store.ts'
 
 export interface RouteDeps {
@@ -53,7 +53,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
         if (method === 'POST') {
           const body = await readJsonBody(req)
           if (body === null) return fail(res, 'invalid JSON body')
-          try { writeJson(res, 201, { profile: store.summarize(store.create(body as DbProfilePayload)) }) } catch (error) { fail(res, error) }
+          try { writeJson(res, 201, { profile: store.summarize(store.create(body)) }) } catch (error) { fail(res, error) }
           return
         }
         const id = q(url, 'id')
@@ -62,7 +62,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
           const body = await readJsonBody(req)
           if (body === null) return fail(res, 'invalid JSON body')
           try {
-            const profile = store.update(id, body as DbProfilePayload)
+            const profile = store.update(id, body)
             await engine.drop(id)
             writeJson(res, 200, { profile: store.summarize(profile) })
           } catch (error) { fail(res, error) }

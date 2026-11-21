@@ -37,7 +37,7 @@ function summary(file: string): Pick<Skill, 'description' | 'version'> & { front
   const block = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text)
   let frontmatter: Record<string, unknown> = {}
   if (block) {
-    try { const value = parse(block[1], { maxAliasCount: 20 }); if (value && typeof value === 'object' && !Array.isArray(value)) frontmatter = value } catch { /* source remains available */ }
+    try { const value: unknown = parse(block[1], { maxAliasCount: 20 }); if (value && typeof value === 'object' && !Array.isArray(value)) frontmatter = value as Record<string, unknown> } catch { /* source remains available */ }
   }
   const metadata = frontmatter.metadata as Record<string, unknown> | undefined
   return { description: String(frontmatter.description ?? text.split('\n').find(line => line.trim() && !/^(#|---)/.test(line)) ?? '').slice(0, 2000), version: String(frontmatter.version ?? metadata?.version ?? ''), frontmatter }

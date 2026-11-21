@@ -626,6 +626,7 @@ class AsyncEventQueue {
     try {
       while (true) {
         while (this.frames.length > 0) yield this.frames.shift() as HostEventFrame
+        // oxlint-disable-next-line typescript/only-throw-error -- Rethrows the recorded failure unchanged.
         if (this.failure !== undefined) throw this.failure
         if (this.closed || signal.aborted) return
         await new Promise<void>((resolve) => { this.wake = resolve })

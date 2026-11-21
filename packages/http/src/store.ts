@@ -15,7 +15,7 @@ import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { MAX_CAPTURED_LENGTH, VARIABLE_NAME_RE } from './capture.ts'
 import {
   DEFAULT_HISTORY_LIMIT, DEFAULT_TIMEOUT_MS, HTTP_AUTH_TYPES, HTTP_BODY_MODES, HTTP_CAPTURE_REFRESH, HTTP_CAPTURE_SOURCES, MAX_CAPTURE_RULES, MAX_CAPTURE_TTL_SECONDS, MAX_HISTORY_LIMIT, MAX_TIMEOUT_MS, MIN_HISTORY_LIMIT, MIN_TIMEOUT_MS, isHttpMethod,
-  type HttpAuth, type HttpAuthPayload, type HttpAuthSummary, type HttpBodyMode, type HttpCapture, type HttpCaptureRefresh, type HttpCaptureSource, type HttpCapturedValue, type HttpExchange, type HttpKeyValue,
+  type HttpAuth, type HttpAuthSummary, type HttpCapture, type HttpCaptureRefresh, type HttpCaptureSource, type HttpCapturedValue, type HttpExchange, type HttpKeyValue,
   type HttpSavedRequest, type HttpSavedRequestPayload, type HttpSettings, type HttpTarget, type HttpTargetPayload, type HttpTargetSummary,
 } from './protocol.ts'
 
@@ -223,7 +223,7 @@ export function normalizeRequestAuth(value: unknown): HttpAuth {
   if (typeof value !== 'object' || value === null) fail('auth must be an object')
   const raw = value as Record<string, unknown>
   const text = (field: string): string => {
-    const given = typeof raw[field] === 'string' ? raw[field] as string : ''
+    const given = typeof raw[field] === 'string' ? raw[field] : ''
     if (given.length > MAX_VALUE_LENGTH || /[\r\n]/.test(given)) fail(`auth.${field} is too long or contains line breaks`)
     return given
   }
@@ -656,7 +656,7 @@ export function normalizeRequestPatch(payload: HttpSavedRequestPayload): Partial
   if (payload.auth !== undefined) out.auth = normalizeRequestAuth(payload.auth)
   if (payload.bodyMode !== undefined) {
     if (!(HTTP_BODY_MODES as readonly string[]).includes(payload.bodyMode)) fail(`bodyMode must be one of ${HTTP_BODY_MODES.join(', ')}`)
-    out.bodyMode = payload.bodyMode as HttpBodyMode
+    out.bodyMode = payload.bodyMode
   }
   if (payload.body !== undefined) {
     const body = str(payload.body) ?? ''

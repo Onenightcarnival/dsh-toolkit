@@ -142,6 +142,7 @@ function setNativeValue(input: HTMLInputElement | HTMLTextAreaElement, value: st
   const prototype = input instanceof HTMLTextAreaElement
     ? HTMLTextAreaElement.prototype
     : HTMLInputElement.prototype
+  // oxlint-disable-next-line typescript/unbound-method -- Native value setter, invoked with the input as `this`.
   const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
   if (setter === undefined) {
     input.value = value

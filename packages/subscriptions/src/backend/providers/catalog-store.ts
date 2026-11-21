@@ -61,7 +61,7 @@ function sanitizeReasoning(value: unknown): NonNullable<DiscoveredModel['reasoni
     && (typeof raw.defaultEffort !== 'string' || !seen.has(raw.defaultEffort))) return undefined
   return {
     efforts,
-    ...raw.defaultEffort === undefined ? {} : { defaultEffort: ReasoningEffortId(raw.defaultEffort as string) },
+    ...raw.defaultEffort === undefined ? {} : { defaultEffort: ReasoningEffortId(raw.defaultEffort) },
   }
 }
 
@@ -91,14 +91,14 @@ function sanitizeModel(value: unknown): DiscoveredModel | undefined {
   return {
     id: raw.id,
     name: raw.name,
-    ...raw.description === undefined ? {} : { description: raw.description as string },
-    ...raw.contextWindow === undefined ? {} : { contextWindow: raw.contextWindow as number },
-    ...raw.maxContextWindow === undefined ? {} : { maxContextWindow: raw.maxContextWindow as number },
-    ...raw.maxOutputTokens === undefined ? {} : { maxOutputTokens: raw.maxOutputTokens as number },
-    ...raw.priority === undefined ? {} : { priority: raw.priority as number },
+    ...raw.description === undefined ? {} : { description: raw.description },
+    ...raw.contextWindow === undefined ? {} : { contextWindow: raw.contextWindow },
+    ...raw.maxContextWindow === undefined ? {} : { maxContextWindow: raw.maxContextWindow },
+    ...raw.maxOutputTokens === undefined ? {} : { maxOutputTokens: raw.maxOutputTokens },
+    ...raw.priority === undefined ? {} : { priority: raw.priority },
     ...reasoning === undefined ? {} : { reasoning },
     ...fastTier === undefined ? {} : { fastTier },
-    ...inputModalities === undefined ? {} : { inputModalities: [...inputModalities] as ('text' | 'image')[] },
+    ...inputModalities === undefined ? {} : { inputModalities: [...inputModalities as ('text' | 'image')[]] },
   }
 }
 
@@ -135,7 +135,7 @@ async function readCatalogFile(path: string): Promise<CatalogFile> {
   try {
     const parsed: unknown = JSON.parse(text)
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {}
-    return parsed as CatalogFile
+    return parsed
   } catch {
     return {}
   }

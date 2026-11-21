@@ -4,7 +4,7 @@
  * endpoint.
  */
 
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { attributionHeaders, EMPTY_RESPONSE_CODE, errorChain, LlmAdapter, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type {
   GenerateOptions,
@@ -738,7 +738,7 @@ export class CodexAdapter extends LlmAdapter {
       ...model.description === undefined ? {} : { description: model.description },
       inputModalities: CODEX_MODALITIES,
       ...model.priority === undefined ? {} : { priority: model.priority },
-    } as LlmModelInfo))
+    }))
   }
 
   /**

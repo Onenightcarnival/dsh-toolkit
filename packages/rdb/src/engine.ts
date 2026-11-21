@@ -114,7 +114,7 @@ export class RdbEngine {
       const conn = profile.kind === 'sqlite' ? new SqliteConnection(profile.file) : profile.kind === 'mysql' ? new MysqlConnection(profile) : new PgConnection(profile)
       cached = { conn, updatedAt: profile.updatedAt, lastUsed: Date.now() }
       if (conn instanceof PgConnection || conn instanceof MysqlConnection) {
-        cached.opening = conn.connect().catch((error) => { this.conns.delete(profile.id); throw error })
+        cached.opening = conn.connect().catch((error: unknown) => { this.conns.delete(profile.id); throw error })
       }
       this.conns.set(profile.id, cached)
     }

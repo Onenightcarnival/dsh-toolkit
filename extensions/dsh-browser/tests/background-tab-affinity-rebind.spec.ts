@@ -93,7 +93,7 @@ function mockChrome() {
       onFocusChanged: chromeEvent<[number]>(),
       onRemoved: chromeEvent<[number]>(),
     },
-  } as unknown as typeof chrome)
+  })
   return { onConnect, query }
 }
 

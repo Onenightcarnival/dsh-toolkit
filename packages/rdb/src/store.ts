@@ -156,7 +156,7 @@ export class ProfileStore {
   }
 
   summarize(profile: DbProfile): DbProfileSummary {
-    const { password, ...rest } = profile
+    const { password: _password, ...rest } = profile
     return { ...rest }
   }
 

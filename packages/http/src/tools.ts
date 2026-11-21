@@ -8,7 +8,7 @@
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import { HttpPolicyError, humanBytes, type HttpEngine } from './engine.ts'
+import { humanBytes, type HttpEngine } from './engine.ts'
 import { DIRECT_TARGET_ID, SAFE_METHODS, isHttpMethod, type HttpExchange, type HttpTargetSummary } from './protocol.ts'
 import type { HistoryStore, RequestStore, TargetStore, ValueStore } from './store.ts'
 
@@ -225,7 +225,7 @@ export function httpRequestTool(engine: HttpEngine) {
         }, { source: 'agent', maxBodyBytes: TOOL_BODY_BYTES })
         return toOutput(exchange)
       } catch (error) {
-        return { ok: false, error: err(error instanceof HttpPolicyError ? error : error) }
+        return { ok: false, error: err(error) }
       }
     },
   })

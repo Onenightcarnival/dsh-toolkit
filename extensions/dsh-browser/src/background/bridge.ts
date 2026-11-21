@@ -22,7 +22,7 @@ export type BridgeState = 'connecting' | 'connected' | 'reconnecting' | 'stopped
 /** Frame/state sinks owned by the background assembly. */
 export interface BridgeSinks {
   onStateChange(state: BridgeState): void
-  onFrame(frame: ServerFrame): void
+  onFrame: (frame: ServerFrame) => void
   onHelloOk(caps: BridgeCaps): void
 }
 

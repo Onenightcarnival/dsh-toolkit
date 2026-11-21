@@ -7,7 +7,7 @@
 
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Context, Fiber } from '@deepseek-ai/cordis'
+import type { Context, Fiber, FiberState } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import { readProfilePatches, reconcileProfilePatches } from '@deepseek-ai/dsh-app-boot'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
@@ -36,13 +36,14 @@ export interface Config {
 
 const BIN = 'dsh'
 const PRIVATE_FILE = 0o600
-const FIBER_ACTIVE = 2
-const FIBER_FAILED = 3
-const FIBER_DISPOSED = 4
+const FIBER_ACTIVE = 2 as FiberState
+const FIBER_FAILED = 3 as FiberState
+const FIBER_DISPOSED = 4 as FiberState
 
 const MOUNTED = Symbol.for('dsh-web.mounted-plugins')
 
 /** One active registration per package and process; disposal releases the slot. */
+// oxlint-disable-next-line typescript/no-explicit-any -- Generic callable constraint; `unknown[]` rejects functions with typed parameters.
 function mountOnce<T extends (...args: any[]) => unknown>(packageName: string, fn: T): T {
   return ((...args: unknown[]) => {
     const registry = globalThis as { [MOUNTED]?: Set<string> }

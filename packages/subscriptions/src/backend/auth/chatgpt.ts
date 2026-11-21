@@ -105,15 +105,15 @@ export function chatGptFlow(registration: ChatGptRegistration, idTokenHint?: str
 export async function validateChatGptIdentity(token: string, clientId: string, nonce: string | undefined, fetchFn: FetchFn = proxiedFetch): Promise<{ subject: string; emailAddress?: string }> {
   const parts = token.split('.')
   if (parts.length !== 3) throw new Error('Invalid ChatGPT ID token')
-  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString())
-  const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString())
+  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString()) as Record<string, unknown>
+  const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString()) as Record<string, unknown>
   if (header.alg !== 'RS256' || typeof header.kid !== 'string') throw new Error('Unsupported ChatGPT ID token signature')
   const response = await fetchFn(`${ISSUER}/.well-known/jwks.json`, { signal: AbortSignal.timeout(15_000) })
   if (!response.ok) throw new Error(`ChatGPT signing keys unavailable (HTTP ${response.status})`)
   const jwks = await response.json() as { keys?: (JsonWebKey & { kid?: string; use?: string; alg?: string })[] }
   const key = jwks.keys?.find(key => key.kid === header.kid && key.kty === 'RSA' && (!key.use || key.use === 'sig') && (!key.alg || key.alg === 'RS256'))
   if (!key || !verify('RSA-SHA256', Buffer.from(`${parts[0]}.${parts[1]}`), createPublicKey({ key, format: 'jwk' }), Buffer.from(parts[2], 'base64url'))) throw new Error('Invalid ChatGPT ID token signature')
-  const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud]
+  const audiences: unknown[] = Array.isArray(payload.aud) ? payload.aud : [payload.aud]
   const now = Date.now() / 1000
   if (payload.iss !== ISSUER || !audiences.includes(clientId)
     || (audiences.length > 1 && payload.azp !== clientId) || (payload.azp !== undefined && payload.azp !== clientId)

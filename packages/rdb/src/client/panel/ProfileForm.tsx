@@ -65,7 +65,7 @@ export function ProfileForm(props: ProfileFormProps): JSX.Element {
       <form onSubmit={(e) => { e.preventDefault(); void submit() }} className="dsh-rdb-form">
         <div className="dsh-rdb-segmented" role="radiogroup" aria-label={tt('form.kind')}>
           {(['postgres', 'mysql', 'gaussdb', 'sqlite'] as DbKind[]).map(k => (
-            <button key={k} type="button" role="radio" aria-checked={kind === k} {...(kind === k ? { 'data-active': '' } : {})} onClick={() => { changeKind(k) }}>{tt(`form.kind.${k}` as 'form.kind.sqlite')}</button>
+            <button key={k} type="button" role="radio" aria-checked={kind === k} {...(kind === k ? { 'data-active': '' } : {})} onClick={() => { changeKind(k) }}>{tt(`form.kind.${k}`)}</button>
           ))}
         </div>
         {kind === 'sqlite' ? (
@@ -112,7 +112,7 @@ export function ProfileForm(props: ProfileFormProps): JSX.Element {
             <label className="dsh-rdb-field">
               <span className="dsh-rdb-fieldLabel">{tt('form.target')}</span>
               <select className="dsh-rdb-select" value={target} onChange={(e) => { setTarget(e.target.value as TargetSessionAttrs) }}>
-                {TARGET_SESSION_ATTRS.map(v => <option key={v} value={v}>{tt(`form.target.${v}` as 'form.target.any')}</option>)}
+                {TARGET_SESSION_ATTRS.map(v => <option key={v} value={v}>{tt(`form.target.${v}`)}</option>)}
               </select>
             </label>
             <label className="dsh-rdb-checkRow" style={{ paddingBottom: 8 }}>

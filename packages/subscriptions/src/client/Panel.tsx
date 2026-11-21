@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Account, Catalog, Preferences, ProviderId, Status, Usage } from '../protocol.ts'
 import type { SubscriptionsApi } from './api.ts'
-import { tt, type Key } from './locales.ts'
+import { tt } from './locales.ts'
 import { ContextWindowInput } from './ContextWindowInput.tsx'
 import { ProviderLogo } from './ProviderLogo.tsx'
 
@@ -106,12 +106,12 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
     finally { lock.current = false; if (mounted.current) setBusy(false) }
   }, [])
 
-  useEffect(() => { void refreshStatus().catch((e) => { if (mounted.current) setError(messageOf(e)) }) }, [refreshStatus])
+  useEffect(() => { void refreshStatus().catch((e: unknown) => { if (mounted.current) setError(messageOf(e)) }) }, [refreshStatus])
   const accountSignature = JSON.stringify(status?.accounts.map(a => [a.key, a.expiresAt]))
   useEffect(() => {
     if (!status) return
     if (status.accounts.length === 0) { ++catalogSequence.current; setCatalog(undefined); setCatalogBusy(false); return }
-    void refreshCatalog().catch((e) => { if (mounted.current) setError(messageOf(e)) })
+    void refreshCatalog().catch((e: unknown) => { if (mounted.current) setError(messageOf(e)) })
   }, [accountSignature, refreshCatalog])
   useEffect(() => {
     if (!status?.busy) return
@@ -137,7 +137,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   useEffect(() => {
     ++usageSequence.current
     setUsage(undefined); setUsageBusy(false)
-    if (tab === 'usage' && active) void refreshUsage().catch((e) => { if (mounted.current) setError(messageOf(e)) })
+    if (tab === 'usage' && active) void refreshUsage().catch((e: unknown) => { if (mounted.current) setError(messageOf(e)) })
   }, [tab, active, refreshUsage])
 
   const login = (accountKey?: string): void => {
@@ -278,7 +278,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
               {currentUsage?.plan && <p>{tt('plan')} · {currentUsage.plan}</p>}
               {!currentUsage && <p className="dsh-sub-tableEmpty">{usageBusy ? tt('loading') : tt('unknownUsage')}</p>}
               {currentUsage && (!currentUsage.supported || !currentUsage.windows?.length) && <p className="dsh-sub-tableEmpty">{tt(provider === 'chatgpt' ? 'chatGptUsageUnavailable' : 'unsupportedUsage')}</p>}
-              {currentUsage?.supported && currentUsage.windows?.map((window, index) => <div className="dsh-sub-usage" key={index}><div><strong>{tt(window.kind as Key)}{window.scope ? ` · ${window.scope}` : ''}</strong><span>{Number.isFinite(window.usedPercent) ? `${window.usedPercent.toFixed(0)}% ${tt('used')}` : tt('unknown')}</span></div>
+              {currentUsage?.supported && currentUsage.windows?.map((window, index) => <div className="dsh-sub-usage" key={index}><div><strong>{tt(window.kind)}{window.scope ? ` · ${window.scope}` : ''}</strong><span>{Number.isFinite(window.usedPercent) ? `${window.usedPercent.toFixed(0)}% ${tt('used')}` : tt('unknown')}</span></div>
                 {Number.isFinite(window.usedPercent) && <progress max={100} value={Math.max(0, Math.min(100, window.usedPercent))} aria-label={tt(window.kind)}/>}
                 <small>{tt('resets')} · {window.resetsAt ? new Date(window.resetsAt).toLocaleString() : tt('unknown')}</small>
               </div>)}

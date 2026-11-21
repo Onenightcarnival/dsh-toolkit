@@ -87,8 +87,8 @@ export class AccountPreferencesAdapter extends LlmAdapter {
       }
       if (property === 'resolveOwnModel') return async (provider: string, model: string, account?: string) =>
         raw.resolveOwnModel(provider, model, await keyFor(account, model))
-      const value = Reflect.get(target, property)
-      return typeof value === 'function' ? value.bind(target) : value
+      const value: unknown = Reflect.get(target, property)
+      return typeof value === 'function' ? value.bind(target) as unknown : value
     } })
   }
   override async listModels(provider: string): Promise<readonly LlmModelInfo[]> {

@@ -106,7 +106,7 @@ describe('browser_upload', () => {
     private readonly list: File[] = []
     get files(): FileList {
       const list = this.list
-      return Object.assign([...list], { item: (i: number) => list[i] ?? null }) as unknown as FileList
+      return Object.assign([...list], { item: (i: number) => list[i] ?? null })
     }
   }
 

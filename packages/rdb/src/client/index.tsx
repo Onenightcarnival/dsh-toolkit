@@ -48,7 +48,7 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'dsh-rdb: dictionaries')
   try {
-    if (locale !== undefined) setRuntimeTranslate(locale.bind(NS) as typeof tt)
+    if (locale !== undefined) setRuntimeTranslate(locale.bind(NS))
   } catch { /* document-language fallback */ }
 
   const api = new RdbApi()

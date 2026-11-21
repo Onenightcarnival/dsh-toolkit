@@ -31,6 +31,6 @@ export function parseKeyCombo(combo: string): KeyCombo {
     else if (lower === 'meta' || lower === 'cmd' || lower === 'command' || lower === 'win') flags.metaKey = true
     else key = part
   }
-  if (key === '' && parts.length === 1) key = parts[0] as string
+  if (key === '' && parts.length === 1) key = parts[0]
   return { key, ...flags }
 }

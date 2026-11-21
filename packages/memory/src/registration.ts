@@ -15,7 +15,7 @@ const GUIDANCE = [
 
 /** Register tools and their prompt section together; repeated synchronization is idempotent. */
 export function registerMemoryTools(ctx: Context, store: MemoryStore): () => void {
-  let disposers: (() => void)[] = []
+  const disposers: (() => void)[] = []
   const clear = () => { for (const dispose of disposers.splice(0).reverse()) dispose() }
   const sync = () => {
     const enabled = store.read().agentTools

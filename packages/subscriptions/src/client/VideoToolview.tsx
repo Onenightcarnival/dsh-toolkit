@@ -41,7 +41,7 @@ function Video({ api, name }: { api: SubscriptionsApi; name: string }): JSX.Elem
       for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
       objectUrl = URL.createObjectURL(new Blob([bytes], { type: result.mediaType }))
       setUrl(objectUrl)
-    }).catch((error) => { if (!cancelled) setError(error instanceof Error ? error.message : String(error)) })
+    }).catch((error: unknown) => { if (!cancelled) setError(error instanceof Error ? error.message : String(error)) })
     return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl) }
   }, [api, name])
   return url ? <video src={url} controls preload="metadata" aria-label={tt('videoPreview')}/> : <p role={error ? 'alert' : 'status'}>{error || tt('videoLoading')}</p>

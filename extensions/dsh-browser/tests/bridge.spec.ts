@@ -89,7 +89,7 @@ describe('BridgeClient connection probe', () => {
 
     client.start('ws://127.0.0.1:3080/ext/bridge', '')
     await vi.advanceTimersByTimeAsync(0)
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     socket.open()
     await vi.advanceTimersByTimeAsync(0)
     socket.receive({
@@ -119,7 +119,7 @@ describe('BridgeClient connection probe', () => {
 
     client.start('ws://127.0.0.1:3080/ext/bridge', '')
     await vi.advanceTimersByTimeAsync(0)
-    const socket = FakeWebSocket.instances[0]!
+    const socket = FakeWebSocket.instances[0]
     active = false
     socket.close()
     await vi.advanceTimersByTimeAsync(30_000)

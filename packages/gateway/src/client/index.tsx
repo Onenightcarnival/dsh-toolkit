@@ -23,7 +23,7 @@ interface Locale {
 export function apply(ctx: ClientContext): void {
   const { slots, locale, layout } = ctx as unknown as { slots: SlotsLike; locale: Locale; layout: LayoutLike }
   ctx.effect(() => locale.register(NS, { zh, en }), 'dsh-gateway: dictionaries')
-  setRuntimeTranslate(locale.bind(NS) as typeof tt)
+  setRuntimeTranslate(locale.bind(NS))
   ctx.effect(() => {
     const style = document.createElement('style')
     style.dataset.pluginCss = NS

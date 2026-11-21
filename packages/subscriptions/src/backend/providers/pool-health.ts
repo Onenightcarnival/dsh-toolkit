@@ -49,7 +49,7 @@ function retryAfterMs(error: LlmError): number | undefined {
  * @param provider - the failing member's provider.
  * @returns the action the pool should take.
  */
-export function classifyPoolFailure(error: unknown, provider: ProviderId): PoolFailureAction {
+export function classifyPoolFailure(error: unknown, _provider: ProviderId): PoolFailureAction {
   if (!(error instanceof LlmError)) return { action: 'throw' }
   switch (error.code) {
     case QUOTA_EXCEEDED_CODE:

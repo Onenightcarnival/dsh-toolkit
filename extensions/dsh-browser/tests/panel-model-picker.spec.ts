@@ -117,7 +117,7 @@ describe('panel model picker', () => {
     expect(menu!.querySelector('.model-group-flag')).not.toBeNull()
     expect(menu!.querySelector('.model-efforts')).toBeNull()
 
-    await click(options[1]!)
+    await click(options[1])
     expect(rpc).toHaveBeenCalledWith('session.selectModel', {
       sessionId: 'session-current', provider: 'deepseek', model: 'deepseek-v4', reasoningEffort: 'high',
     })
@@ -128,7 +128,7 @@ describe('panel model picker', () => {
     const efforts = [...document.querySelectorAll<HTMLButtonElement>('.model-effort')]
     expect(efforts.map(effort => effort.textContent)).toEqual(['Low', 'High'])
     expect(efforts[1]?.getAttribute('aria-checked')).toBe('true')
-    await click(efforts[0]!)
+    await click(efforts[0])
     expect(rpc).toHaveBeenLastCalledWith('session.selectModel', {
       sessionId: 'session-current', provider: 'deepseek', model: 'deepseek-v4', reasoningEffort: 'low',
     })
@@ -168,7 +168,7 @@ describe('panel model picker', () => {
       : original(method, payload))
     await renderConnected()
     await click(chip())
-    await click(document.querySelectorAll('.model-option')[1]!)
+    await click(document.querySelectorAll('.model-option')[1])
     expect(document.querySelector('.error')?.textContent).toContain('no such route')
     expect(chip().textContent).toBe('DeepSeek V4 Flash')
   })

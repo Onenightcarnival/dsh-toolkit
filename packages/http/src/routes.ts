@@ -8,7 +8,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpEngine } from './engine.ts'
 import { errorMessage, isLoopbackRequest, readJsonBody, writeJson } from './http.ts'
-import { DIRECT_TARGET_ID, HTTP_API, PANEL_BODY_BYTES, type HttpSendLine, type HttpRequestInput, type HttpSavedRequestPayload, type HttpSettings, type HttpTargetPayload } from './protocol.ts'
+import { DIRECT_TARGET_ID, HTTP_API, PANEL_BODY_BYTES, type HttpSendLine, type HttpRequestInput, type HttpSavedRequestPayload, type HttpSettings } from './protocol.ts'
 import type { HistoryStore, RequestStore, TargetStore, ValueStore } from './store.ts'
 import { exportBundle, planImport } from './transfer.ts'
 
@@ -90,7 +90,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
           const body = await readJsonBody(req)
           if (body === null) return fail(res, 'invalid JSON body')
           try {
-            writeJson(res, 201, { target: store.summarize(store.create(body as HttpTargetPayload)) })
+            writeJson(res, 201, { target: store.summarize(store.create(body)) })
           } catch (error) { fail(res, error) }
           return
         }
@@ -100,7 +100,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
           const body = await readJsonBody(req)
           if (body === null) return fail(res, 'invalid JSON body')
           try {
-            writeJson(res, 200, { target: store.summarize(store.update(id, body as HttpTargetPayload)) })
+            writeJson(res, 200, { target: store.summarize(store.update(id, body)) })
           } catch (error) { fail(res, error) }
           return
         }

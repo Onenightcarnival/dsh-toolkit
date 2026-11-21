@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto'
 import { CREDENTIAL_HEADERS } from './engine.ts'
 import {
   DIRECT_TARGET_ID, HTTP_BUNDLE_FORMAT, HTTP_BUNDLE_VERSION, MAX_HISTORY_LIMIT, MIN_HISTORY_LIMIT,
-  type HttpAuth, type HttpBundle, type HttpBundleTarget, type HttpImportConflict, type HttpImportResult, type HttpKeyValue, type HttpSavedRequest, type HttpSavedRequestPayload, type HttpSettings, type HttpTarget,
+  type HttpAuth, type HttpBundle, type HttpBundleTarget, type HttpImportConflict, type HttpImportResult, type HttpKeyValue, type HttpSavedRequest, type HttpSettings, type HttpTarget,
 } from './protocol.ts'
 import { MAX_REQUESTS_PER_TARGET, TargetValidationError, authMissing, buildTarget, missingSecrets, normalizeRequestPatch } from './store.ts'
 
@@ -170,7 +170,7 @@ export function planImport(raw: unknown, current: { targets: readonly HttpTarget
     perTarget.set(targetId, count)
     let fields: ReturnType<typeof normalizeRequestPatch>
     try {
-      fields = normalizeRequestPatch(item as HttpSavedRequestPayload)
+      fields = normalizeRequestPatch(item)
     } catch (error) {
       fail(`request '${typeof item.name === 'string' && item.name !== '' ? item.name : String(item.path ?? '')}': ${error instanceof Error ? error.message : String(error)}`)
     }

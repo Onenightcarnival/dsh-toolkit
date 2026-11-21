@@ -48,7 +48,7 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'dsh-s3: dictionaries')
   try {
-    if (locale !== undefined) setRuntimeTranslate(locale.bind(NS) as typeof tt)
+    if (locale !== undefined) setRuntimeTranslate(locale.bind(NS))
   } catch { /* document-language fallback */ }
 
   const api = new S3Api()

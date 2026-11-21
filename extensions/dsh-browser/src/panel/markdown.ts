@@ -33,7 +33,7 @@ marked.setOptions({
  * @returns sanitized HTML fragment
  */
 export function renderMarkdown(source: string): string {
-  const html = marked.parse(source ?? '', { async: false }) as string
+  const html = marked.parse(source ?? '', { async: false })
   const template = document.createElement('template')
   template.innerHTML = DOMPurify.sanitize(html, MARKDOWN_SANITIZE_OPTIONS)
   for (const link of template.content.querySelectorAll('a[href]')) {

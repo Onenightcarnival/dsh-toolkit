@@ -189,7 +189,7 @@ export function deepQuerySelectorAll(root: Document | Element | ShadowRoot, sele
 /** Elements in a tree that own an open shadow root, in document order. */
 function shadowHosts(scope: Document | Element | ShadowRoot): Element[] {
   const hosts: Element[] = []
-  const walker = (scope.ownerDocument ?? (scope as Document)).createTreeWalker(scope, NodeFilter.SHOW_ELEMENT)
+  const walker = (scope.ownerDocument ?? (scope)).createTreeWalker(scope, NodeFilter.SHOW_ELEMENT)
   let node = walker.nextNode()
   while (node !== null) {
     if ((node as Element).shadowRoot !== null) hosts.push(node as Element)
@@ -237,7 +237,7 @@ export function mainText(doc: Document): string {
   const main = deepQuerySelector(doc, 'main, [role="main"]')
   if (main !== null) return clean(elementText(main))
   const articles = doc.querySelectorAll('article')
-  if (articles.length === 1) return clean(elementText(articles[0]!))
+  if (articles.length === 1) return clean(elementText(articles[0]))
 
   let best: Element | null = null
   let bestScore = 0

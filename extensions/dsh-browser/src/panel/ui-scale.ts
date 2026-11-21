@@ -34,7 +34,7 @@ export function stepUiScale(current: number, direction: 1 | -1): number {
   const index = (UI_SCALE_STEPS as readonly number[]).indexOf(snapped)
   const next = index + direction
   if (next < 0 || next >= UI_SCALE_STEPS.length) return snapped
-  return UI_SCALE_STEPS[next]!
+  return UI_SCALE_STEPS[next]
 }
 
 /** True when the scale is already at the far end of the range in `direction`. */

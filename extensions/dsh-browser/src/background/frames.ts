@@ -69,7 +69,7 @@ function frameDepth(frameId: number, parents: Map<number, number>): number {
 export function allocateFrameBudgets(frames: TabFrame[], budget: ContentBudget): Map<number, FrameBudget> {
   if (frames.length <= 1) return new Map([[frames[0]?.frameId ?? 0, { ...budget }]])
 
-  const mainFrame = frames.find(frame => frame.frameId === 0) ?? frames[0]!
+  const mainFrame = frames.find(frame => frame.frameId === 0) ?? frames[0]
   const childFrames = frames.filter(frame => frame !== mainFrame)
   const childIndex = new Map(childFrames.map((frame, index) => [frame.frameId, index]))
   const chars = allocateDimension(budget.maxChars, childFrames.length)
@@ -80,8 +80,8 @@ export function allocateFrameBudgets(frames: TabFrame[], budget: ContentBudget):
     frame === mainFrame
       ? { maxChars: chars.main, maxItems: items.main }
       : {
-        maxChars: chars.children[childIndex.get(frame.frameId)!]!,
-        maxItems: items.children[childIndex.get(frame.frameId)!]!,
+        maxChars: chars.children[childIndex.get(frame.frameId)!],
+        maxItems: items.children[childIndex.get(frame.frameId)!],
       },
   ]))
 }

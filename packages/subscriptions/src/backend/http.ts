@@ -294,7 +294,7 @@ async function ensureReady(): Promise<ProxyConfig> {
   ready ??= loadConfigFile(proxyFilePath()).then(async (cfg) => {
     await applyConfig(cfg)
     return current
-  }, async (error) => {
+  }, async (error: unknown) => {
     withError(error)
     await applyConfig(undefined)
     return current
@@ -441,7 +441,7 @@ export async function proxyTestConnection(target = DEFAULT_PROXY_TEST_URL, draft
       ? { method: 'GET', dispatcher: probeAgent, signal: AbortSignal.timeout(DEFAULT_PROXY_TEST_TIMEOUT_MS) }
       : { method: 'GET', signal: AbortSignal.timeout(DEFAULT_PROXY_TEST_TIMEOUT_MS) }
     const response = probeAgent !== undefined
-      ? await dispatchFetch(parsed.toString(), init as RequestInit)
+      ? await dispatchFetch(parsed.toString(), init)
       : await fetch(parsed.toString(), init)
     // Drain the body to release the connection.
     void response.arrayBuffer().catch(() => undefined)

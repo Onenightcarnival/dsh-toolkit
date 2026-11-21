@@ -26,7 +26,7 @@ function TableIcon(props: { kind: TableRef['kind'] }): JSX.Element {
 function profileTarget(p: DbProfileSummary): string {
   if (p.kind === 'sqlite') return p.file
   const nodes = hostEntries(p.host, p.port)
-  return `${nodes.length > 1 ? `${nodes[0]} +${nodes.length - 1}` : nodes[0]}/${p.database}${p.targetSessionAttrs !== 'any' ? ` · ${tt(`form.target.${p.targetSessionAttrs}` as 'form.target.any')}` : ''}`
+  return `${nodes.length > 1 ? `${nodes[0]} +${nodes.length - 1}` : nodes[0]}/${p.database}${p.targetSessionAttrs !== 'any' ? ` · ${tt(`form.target.${p.targetSessionAttrs}`)}` : ''}`
 }
 
 export function RdbPanel(props: RdbPanelProps): JSX.Element {
@@ -75,7 +75,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     api.schemas(activeId).then((res) => {
       if (cancelled) return
       setSchemas(res.schemas); setSel({ id: activeId, schema: res.defaultSchema })
-    }, (err) => { if (!cancelled) setBanner({ kind: 'error', text: errorMessage(err) }) })
+    }, (err: unknown) => { if (!cancelled) setBanner({ kind: 'error', text: errorMessage(err) }) })
     return () => { cancelled = true }
   }, [api, activeId])
 
@@ -83,7 +83,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     if (activeId === undefined || schema === '') return
     let cancelled = false
     setTables(undefined)
-    api.tables(activeId, schema).then((list) => { if (!cancelled) setTables(list) }, (err) => { if (!cancelled) { setTables([]); setBanner({ kind: 'error', text: errorMessage(err) }) } })
+    api.tables(activeId, schema).then((list) => { if (!cancelled) setTables(list) }, (err: unknown) => { if (!cancelled) { setTables([]); setBanner({ kind: 'error', text: errorMessage(err) }) } })
     return () => { cancelled = true }
   }, [api, activeId, schema])
 
@@ -92,7 +92,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     setInfo(undefined)
     if (activeId === undefined || table === undefined) return
     let cancelled = false
-    api.tableInfo(activeId, table).then((res) => { if (!cancelled) setInfo(res) }, (err) => { if (!cancelled) setBanner({ kind: 'error', text: errorMessage(err) }) })
+    api.tableInfo(activeId, table).then((res) => { if (!cancelled) setInfo(res) }, (err: unknown) => { if (!cancelled) setBanner({ kind: 'error', text: errorMessage(err) }) })
     return () => { cancelled = true }
   }, [api, activeId, table])
 
@@ -215,7 +215,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
           {active !== undefined ? <>
             <div className="dsh-rdb-tabs" role="tablist">
               {(['data', 'structure', 'sql'] as Tab[]).map(t => (
-                <button key={t} type="button" role="tab" className="dsh-rdb-tab" aria-selected={tab === t} {...(tab === t ? { 'data-active': '' } : {})} onClick={() => { setTab(t) }}>{tt(`tab.${t}` as 'tab.data')}</button>
+                <button key={t} type="button" role="tab" className="dsh-rdb-tab" aria-selected={tab === t} {...(tab === t ? { 'data-active': '' } : {})} onClick={() => { setTab(t) }}>{tt(`tab.${t}`)}</button>
               ))}
               {table !== undefined && <span className="dsh-rdb-tableName">{table.schema}.{table.name}</span>}
             </div>

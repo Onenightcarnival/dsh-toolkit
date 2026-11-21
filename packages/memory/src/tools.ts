@@ -104,7 +104,7 @@ export function memoryTools(store: MemoryStore) {
         if (raw.id !== undefined && (typeof raw.id !== 'string' || !raw.id)) fail('invalid', 'id')
         if (removing && !raw.id) fail('invalid', 'id')
         const existing = state.entries.find(e => e.id === raw.id)
-        if (raw.id !== undefined && !existing) fail('missing', raw.id as string)
+        if (raw.id !== undefined && !existing) fail('missing', raw.id)
         if (existing && !removing && existing.kind !== raw.kind) fail('invalid', 'kind')
         const id = profile ? 'profile' : raw.id as string || randomUUID()
         if (ids.has(id)) fail('invalid', 'duplicate entry')

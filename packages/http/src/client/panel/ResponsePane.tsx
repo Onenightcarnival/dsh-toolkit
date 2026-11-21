@@ -137,7 +137,7 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
         <div className="dsh-http-tabs" role="tablist">
           {(['preview', 'headers'] as const).map(value => (
             <button key={value} type="button" role="tab" aria-selected={liveTab === value} className="dsh-http-tab" {...(liveTab === value ? { 'data-active': '' } : {})} onClick={() => { props.onTab(value) }}>
-              {tt(`response.tab.${value}` as HttpKey)}{value === 'headers' && liveHeaders.length > 0 && <span className="dsh-http-count">{liveHeaders.length}</span>}
+              {tt(`response.tab.${value}`)}{value === 'headers' && liveHeaders.length > 0 && <span className="dsh-http-count">{liveHeaders.length}</span>}
             </button>
           ))}
         </div>
@@ -187,7 +187,7 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
       <div className="dsh-http-tabs" role="tablist">
         {RESPONSE_TABS.map(value => (
           <button key={value} type="button" role="tab" aria-selected={tab === value} className="dsh-http-tab" {...(tab === value ? { 'data-active': '' } : {})} onClick={() => { props.onTab(value) }}>
-            {tt(`response.tab.${value}` as HttpKey)}{value === 'headers' && responseHeaders.length > 0 && <span className="dsh-http-count">{responseHeaders.length}</span>}
+            {tt(`response.tab.${value}`)}{value === 'headers' && responseHeaders.length > 0 && <span className="dsh-http-count">{responseHeaders.length}</span>}
           </button>
         ))}
         <span className="dsh-http-spacer" />
@@ -216,7 +216,7 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
             {/* A failed refresh that stopped the request is the exchange error below. */}
             {(exchange.refreshed ?? []).filter(item => item.ok || exchange.error === undefined).map((item, index) => (
               <div key={index} className="dsh-http-note" data-kind={item.ok ? 'ok' : 'error'}>
-                {tt(item.ok ? `response.refreshed.${item.reason}` as HttpKey : 'response.refreshFailed', { request: item.requestName, names: item.variables.map(name => `{{${name}}}`).join(' '), error: item.error ?? '' })}
+                {tt(item.ok ? `response.refreshed.${item.reason}` : 'response.refreshFailed', { request: item.requestName, names: item.variables.map(name => `{{${name}}}`).join(' '), error: item.error ?? '' })}
               </div>
             ))}
             {exchange.error !== undefined && <div className="dsh-http-banner" data-kind="error" role="alert"><span>{tt('response.error', { error: exchange.error })}</span></div>}

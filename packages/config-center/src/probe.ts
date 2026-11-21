@@ -37,6 +37,7 @@ function errorText(error: unknown): string {
 /** Value of a form field: literal text, or the result of a `!!js` expression. */
 function resolve(value: string): string {
   if (!value.startsWith(JS_PREFIX)) return value
+  // oxlint-disable-next-line typescript/no-implied-eval, typescript/no-unsafe-call -- A `!!js` form value is an expression the user wrote for this probe.
   const result: unknown = new Function('process', `return (${value.slice(JS_PREFIX.length)})`)(process)
   return result === undefined || result === null ? '' : String(result)
 }

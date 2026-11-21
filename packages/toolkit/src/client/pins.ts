@@ -41,14 +41,14 @@ function pinFace(slots: PinSlots): PinFace | undefined {
     if (!isFunction(entry.inject)) continue
     let injected: unknown
     try {
-      injected = (entry.inject as () => unknown)()
+      injected = entry.inject()
     } catch {
       continue
     }
     const { setPinned, hooks } = (injected ?? {}) as { setPinned?: unknown; hooks?: { entryPins?: Partial<UnpinnedList> } }
     const unpinned = hooks?.entryPins
     if (isFunction(setPinned) && unpinned !== undefined && isFunction(unpinned.getSnapshot) && isFunction(unpinned.subscribe)) {
-      return { setPinned: setPinned as PinFace['setPinned'], unpinned: unpinned as UnpinnedList }
+      return { setPinned, unpinned: unpinned as UnpinnedList }
     }
   }
   return undefined
