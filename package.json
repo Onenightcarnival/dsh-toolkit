@@ -11,6 +11,10 @@
     "build": "pnpm -r --workspace-concurrency=1 run build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxlint -c .oxlintrc.format.json --fix --quiet || oxlint -c .oxlintrc.format.json --fix",
+    "format:check": "oxlint -c .oxlintrc.format.json",
     "package": "node scripts/package.mjs",
     "version:set": "node scripts/version.mjs set",
     "version:check": "node scripts/version.mjs check",
@@ -59,6 +63,10 @@
     "@deepseek-ai/dsh-workflow": "0.2.2-rc.5"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "esbuild": "^0.25.0",
+    "eslint-plugin-sonarjs": "^4.2.2",
+    "oxlint": "1.81.0",
+    "oxlint-tsgolint": "7.0.2001"
   }
 }

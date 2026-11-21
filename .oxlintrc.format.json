@@ -1,0 +1,76 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [],
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": [
+    "**/lib/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/dist-firefox/**",
+    "**/coverage/**",
+    ".claude/**",
+    "**/*.config.ts" // Tool configs are outside the package TypeScript programs.
+  ],
+  "overrides": [
+    {
+      // Layout rules with an automatic fix; `format` applies them and `format:check` reports them.
+      "files": [
+        "**/*.{ts,tsx,js,mjs,cjs}"
+      ],
+      "rules": {
+        "@stylistic/indent": [
+          "error",
+          2
+        ],
+        "@stylistic/semi": [
+          "error",
+          "never"
+        ],
+        "@stylistic/quotes": [
+          "error",
+          "single",
+          {
+            "avoidEscape": true
+          }
+        ],
+        "@stylistic/comma-dangle": [
+          "error",
+          "always-multiline"
+        ],
+        "@stylistic/eol-last": [
+          "error",
+          "always"
+        ],
+        "@stylistic/no-trailing-spaces": "error",
+        "@stylistic/object-curly-spacing": [
+          "error",
+          "always"
+        ],
+        "@stylistic/arrow-parens": [
+          "error",
+          "as-needed",
+          {
+            "requireForBlockBody": true
+          }
+        ],
+        "@stylistic/member-delimiter-style": [
+          "error",
+          {
+            "multiline": {
+              "delimiter": "none"
+            },
+            "singleline": {
+              "delimiter": "semi",
+              "requireLast": false
+            }
+          }
+        ]
+      },
+      "jsPlugins": [
+        "@stylistic/eslint-plugin"
+      ]
+    }
+  ]
+}

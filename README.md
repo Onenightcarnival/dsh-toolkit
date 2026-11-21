@@ -92,11 +92,27 @@ pnpm install
 pnpm run build        # all packages, in dependency order
 pnpm run typecheck
 pnpm run test
+pnpm run lint         # rule check, format rules included
+pnpm run format       # rewrite to the format rules
+pnpm run format:check # format check without rewriting
 pnpm run package      # dist/: ten tarballs, the extension zip, SHA256SUMS.txt
 
 pnpm --filter @onenightcarnival/dsh-rdb run build      # one package
 pnpm --filter dsh-browser-extension run build:firefox
 ```
+
+### Lint and format
+
+The tool is oxlint; the rule set comes from [`.oxlintrc.json` of deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness/blob/master/.oxlintrc.json).
+
+| Item | Contract |
+|---|---|
+| `.oxlintrc.format.json` | Format rules with an automatic fix: 2-space indent, no semicolons, single quotes, multiline trailing commas, arrow parameter parentheses, type member delimiters |
+| `.oxlintrc.json` | Extends the format rules; TypeScript uses type-aware rules, JavaScript uses syntax rules; the separate rule group at the end lists the official rules this repository leaves off |
+| Scope | `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs` under `packages`, `extensions`, `benchmark`, `scripts` |
+| Ignored | `lib/`, `dist/`, `dist-firefox/`, `coverage/`, `node_modules/`, `*.config.ts` |
+| Runtime | Type-aware rules in `lint` read each package's `tsconfig.json` and the installed dependencies; `format` and `format:check` run without type analysis |
+| `lint:fix` | Applies the safe automatic fixes of every rule |
 
 ### Build contract
 

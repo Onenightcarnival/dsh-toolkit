@@ -92,11 +92,27 @@ pnpm install
 pnpm run build        # 全部包，按依赖顺序
 pnpm run typecheck
 pnpm run test
+pnpm run lint         # 规则检查，含格式规则
+pnpm run format       # 按格式规则改写
+pnpm run format:check # 只检查格式，不改写
 pnpm run package      # dist/：十个 tgz、扩展 zip、SHA256SUMS.txt
 
 pnpm --filter @onenightcarnival/dsh-rdb run build      # 单个包
 pnpm --filter dsh-browser-extension run build:firefox
 ```
+
+### 代码检查与格式
+
+工具为 oxlint；规则集取自 [deepseek-ai/deepseek-harness 的 `.oxlintrc.json`](https://github.com/deepseek-ai/deepseek-harness/blob/master/.oxlintrc.json)。
+
+| 项目 | 约定 |
+|---|---|
+| `.oxlintrc.format.json` | 可自动修复的格式规则：2 空格缩进、无分号、单引号、多行尾逗号、箭头函数参数括号、类型成员分隔符 |
+| `.oxlintrc.json` | 继承格式规则；TypeScript 使用类型感知规则，JavaScript 使用语法规则；末尾的独立规则组列出本仓库未启用的官方规则 |
+| 范围 | `packages`、`extensions`、`benchmark`、`scripts` 下的 `.ts`、`.tsx`、`.js`、`.mjs`、`.cjs` |
+| 忽略 | `lib/`、`dist/`、`dist-firefox/`、`coverage/`、`node_modules/`、`*.config.ts` |
+| 运行时 | `lint` 的类型感知规则读取各包的 `tsconfig.json` 与已安装的依赖；`format` 与 `format:check` 不做类型分析 |
+| `lint:fix` | 应用全部规则的安全自动修复 |
 
 ### 构建契约
 
