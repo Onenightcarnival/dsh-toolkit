@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: 'export * from \'./auth/chatgpt.ts\'; export * from \'./providers/chatgpt.ts\'; export * from \'./auth/oauth-flow.ts\'; export * from \'./auth/store.ts\'; export * from \'./providers/accounts.ts\'; export * from \'./providers/chatgpt-tokens.ts\'; export * from \'./auth/chatgpt-lock.ts\';', resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: `export * from './auth/chatgpt.ts'; export * from './providers/chatgpt.ts'; export * from './auth/oauth-flow.ts'; export * from './auth/store.ts'; export * from './providers/accounts.ts'; export * from './providers/chatgpt-tokens.ts'; export * from './auth/chatgpt-lock.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|undici$)/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }))

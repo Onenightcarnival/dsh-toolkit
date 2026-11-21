@@ -9,7 +9,7 @@ import { join } from 'node:path'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: 'export * from \'./providers/antigravity.ts\'; export * from \'./translate/antigravity.ts\'; export * from \'./auth/antigravity-client.ts\';', resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: `export * from './providers/antigravity.ts'; export * from './translate/antigravity.ts'; export * from './auth/antigravity-client.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|@cortexkit\/|undici$)/ }, args => ({ path: args.path.startsWith('@cortexkit/') ? import.meta.resolve(args.path) : pathToFileURL(require.resolve(args.path)).href, external: true }))

@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: 'export * from \'./providers/grok.ts\'; export * from \'./tools/x-search.ts\'; export * from \'./auth/store.ts\'; export * from \'./providers/accounts.ts\'; export { OAuthEndpointError } from \'./providers/common.ts\';', resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: `export * from './providers/grok.ts'; export * from './tools/x-search.ts'; export * from './auth/store.ts'; export * from './providers/accounts.ts'; export { OAuthEndpointError } from './providers/common.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|undici$)/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }))

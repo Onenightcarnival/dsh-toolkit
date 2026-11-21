@@ -115,7 +115,7 @@ test('renaming re-addresses a derived id and drops overrides of the old id', () 
 })
 
 test('a hand-chosen id survives a rename', () => {
-  const source = '- insert:\n    - id: clock\n      name: \'@deepseek-ai/dsh-mcp-client\'\n      config:\n        serverName: time\n        transport: stdio\n        command: uvx\n'
+  const source = `- insert:\n    - id: clock\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: time\n        transport: stdio\n        command: uvx\n`
   const out = edit(source, (document) => {
     assert.equal(upsertMcp(document, { serverName: 'time2', enabled: true, transport: 'stdio', command: 'uvx' }, 'clock'), 'clock')
   })
@@ -161,13 +161,13 @@ test('removing servers keeps foreign rows; the emptied insert list goes', () => 
 })
 
 test('removing the last row of a patch leaves the empty list', () => {
-  const source = '- insert:\n    - id: mcp-a\n      name: \'@deepseek-ai/dsh-mcp-client\'\n      config:\n        serverName: a\n        transport: stdio\n        command: x\n'
+  const source = `- insert:\n    - id: mcp-a\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: a\n        transport: stdio\n        command: x\n`
   const out = edit(source, document => removeMcp(document, 'mcp-a'))
   assert.equal(out.trim(), '[]')
 })
 
 test('an insert list shared with other plugins keeps them', () => {
-  const source = '- insert:\n    - id: other\n      name: other-plugin\n    - id: mcp-a\n      name: \'@deepseek-ai/dsh-mcp-client\'\n      config:\n        serverName: a\n        transport: stdio\n        command: x\n'
+  const source = `- insert:\n    - id: other\n      name: other-plugin\n    - id: mcp-a\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: a\n        transport: stdio\n        command: x\n`
   const out = edit(source, document => removeMcp(document, 'mcp-a'))
   assert.match(out, /- id: other\n {6}name: other-plugin/)
 })

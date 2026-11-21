@@ -211,12 +211,12 @@ export class MysqlConnection implements DbConnection {
   }
 
   async listSchemas(): Promise<string[]> {
-    const rows = await this.rows('SELECT SCHEMA_NAME AS name FROM information_schema.SCHEMATA WHERE SCHEMA_NAME NOT IN (\'information_schema\',\'mysql\',\'performance_schema\',\'sys\') ORDER BY (SCHEMA_NAME <> ?), SCHEMA_NAME', [this.defaultSchema])
+    const rows = await this.rows(`SELECT SCHEMA_NAME AS name FROM information_schema.SCHEMATA WHERE SCHEMA_NAME NOT IN ('information_schema','mysql','performance_schema','sys') ORDER BY (SCHEMA_NAME <> ?), SCHEMA_NAME`, [this.defaultSchema])
     return rows.map(r => String(r.name))
   }
 
   async listTables(schema: string): Promise<TableRef[]> {
-    const rows = await this.rows('SELECT TABLE_NAME AS name, TABLE_TYPE AS type FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? ORDER BY (TABLE_TYPE <> \'BASE TABLE\'), TABLE_NAME', [schema])
+    const rows = await this.rows(`SELECT TABLE_NAME AS name, TABLE_TYPE AS type FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? ORDER BY (TABLE_TYPE <> 'BASE TABLE'), TABLE_NAME`, [schema])
     return rows.map(r => ({ schema, name: String(r.name), kind: /view/i.test(String(r.type)) ? 'view' : 'table' }))
   }
 

@@ -203,12 +203,12 @@ export class PgConnection implements DbConnection {
   }
 
   async listSchemas(): Promise<string[]> {
-    const rows = await this.rows('SELECT nspname FROM pg_namespace WHERE nspname NOT IN (\'pg_catalog\',\'information_schema\',\'pg_toast\') AND nspname NOT LIKE \'pg_temp%\' AND nspname NOT LIKE \'pg_toast%\' ORDER BY (nspname <> \'public\'), nspname')
+    const rows = await this.rows(`SELECT nspname FROM pg_namespace WHERE nspname NOT IN ('pg_catalog','information_schema','pg_toast') AND nspname NOT LIKE 'pg_temp%' AND nspname NOT LIKE 'pg_toast%' ORDER BY (nspname <> 'public'), nspname`)
     return rows.map(r => String(r.nspname))
   }
 
   async listTables(schema: string): Promise<TableRef[]> {
-    const rows = await this.rows('SELECT c.relname AS name, c.relkind AS kind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relkind IN (\'r\',\'p\',\'v\',\'m\',\'f\') ORDER BY (c.relkind IN (\'v\',\'m\')), c.relname', [schema])
+    const rows = await this.rows(`SELECT c.relname AS name, c.relkind AS kind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relkind IN ('r','p','v','m','f') ORDER BY (c.relkind IN ('v','m')), c.relname`, [schema])
     return rows.map(r => ({ schema, name: String(r.name), kind: r.kind === 'v' || r.kind === 'm' ? 'view' : 'table' }))
   }
 
@@ -251,7 +251,7 @@ export class PgConnection implements DbConnection {
   async ddl(table: TableRef): Promise<string> {
     const q = (s: string) => this.quoteIdent(s)
     if (table.kind === 'view') {
-      const rows = await this.rows('SELECT pg_get_viewdef(($1 || \'.\' || $2)::regclass, true) AS def', [q(table.schema), q(table.name)])
+      const rows = await this.rows(`SELECT pg_get_viewdef(($1 || '.' || $2)::regclass, true) AS def`, [q(table.schema), q(table.name)])
       return `CREATE OR REPLACE VIEW ${q(table.schema)}.${q(table.name)} AS\n${String(rows[0]?.def ?? '')}`
     }
     const cols = await this.columns(table)

@@ -247,7 +247,7 @@ export function splitQuery(path: string): { path: string; pairs: HttpPairs } {
 }
 
 function quote(text: string): string {
-  return `'${text.replace(/'/g, '\'\\\'\'')}'`
+  return `'${text.replace(/'/g, `'\\''`)}'`
 }
 
 /** A request as a multi-line cURL command. */

@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 const require = createRequire(import.meta.url)
 const compiled = await build({
   stdin: {
-    contents: 'export { createWebSearchTool, createCodexWebSearchTool } from \'./tools/web-search.ts\'; export { CodexWebSearchProvider } from \'./providers/codex-search.ts\'; export { registerWithAlias } from \'./tools/registration.ts\';',
+    contents: `export { createWebSearchTool, createCodexWebSearchTool } from './tools/web-search.ts'; export { CodexWebSearchProvider } from './providers/codex-search.ts'; export { registerWithAlias } from './tools/registration.ts';`,
     resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts',
   },
   bundle: true, write: false, platform: 'node', format: 'esm',
