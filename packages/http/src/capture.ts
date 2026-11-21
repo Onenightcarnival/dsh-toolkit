@@ -77,11 +77,15 @@ export interface CaptureInput {
 
 /**
  * Run capture rules on a response. Rules switched off or without a name are
- * left out; a response outside 2xx captures nothing.
- * @returns the captured values by variable name and one result per rule run.
+ * left out; a response outside 2xx captures nothing. A rule's lifetime comes
+ * from `ttlPath` (seconds, read from the JSON body) or else from `ttlSeconds`;
+ * a lifetime path that yields no positive number leaves the value without
+ * expiry and puts a warning on the result.
+ * @returns the captured values and their lifetimes in ms by variable name, and one result per rule run.
  */
-export function runCaptures(rules: readonly HttpCapture[], input: CaptureInput): { values: Record<string, string>; results: HttpCaptureResult[] } {
+export function runCaptures(rules: readonly HttpCapture[], input: CaptureInput): { values: Record<string, string>; lifetimes: Record<string, number>; results: HttpCaptureResult[] } {
   const values: Record<string, string> = {}
+  const lifetimes: Record<string, number> = {}
   const results: HttpCaptureResult[] = []
   let parsed: { value: unknown } | { error: string } | undefined
   const json = (): { value: unknown } | { error: string } => {
@@ -134,7 +138,24 @@ export function runCaptures(rules: readonly HttpCapture[], input: CaptureInput):
     if (value.length > MAX_CAPTURED_LENGTH) { fail('value is too long'); continue }
     if (/[\r\n]/.test(value)) { fail('value contains line breaks'); continue }
     values[name] = value
-    results.push({ name, ok: true })
+    delete lifetimes[name]
+    let warning: string | undefined
+    const ttlPath = (rule.ttlPath ?? '').trim()
+    if (ttlPath !== '') {
+      const body = json()
+      let seconds: unknown
+      try {
+        seconds = 'error' in body ? undefined : readPath(body.value, parseJsonPath(ttlPath))
+      } catch {
+        seconds = undefined
+      }
+      const number = typeof seconds === 'number' ? seconds : typeof seconds === 'string' && /^\d+(\.\d+)?$/.test(seconds.trim()) ? Number(seconds) : Number.NaN
+      if (Number.isFinite(number) && number > 0) lifetimes[name] = Math.round(number * 1000)
+      else warning = `lifetime "${ttlPath}" is not a positive number of seconds`
+    } else if (typeof rule.ttlSeconds === 'number' && rule.ttlSeconds > 0) {
+      lifetimes[name] = rule.ttlSeconds * 1000
+    }
+    results.push({ name, ok: true, ...(warning !== undefined ? { warning } : {}) })
   }
-  return { values, results }
+  return { values, lifetimes, results }
 }

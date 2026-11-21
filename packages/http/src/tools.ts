@@ -2,14 +2,15 @@
  * Agent tools (http_*), registered while the panel's agent-tools switch is on.
  * Requests go through the same engine as the panel: targets are addressed by
  * name, auth is injected by the host and never returned, non-safe methods
- * need the target's mutation switch and confirm=true.
+ * need the target's mutation switch and confirm=true. A refresh the host sends
+ * before the agent's request is the user's saved request and needs neither.
  */
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { HttpPolicyError, humanBytes, type HttpEngine } from './engine.ts'
 import { DIRECT_TARGET_ID, SAFE_METHODS, isHttpMethod, type HttpExchange, type HttpTargetSummary } from './protocol.ts'
-import type { HistoryStore, TargetStore, ValueStore } from './store.ts'
+import type { HistoryStore, RequestStore, TargetStore, ValueStore } from './store.ts'
 
 function text(value: string): ContentBlock[] {
   return [{ type: 'text', text: value }]
@@ -45,6 +46,18 @@ const EXCHANGE_SCHEMA = {
     binary: { type: 'boolean' },
     durationMs: { type: 'integer' },
     redirects: { type: 'array', items: { type: 'string' } },
+    refreshed: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false,
+        properties: {
+          request: { type: 'string', required: true },
+          variables: { type: 'array', items: { type: 'string' }, required: true },
+          ok: { type: 'boolean', required: true },
+          error: { type: 'string' },
+        },
+      },
+    },
   },
 } as const
 
@@ -62,6 +75,17 @@ interface ExchangeOutput {
   binary?: boolean
   durationMs?: number
   redirects?: string[]
+  /** Saved requests the host sent first to renew variables. */
+  refreshed?: Array<{ request: string; variables: string[]; ok: boolean; error?: string }>
+}
+
+/**
+ * The object without its undefined properties. The tool pipeline accepts
+ * lossless JSON only: a property that is present with the value undefined
+ * fails the whole output.
+ */
+export function defined<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as T
 }
 
 function truncateBody(body: string, max: number): { body: string; truncated: boolean } {
@@ -71,7 +95,10 @@ function truncateBody(body: string, max: number): { body: string; truncated: boo
 
 /** Model-facing projection of an exchange. */
 export function toOutput(exchange: HttpExchange): ExchangeOutput {
-  if (exchange.error !== undefined || exchange.response === undefined) return { ok: false, error: exchange.error ?? 'no response', url: exchange.request.url || undefined }
+  const refreshed = exchange.refreshed === undefined || exchange.refreshed.length === 0 ? {} : {
+    refreshed: exchange.refreshed.map(item => ({ request: item.requestName, variables: item.variables, ok: item.ok, ...(item.error !== undefined ? { error: item.error } : {}) })),
+  }
+  if (exchange.error !== undefined || exchange.response === undefined) return defined({ ok: false, error: exchange.error ?? 'no response', url: exchange.request.url || undefined, ...refreshed })
   const response = exchange.response
   const { body, truncated } = truncateBody(response.body, TOOL_BODY_BYTES)
   return {
@@ -87,6 +114,7 @@ export function toOutput(exchange: HttpExchange): ExchangeOutput {
     binary: response.binary,
     durationMs: response.durationMs,
     redirects: response.redirects,
+    ...refreshed,
   }
 }
 
@@ -94,6 +122,10 @@ export function toOutput(exchange: HttpExchange): ExchangeOutput {
 export function renderExchange(method: string, value: ExchangeOutput): string {
   if (!value.ok) return `request failed${value.url !== undefined ? ` (${method} ${value.url})` : ''}: ${value.error ?? 'unknown error'}`
   const lines = [`${method} ${value.url ?? ''} → ${value.status ?? 0} ${value.statusText ?? ''} (${value.durationMs ?? 0} ms)`]
+  for (const item of value.refreshed ?? []) {
+    const names = item.variables.map(name => `{{${name}}}`).join(' ')
+    lines.push(item.ok ? `host refreshed ${names} with the saved request "${item.request}" first` : `host could not refresh ${names} with the saved request "${item.request}": ${item.error ?? 'unknown error'}`)
+  }
   if ((value.redirects?.length ?? 0) > 0) lines.push(`redirected via: ${value.redirects!.join(' → ')}`)
   lines.push(`${value.contentType !== '' && value.contentType !== undefined ? value.contentType : 'no content-type'} · ${humanBytes(value.bodyBytes ?? 0)}${value.bodyTruncated ? ' (truncated)' : ''}`)
   if (value.binary) lines.push('[binary body omitted]')
@@ -101,10 +133,15 @@ export function renderExchange(method: string, value: ExchangeOutput): string {
   return lines.join('\n')
 }
 
-export function httpTargetsTool(store: TargetStore, values?: ValueStore) {
+/** Variables of a scope that a saved request renews by itself: usable in a request whether or not a value is stored yet. */
+function refreshable(requests: Pick<RequestStore, 'list'> | undefined, scopeId: string): string[] {
+  return (requests?.list(scopeId) ?? []).flatMap(request => request.captures.filter(rule => rule.enabled && rule.refresh !== 'off' && rule.name.trim() !== '').map(rule => rule.name.trim()))
+}
+
+export function httpTargetsTool(store: TargetStore, values?: ValueStore, requests?: Pick<RequestStore, 'list'>) {
   return defineTool({
     name: 'http_targets',
-    description: 'List the HTTP API targets the user configured in the dsh HTTP panel: name, base URL, auth type (credentials are injected by the host and never shown), fixed headers, {{variables}}, extra allowed hosts and whether non-GET methods are allowed. Every other http_* tool takes one of these names. Triggers: API, HTTP request, REST, endpoint, webhook, curl, Postman, 接口, 调接口, 请求.',
+    description: 'List the HTTP API targets the user configured in the dsh HTTP panel: name, base URL, auth type (credentials are injected by the host and never shown), fixed headers, {{variables}} (names only for secret and captured ones; a variable the host refreshes is listed before it has a value), extra allowed hosts and whether non-GET methods are allowed. Every other http_* tool takes one of these names. Triggers: API, HTTP request, REST, endpoint, webhook, curl, Postman, 接口, 调接口, 请求.',
     parameters: {},
     output: {
       schema: {
@@ -140,7 +177,7 @@ export function httpTargetsTool(store: TargetStore, values?: ValueStore) {
     async execute() {
       return {
         targets: store.list().map(store.summarize.bind(store)).map((t: HttpTargetSummary) => ({
-          id: t.id, name: t.name, baseUrl: t.baseUrl, authType: t.auth.type, headers: t.headers, variables: [...new Set([...Object.keys(t.variables), ...(values?.list(t.id) ?? []).map(value => value.name)])],
+          id: t.id, name: t.name, baseUrl: t.baseUrl, authType: t.auth.type, headers: t.headers, variables: [...new Set([...Object.keys(t.variables), ...Object.keys(t.secrets), ...(values?.list(t.id) ?? []).map(value => value.name), ...refreshable(requests, t.id)])],
           allowedHosts: t.allowedHosts, allowMutations: t.allowMutations, allowPrivate: t.allowPrivate, timeoutMs: t.timeoutMs,
         })),
       }
@@ -151,7 +188,7 @@ export function httpTargetsTool(store: TargetStore, values?: ValueStore) {
 export function httpRequestTool(engine: HttpEngine) {
   return defineTool({
     name: 'http_request',
-    description: `Send an HTTP request to a configured target. The host joins \`path\` below the target base URL, applies the target's {{variables}}, fixed headers and auth, and returns status, headers and the decoded body (capped at ${TOOL_BODY_BYTES / 1024} KiB). GET / HEAD / OPTIONS run directly. POST / PUT / PATCH / DELETE change server state: they only work on targets where the user enabled mutations, and only with confirm=true after you showed the user the exact request and they agreed. A server-sent event stream is read until it ends, the body cap or the target timeout, and returned as its text. Never put credentials in headers or query — the target auth does that.`,
+    description: `Send an HTTP request to a configured target. The host joins \`path\` below the target base URL, applies the target's {{variables}}, fixed headers and auth, and returns status, headers and the decoded body (capped at ${TOOL_BODY_BYTES / 1024} KiB). GET / HEAD / OPTIONS run directly. POST / PUT / PATCH / DELETE change server state: they only work on targets where the user enabled mutations, and only with confirm=true after you showed the user the exact request and they agreed. A server-sent event stream is read until it ends, the body cap or the target timeout, and returned as its text. Never put credentials in headers or query — the target auth does that. A {{variable}} the user set up for refresh (an access token) is renewed by the host with the user's saved request before your request is sent; the result lists it under \`refreshed\`. Do not call a login or token endpoint yourself to obtain one.`,
     parameters: {
       target: TARGET_PARAM,
       method: { type: 'string', required: true, description: 'GET, POST, PUT, PATCH, DELETE, HEAD or OPTIONS.' },
@@ -247,12 +284,13 @@ export function httpHistoryTool(store: TargetStore, history: HistoryStore) {
       const pool = targetId === undefined
         ? history.list(undefined, Number.MAX_SAFE_INTEGER).filter(e => e.targetId !== DIRECT_TARGET_ID).slice(0, limit)
         : history.list(targetId, limit)
-      const entries = pool.map(e => ({
+      const entries = pool.map(e => defined({
         at: e.at,
         source: e.source,
         target: e.targetName,
         method: e.request.method,
-        url: e.request.url,
+        // A request refused before its URL was built lists the path it was composed with.
+        url: e.request.url || e.request.path,
         status: e.response?.status,
         durationMs: e.response?.durationMs,
         error: e.error,
@@ -264,6 +302,6 @@ export function httpHistoryTool(store: TargetStore, history: HistoryStore) {
   })
 }
 
-export function allTools(store: TargetStore, engine: HttpEngine, history: HistoryStore, values?: ValueStore) {
-  return [httpTargetsTool(store, values), httpRequestTool(engine), httpHistoryTool(store, history)]
+export function allTools(store: TargetStore, engine: HttpEngine, history: HistoryStore, values?: ValueStore, requests?: Pick<RequestStore, 'list'>) {
+  return [httpTargetsTool(store, values, requests), httpRequestTool(engine), httpHistoryTool(store, history)]
 }

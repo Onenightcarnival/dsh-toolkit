@@ -212,6 +212,13 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
       <div className="dsh-http-paneBody" role="tabpanel">
         {tab === 'preview' && (
           <>
+            {exchange.refreshOf !== undefined && <div className="dsh-http-note">{tt('response.refreshOf', { names: exchange.refreshOf.map(name => `{{${name}}}`).join(' ') })}</div>}
+            {/* A failed refresh that stopped the request is the exchange error below. */}
+            {(exchange.refreshed ?? []).filter(item => item.ok || exchange.error === undefined).map((item, index) => (
+              <div key={index} className="dsh-http-note" data-kind={item.ok ? 'ok' : 'error'}>
+                {tt(item.ok ? `response.refreshed.${item.reason}` as HttpKey : 'response.refreshFailed', { request: item.requestName, names: item.variables.map(name => `{{${name}}}`).join(' '), error: item.error ?? '' })}
+              </div>
+            ))}
             {exchange.error !== undefined && <div className="dsh-http-banner" data-kind="error" role="alert"><span>{tt('response.error', { error: exchange.error })}</span></div>}
             {response !== undefined && response.redirects.length > 0 && <div className="dsh-http-note">{tt('response.redirects', { list: response.redirects.join(' → ') })}</div>}
             {response !== undefined && (
@@ -230,6 +237,9 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
             )}
             {response?.bodyTruncated === true && <div className="dsh-http-note">{tt('response.truncated', { size: humanSize(response.bodyBytes) })}</div>}
             {captured.length > 0 && <div className="dsh-http-note" data-kind="ok">{tt('response.captured', { names: captured.map(name => `{{${name}}}`).join(' ') })}</div>}
+            {(exchange.captures ?? []).filter(result => result.ok && result.warning !== undefined).map(result => (
+              <div key={result.name} className="dsh-http-note" data-kind="error">{tt('response.captureWarning', { name: `{{${result.name}}}`, error: result.warning ?? '' })}</div>
+            ))}
             {(exchange.captures ?? []).filter(result => !result.ok).map(result => (
               <div key={result.name} className="dsh-http-note" data-kind="error">{tt('response.captureFailed', { name: `{{${result.name}}}`, error: result.error ?? '' })}</div>
             ))}

@@ -23,9 +23,15 @@ const writable = store.create({ baseUrl: 'https://rw.example.com', name: 'rw', a
 
 type Tool = { execute(args: Record<string, unknown>, ...rest: unknown[]): Promise<unknown>; output?: { render(args: Record<string, unknown>, value: never): Array<{ type: string; text: string }> } }
 
+/** The tool pipeline rejects an output that JSON does not carry as it is, such as a property set to undefined. */
+function assertLossless(value: unknown): void {
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(value)), value, 'tool output must be lossless JSON')
+}
+
 async function run(tool: unknown, args: Record<string, unknown>): Promise<{ value: Record<string, unknown>; text: string }> {
   const t = tool as Tool
   const value = await t.execute(args, {} as never) as Record<string, unknown>
+  assertLossless(value)
   const text = t.output?.render(args, value as never).map(block => block.text).join('\n') ?? ''
   return { value, text }
 }
@@ -66,6 +72,12 @@ test('http_request: GET runs, mutations need the switch and confirm', async () =
   assert.equal(calls.length, before + 1)
   assert.equal(calls.at(-1)?.init.method, 'POST')
 
+  // A request refused before its URL is built has no URL to report; the output carries no empty property.
+  const foreign = await run(tool, { target: 'rw', method: 'GET', path: 'https://other.example.net/x' })
+  assert.equal(foreign.value.ok, false)
+  assert.match(String(foreign.value.error), /not allowed/)
+  assert.equal('url' in foreign.value, false)
+
   const unknown = await run(tool, { target: 'missing', method: 'GET', path: '/' })
   assert.match(String(unknown.value.error), /not found/)
   const badMethod = await run(tool, { target: 'rw', method: 'BREW', path: '/' })
@@ -75,11 +87,15 @@ test('http_request: GET runs, mutations need the switch and confirm', async () =
 test('http_history lists recorded exchanges newest first', async () => {
   const { value, text } = await run(httpHistoryTool(store, history), { target: 'rw' })
   const entries = value.entries as Array<{ method: string; url: string; status: number }>
-  assert.equal(entries.length, 1)
-  assert.equal(entries[0].method, 'POST')
+  assert.equal(entries.length, 2)
+  assert.deepEqual(entries.map(e => e.method), ['GET', 'POST'])
+  // The refused request has no URL; it lists the path as composed.
+  assert.equal(entries[0].url, 'https://other.example.net/x')
   assert.match(text, /\[agent\] rw: POST https:\/\/rw.example.com\/users → 200/)
   const all = await run(httpHistoryTool(store, history), {})
-  assert.equal((all.value.entries as unknown[]).length, 2)
+  // Successful and failed entries both list, each with the fields it has.
+  assert.equal((all.value.entries as unknown[]).length, 3)
+  assert.deepEqual((all.value.entries as Array<Record<string, unknown>>).map(e => ['status' in e, 'error' in e]), [[false, true], [true, false], [true, false]])
   const missing = await run(httpHistoryTool(store, history), { target: 'nope' })
   assert.equal(missing.value.ok, false)
 })

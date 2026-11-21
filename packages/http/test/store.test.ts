@@ -33,7 +33,7 @@ test('auth: validation and kept secrets on update', () => {
   assert.throws(() => normalizeAuth({ type: 'header', name: 'Host', value: 'v' }), /transport/)
   assert.throws(() => normalizeAuth({ type: 'header', name: 'bad name', value: 'v' }), /header name/)
   assert.throws(() => normalizeAuth({ type: 'oauth' }), /auth.type/)
-  assert.deepEqual(secretsOf({ auth: { type: 'basic', username: 'u', password: 'p' } } as never), ['p', Buffer.from('u:p').toString('base64')])
+  assert.deepEqual(secretsOf({ auth: { type: 'basic', username: 'u', password: 'p' }, secrets: { key: 'k-value', unset: '' } } as never), ['p', Buffer.from('u:p').toString('base64'), 'k-value'])
 })
 
 test('targets: create, defaults, unique names, summary without secrets, mode 0600', () => {

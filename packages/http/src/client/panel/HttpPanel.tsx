@@ -65,11 +65,11 @@ function readScope(): string | undefined {
 
 /** Stand-in summary of the scope without a target. */
 function directScope(): HttpTargetSummary {
-  return { id: DIRECT_TARGET_ID, name: tt('targets.direct'), baseUrl: '', auth: { type: 'none' }, headers: {}, variables: {}, allowedHosts: [], allowMutations: true, allowPrivate: true, timeoutMs: DEFAULT_TIMEOUT_MS, createdAt: 0, updatedAt: 0 }
+  return { id: DIRECT_TARGET_ID, name: tt('targets.direct'), baseUrl: '', auth: { type: 'none' }, headers: {}, variables: {}, secrets: {}, allowedHosts: [], allowMutations: true, allowPrivate: true, timeoutMs: DEFAULT_TIMEOUT_MS, createdAt: 0, updatedAt: 0 }
 }
 
 function authLabel(target: HttpTargetSummary): string {
-  if (target.auth.type !== 'none' && target.auth.missing === true) return tt('targets.authMissing')
+  if ((target.auth.type !== 'none' && target.auth.missing === true) || Object.values(target.secrets).some(hint => hint === '')) return tt('targets.authMissing')
   switch (target.auth.type) {
     case 'none': return tt('form.auth.none')
     case 'bearer': return `Bearer ${target.auth.hint}`
@@ -219,7 +219,10 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
     const timer = setInterval(() => {
       if (document.hidden) return
       api.history(scopeId, 1).then((entries) => {
-        if (entries[0]?.id !== newestRef.current) void loadHistory(scopeId)
+        if (entries[0]?.id === newestRef.current) return
+        void loadHistory(scopeId)
+        // A request of the agent may have refreshed a variable.
+        void loadValues(scopeId)
       }, () => undefined)
     }, HISTORY_POLL_MS)
     return () => {
@@ -412,7 +415,7 @@ export function HttpPanel(props: HttpPanelProps): JSX.Element {
       })
       setShown(prev => ({ ...prev, [targetId]: exchange }))
       setResponseTab('preview')
-      if (exchange.captures?.some(result => result.ok) === true) void loadValues(targetId)
+      if (exchange.captures?.some(result => result.ok) === true || (exchange.refreshed?.length ?? 0) > 0) void loadValues(targetId)
     } catch (error) {
       if (!controller.signal.aborted) setBanner({ kind: 'error', text: errorMessage(error) })
       // A stopped request shows what the host recorded for it: the latest exchange of this request.

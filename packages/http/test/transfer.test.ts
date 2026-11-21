@@ -13,13 +13,26 @@ function stores(): { dir: string; store: TargetStore; requests: RequestStore } {
 }
 
 function seed(store: TargetStore, requests: RequestStore): void {
-  const api = store.create({ name: 'api', baseUrl: 'https://api.example.com/v1', auth: { type: 'bearer', token: 'super-secret-token' }, headers: { 'X-API-Key': 'literal-key', 'X-Trace': 'on', Authorization: 'Bearer {{token}}' }, variables: { org: 'acme' }, allowMutations: true })
+  const api = store.create({ name: 'api', baseUrl: 'https://api.example.com/v1', auth: { type: 'bearer', token: 'super-secret-token' }, headers: { 'X-API-Key': 'literal-key', 'X-Trace': 'on', Authorization: 'Bearer {{token}}' }, variables: { org: 'acme' }, secrets: { client_secret: 'app-secret-value' }, allowMutations: true })
   const basic = store.create({ name: 'legacy', baseUrl: 'https://legacy.example.com', auth: { type: 'basic', username: 'svc', password: 'pw-secret' } })
-  requests.create({ targetId: api.id, name: 'login', method: 'POST', path: '/login', bodyMode: 'json', body: '{"user":"a"}', captures: [{ name: 'token', source: 'body', path: 'data.token', enabled: true }] })
+  requests.create({ targetId: api.id, name: 'login', method: 'POST', path: '/login', bodyMode: 'json', body: '{"user":"a"}', captures: [{ name: 'token', source: 'body', path: 'data.token', enabled: true, ttlSeconds: 0, ttlPath: 'data.expires_in', refresh: 'expired' }] })
   requests.create({ targetId: api.id, name: 'me', path: '/me', headers: [{ key: 'Authorization', value: 'Bearer {{token}}', enabled: true }, { key: 'Cookie', value: 'sid=literal-cookie', enabled: true }] })
   requests.create({ targetId: basic.id, path: '/ping', auth: { type: 'header', name: 'X-Key', value: 'request-secret' } })
   requests.create({ targetId: DIRECT_TARGET_ID, path: 'https://example.org/health' })
 }
+
+test('export and import: an authentication that references a variable is kept', () => {
+  const { dir, store, requests } = stores()
+  try {
+    store.create({ name: 'dynamic', baseUrl: 'https://dyn.example.com', auth: { type: 'bearer', token: '{{access_token}}' } })
+    store.create({ name: 'keyed', baseUrl: 'https://key.example.com', auth: { type: 'query', name: 'access_token', value: 'literal-query-key' } })
+    const bundle = JSON.parse(JSON.stringify(exportBundle(store.list(), requests.list(), store.settings()))) as HttpBundle
+    assert.deepEqual(bundle.targets.map(t => t.auth), [{ type: 'bearer', token: '{{access_token}}' }, { type: 'query', name: 'access_token', value: '' }])
+    const plan = planImport(bundle, { targets: [], requests: [] }, 'skip')
+    assert.deepEqual(plan.result.needAuth, ['keyed'])
+    assert.deepEqual(plan.targets.find(t => t.name === 'dynamic')?.auth, { type: 'bearer', token: '{{access_token}}' })
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
 
 test('export: targets, requests and the history limit, without secrets', () => {
   const { dir, store, requests } = stores()
@@ -30,7 +43,7 @@ test('export: targets, requests and the history limit, without secrets', () => {
     const text = JSON.stringify(bundle)
     assert.equal(bundle.format, 'dsh-http')
     assert.deepEqual(bundle.settings, { historyLimit: 300 })
-    assert.doesNotMatch(text, /super-secret-token|pw-secret|literal-key|literal-cookie|request-secret|agentTools/)
+    assert.doesNotMatch(text, /super-secret-token|pw-secret|literal-key|literal-cookie|request-secret|app-secret-value|agentTools/)
     const api = bundle.targets.find(t => t.name === 'api')
     assert.deepEqual(api?.auth, { type: 'bearer', token: '' })
     // A credential header that references a variable is configuration, not a secret.
@@ -38,7 +51,9 @@ test('export: targets, requests and the history limit, without secrets', () => {
     assert.deepEqual(bundle.targets.find(t => t.name === 'legacy')?.auth, { type: 'basic', username: 'svc', password: '' })
     const me = bundle.requests.find(r => r.name === 'me')
     assert.deepEqual(me?.headers.map(h => h.value), ['Bearer {{token}}', ''])
-    assert.deepEqual(bundle.requests.find(r => r.name === 'login')?.captures, [{ name: 'token', source: 'body', path: 'data.token', enabled: true }])
+    // A secret variable is exported by name only.
+    assert.deepEqual(api?.secrets, { client_secret: '' })
+    assert.deepEqual(bundle.requests.find(r => r.name === 'login')?.captures, [{ name: 'token', source: 'body', path: 'data.token', enabled: true, ttlSeconds: 0, ttlPath: 'data.expires_in', refresh: 'expired' }])
     assert.equal(bundle.requests.length, 4)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
@@ -54,6 +69,8 @@ test('import into an empty configuration: targets need their secrets again', () 
     const api = plan.targets.find(t => t.name === 'api')
     assert.deepEqual(api?.auth, { type: 'bearer', token: '' })
     assert.deepEqual(api?.headers, { 'X-Trace': 'on', Authorization: 'Bearer {{token}}' })
+    assert.deepEqual(api?.secrets, { client_secret: '' })
+    assert.equal(plan.requests.find(r => r.name === 'login')?.captures[0].refresh, 'expired')
     assert.notEqual(api?.id, source.store.find('api')?.id)
     // Requests follow their target under its new id and keep their own ids.
     assert.deepEqual(plan.requests.filter(r => r.targetId === api?.id).map(r => r.name), ['login', 'me'])
@@ -62,6 +79,9 @@ test('import into an empty configuration: targets need their secrets again', () 
     empty.requests.replaceAll(plan.requests)
     empty.store.replaceAll(plan.targets, plan.historyLimit)
     assert.equal(empty.store.summarize(empty.store.find('api')!).auth.type, 'bearer')
+    // A target that only lacks a secret variable is reported too.
+    const onlySecret = planImport({ ...bundle, targets: [{ ...bundle.targets[0], auth: { type: 'none' } }], requests: [] }, { targets: [], requests: [] }, 'skip')
+    assert.deepEqual(onlySecret.result.needAuth, ['api'])
     assert.equal(empty.requests.list().length, 4)
   } finally {
     rmSync(source.dir, { recursive: true, force: true })
@@ -96,6 +116,7 @@ test('import over an existing configuration: overwrite keeps stored secrets, ski
     assert.equal(api?.baseUrl, 'https://api.example.com/v2')
     assert.deepEqual(api?.auth, { type: 'bearer', token: 'super-secret-token' })
     assert.equal(api?.headers['X-API-Key'], 'literal-key')
+    assert.deepEqual(api?.secrets, { client_secret: 'app-secret-value' })
     // The request list of an overwritten target is the file's.
     assert.deepEqual(over.requests.filter(r => r.targetId === api?.id).map(r => r.name), ['login'])
     assert.equal(over.requests.filter(r => r.targetId === DIRECT_TARGET_ID).length, 1)

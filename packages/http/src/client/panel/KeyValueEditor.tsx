@@ -13,7 +13,10 @@ export interface KeyValueEditorProps {
   rows: KeyValueRow[]
   onChange: (rows: KeyValueRow[]) => void
   keyPlaceholder?: string
-  valuePlaceholder?: string
+  /** Placeholder of the value field; a function chooses it per row. */
+  valuePlaceholder?: string | ((row: KeyValueRow) => string | undefined)
+  /** Values are secrets: the field hides what is typed. */
+  secret?: boolean
   /** Show the per-row enable checkbox. */
   toggle?: boolean
   /** Show the toolbar: add, bulk edit, delete all. */
@@ -92,7 +95,7 @@ export function KeyValueEditor(props: KeyValueEditorProps): JSX.Element {
               <input type="checkbox" className="dsh-http-check" checked={!off} disabled={props.disabled || ghost} aria-label={tt('kv.enabled')} onChange={(e) => { update(index, { enabled: e.target.checked }) }} />
             )}
             <input className="dsh-http-input" data-mono data-kv-name value={row.key} placeholder={props.keyPlaceholder ?? tt('kv.key')} disabled={props.disabled} autoCapitalize="off" spellCheck={false} onChange={(e) => { update(index, { key: e.target.value }) }} />
-            <input className="dsh-http-input" data-mono value={row.value} placeholder={props.valuePlaceholder ?? tt('kv.value')} disabled={props.disabled} autoCapitalize="off" spellCheck={false} autoComplete="off" onChange={(e) => { update(index, { value: e.target.value }) }} />
+            <input className="dsh-http-input" data-mono type={props.secret ? 'password' : 'text'} value={row.value} placeholder={(typeof props.valuePlaceholder === 'function' ? props.valuePlaceholder(row) : props.valuePlaceholder) ?? tt('kv.value')} disabled={props.disabled} autoCapitalize="off" spellCheck={false} autoComplete={props.secret ? 'new-password' : 'off'} onChange={(e) => { update(index, { value: e.target.value }) }} />
             <button type="button" className="dsh-http-iconButton" data-danger aria-label={tt('kv.remove')} title={tt('kv.remove')} disabled={props.disabled || ghost} onClick={() => { onChange(rows.filter((_, i) => i !== index)) }}>×</button>
           </div>
         )

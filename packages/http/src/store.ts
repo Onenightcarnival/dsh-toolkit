@@ -1,7 +1,7 @@
 /**
  * Host stores. Targets and switches: one JSON file (`$DSH_HOME/dsh-http.json`)
- * written atomically with mode 0600; auth secrets are stored in plaintext and
- * never returned to the browser or the agent. Saved requests: one JSON file
+ * written atomically with mode 0600; auth secrets and secret variables are
+ * stored in plaintext and never returned to the browser or the agent. Saved requests: one JSON file
  * (`$DSH_HOME/dsh-http-requests.json`). Captured variable values: one JSON
  * file (`$DSH_HOME/dsh-http-values.json`), secrets like the auth. History:
  * JSON Lines (`$DSH_HOME/dsh-http-history.jsonl`), appended per exchange and
@@ -14,8 +14,8 @@ import { randomBytes } from 'node:crypto'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { MAX_CAPTURED_LENGTH, VARIABLE_NAME_RE } from './capture.ts'
 import {
-  DEFAULT_HISTORY_LIMIT, DEFAULT_TIMEOUT_MS, HTTP_AUTH_TYPES, HTTP_BODY_MODES, HTTP_CAPTURE_SOURCES, MAX_HISTORY_LIMIT, MAX_TIMEOUT_MS, MIN_HISTORY_LIMIT, MIN_TIMEOUT_MS, isHttpMethod,
-  type HttpAuth, type HttpAuthPayload, type HttpAuthSummary, type HttpBodyMode, type HttpCapture, type HttpCaptureSource, type HttpCapturedValue, type HttpExchange, type HttpKeyValue,
+  DEFAULT_HISTORY_LIMIT, DEFAULT_TIMEOUT_MS, HTTP_AUTH_TYPES, HTTP_BODY_MODES, HTTP_CAPTURE_REFRESH, HTTP_CAPTURE_SOURCES, MAX_CAPTURE_RULES, MAX_CAPTURE_TTL_SECONDS, MAX_HISTORY_LIMIT, MAX_TIMEOUT_MS, MIN_HISTORY_LIMIT, MIN_TIMEOUT_MS, isHttpMethod,
+  type HttpAuth, type HttpAuthPayload, type HttpAuthSummary, type HttpBodyMode, type HttpCapture, type HttpCaptureRefresh, type HttpCaptureSource, type HttpCapturedValue, type HttpExchange, type HttpKeyValue,
   type HttpSavedRequest, type HttpSavedRequestPayload, type HttpSettings, type HttpTarget, type HttpTargetPayload, type HttpTargetSummary,
 } from './protocol.ts'
 
@@ -120,6 +120,27 @@ export function normalizeHeaders(value: unknown): Record<string, string> {
 
 export function normalizeVariables(value: unknown): Record<string, string> {
   return normalizeMap(value, 'variables', VARIABLE_NAME_RE)
+}
+
+/**
+ * Validate the secret variables of a payload. An empty value takes the value
+ * `previous` stores under that name; `allowMissing` accepts a value that is
+ * neither given nor stored (an imported target) and keeps it empty.
+ */
+export function normalizeSecrets(value: unknown, previous: Record<string, string> = {}, allowMissing = false): Record<string, string> {
+  const given = normalizeMap(value, 'secrets', VARIABLE_NAME_RE)
+  const out: Record<string, string> = {}
+  for (const [name, raw] of Object.entries(given)) {
+    const kept = raw !== '' ? raw : Object.hasOwn(previous, name) ? previous[name] : ''
+    if (kept === '' && !allowMissing) fail(`secrets: value of "${name}" is required`)
+    out[name] = kept
+  }
+  return out
+}
+
+/** Names of the secret variables whose value is not stored. */
+export function missingSecrets(target: HttpTarget): string[] {
+  return Object.entries(target.secrets).filter(([, value]) => value === '').map(([name]) => name)
 }
 
 export function normalizeAllowedHosts(value: unknown): string[] {
@@ -245,21 +266,24 @@ export function authMissing(auth: HttpAuth): boolean {
   }
 }
 
+/** Hint of an authentication secret: a value that is one variable reference is shown as written, it holds no secret. */
+function authHint(secret: string): string {
+  return /^\s*\{\{\s*[A-Za-z_][A-Za-z0-9_.-]*\s*\}\}\s*$/.test(secret) ? secret.trim() : hint(secret)
+}
+
 /** Secret-free view of an auth setting. */
 export function summarizeAuth(auth: HttpAuth): HttpAuthSummary {
   const missing = authMissing(auth) ? { missing: true as const } : {}
   switch (auth.type) {
     case 'none': return { type: 'none' }
-    case 'bearer': return { type: 'bearer', hint: hint(auth.token), ...missing }
+    case 'bearer': return { type: 'bearer', hint: authHint(auth.token), ...missing }
     case 'basic': return { type: 'basic', username: auth.username, ...missing }
-    case 'header': return { type: 'header', name: auth.name, hint: hint(auth.value), ...missing }
-    case 'query': return { type: 'query', name: auth.name, hint: hint(auth.value), ...missing }
+    case 'header': return { type: 'header', name: auth.name, hint: authHint(auth.value), ...missing }
+    case 'query': return { type: 'query', name: auth.name, hint: authHint(auth.value), ...missing }
   }
 }
 
-/** Secret values of a target, for masking. */
-export function secretsOf(target: HttpTarget): string[] {
-  const auth = target.auth
+function authSecrets(auth: HttpAuth): string[] {
   switch (auth.type) {
     case 'none': return []
     case 'bearer': return [auth.token]
@@ -267,6 +291,11 @@ export function secretsOf(target: HttpTarget): string[] {
     case 'header': return [auth.value]
     case 'query': return [auth.value]
   }
+}
+
+/** Secret values of a target, for masking: its authentication and its secret variables. */
+export function secretsOf(target: HttpTarget): string[] {
+  return [...authSecrets(target.auth), ...Object.values(target.secrets)].filter(value => value !== '')
 }
 
 /** A name not already taken (case-insensitive); collisions get a numeric suffix. */
@@ -299,13 +328,18 @@ export function buildTarget(payload: HttpTargetPayload, options: { previous?: Ht
   const wanted = payload.name === undefined && previous !== undefined ? previous.name : (str(payload.name) ?? '').trim()
   if (wanted !== '' && !NAME_RE.test(wanted)) fail('name may contain letters, digits, spaces, dots, hyphens and underscores (max 64)')
   const now = Date.now()
+  const variables = payload.variables === undefined && previous !== undefined ? previous.variables : normalizeVariables(payload.variables)
+  const secrets = payload.secrets === undefined && previous !== undefined ? previous.secrets : normalizeSecrets(payload.secrets, previous?.secrets, options.allowMissingSecret === true)
+  const shared = Object.keys(secrets).find(name => Object.hasOwn(variables, name))
+  if (shared !== undefined) fail(`"${shared}" is both a variable and a secret variable`)
   return {
     id: previous?.id ?? randomBytes(6).toString('hex'),
     name: uniqueName(wanted || defaultName(baseUrl), options.taken),
     baseUrl,
     auth: normalizeAuth(payload.auth, previous?.auth, options.allowMissingSecret === true),
     headers: payload.headers === undefined && previous !== undefined ? previous.headers : normalizeHeaders(payload.headers),
-    variables: payload.variables === undefined && previous !== undefined ? previous.variables : normalizeVariables(payload.variables),
+    variables,
+    secrets,
     allowedHosts: payload.allowedHosts === undefined && previous !== undefined ? previous.allowedHosts : normalizeAllowedHosts(payload.allowedHosts),
     allowMutations: typeof payload.allowMutations === 'boolean' ? payload.allowMutations : previous?.allowMutations ?? false,
     allowPrivate: typeof payload.allowPrivate === 'boolean' ? payload.allowPrivate : previous?.allowPrivate ?? false,
@@ -367,6 +401,7 @@ export class TargetStore {
       auth: summarizeAuth(target.auth),
       headers: { ...target.headers },
       variables: { ...target.variables },
+      secrets: Object.fromEntries(Object.entries(target.secrets).map(([name, value]) => [name, hint(value)])),
       allowedHosts: [...target.allowedHosts],
       allowMutations: target.allowMutations,
       allowPrivate: target.allowPrivate,
@@ -429,6 +464,7 @@ export class TargetStore {
         t.auth = t.auth ?? { type: 'none' }
         t.headers = t.headers ?? {}
         t.variables = t.variables ?? {}
+        t.secrets = typeof t.secrets === 'object' && t.secrets !== null ? t.secrets : {}
         t.allowedHosts = Array.isArray(t.allowedHosts) ? t.allowedHosts : []
         t.allowMutations = t.allowMutations === true
         t.allowPrivate = t.allowPrivate === true
@@ -572,20 +608,27 @@ function normalizeRows(value: unknown, what: string): HttpKeyValue[] {
   })
 }
 
-const MAX_CAPTURES = 20
-
 function normalizeCaptures(value: unknown): HttpCapture[] {
   if (value === undefined) return []
   if (!Array.isArray(value)) fail('captures must be an array of rules')
-  if (value.length > MAX_CAPTURES) fail(`captures: at most ${MAX_CAPTURES} rules`)
+  if (value.length > MAX_CAPTURE_RULES) fail(`captures: at most ${MAX_CAPTURE_RULES} rules`)
   return value.map((raw: unknown) => {
     const rule = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
     const name = typeof rule.name === 'string' ? rule.name : ''
     const path = typeof rule.path === 'string' ? rule.path : ''
     if (name.length > 128 || path.length > 512 || /[\r\n]/.test(name + path)) fail('captures: a rule is too long or contains line breaks')
-    const source: HttpCaptureSource = (HTTP_CAPTURE_SOURCES as readonly unknown[]).includes(rule.source) ? rule.source as HttpCaptureSource : 'body'
-    return { name, source, path, enabled: rule.enabled !== false }
+    return storedCapture({ ...rule, name, path })
   })
+}
+
+/** A capture rule with every field present; absent or invalid fields take their defaults. */
+function storedCapture(rule: Record<string, unknown>): HttpCapture {
+  const source: HttpCaptureSource = (HTTP_CAPTURE_SOURCES as readonly unknown[]).includes(rule.source) ? rule.source as HttpCaptureSource : 'body'
+  const refresh: HttpCaptureRefresh = (HTTP_CAPTURE_REFRESH as readonly unknown[]).includes(rule.refresh) ? rule.refresh as HttpCaptureRefresh : 'off'
+  const ttl = rule.ttlSeconds
+  const ttlSeconds = typeof ttl === 'number' && Number.isInteger(ttl) && ttl > 0 ? Math.min(ttl, MAX_CAPTURE_TTL_SECONDS) : 0
+  const ttlPath = typeof rule.ttlPath === 'string' && rule.ttlPath.length <= 512 && !/[\r\n]/.test(rule.ttlPath) ? rule.ttlPath : ''
+  return { name: typeof rule.name === 'string' ? rule.name : '', source, path: typeof rule.path === 'string' ? rule.path : '', enabled: rule.enabled !== false, ttlSeconds, ttlPath, refresh }
 }
 
 /** Validated fields of a saved request payload; absent fields stay absent. */
@@ -721,7 +764,7 @@ export class RequestStore {
         bodyMode: (HTTP_BODY_MODES as readonly string[]).includes(r.bodyMode) ? r.bodyMode : 'none',
         body: r.body ?? '',
         form: Array.isArray(r.form) ? r.form : [],
-        captures: Array.isArray(r.captures) ? r.captures : [],
+        captures: Array.isArray(r.captures) ? r.captures.map(rule => storedCapture((typeof rule === 'object' && rule !== null ? rule : {}) as unknown as Record<string, unknown>)) : [],
       }))
     } catch {
       this.entries = []
@@ -739,7 +782,17 @@ export class RequestStore {
   }
 }
 
-interface StoredValue { value: string; requestId: string; at: number }
+interface StoredValue { value: string; requestId: string; at: number; expiresAt?: number }
+
+/** A captured value as the engine reads it. */
+export interface CapturedEntry {
+  value: string
+  /** Saved request the value came from. */
+  requestId: string
+  at: number
+  /** Unix ms from which the value counts as expired; absent when it does not expire. */
+  expiresAt?: number
+}
 
 /**
  * Captured variable values by scope (a target id or DIRECT_TARGET_ID). The
@@ -761,21 +814,33 @@ export class ValueStore {
     return out
   }
 
+  /** One value of a scope with its origin and expiry. */
+  entry(scopeId: string, name: string): CapturedEntry | undefined {
+    const scope = this.load()[scopeId]
+    return scope !== undefined && Object.hasOwn(scope, name) ? { ...scope[name] } : undefined
+  }
+
   /** Secret-free list of a scope's values, by name. */
   list(scopeId: string): HttpCapturedValue[] {
     return Object.entries(this.load()[scopeId] ?? {})
-      .map(([name, entry]) => ({ name, hint: hint(entry.value), requestId: entry.requestId, at: entry.at }))
+      .map(([name, entry]) => ({ name, hint: hint(entry.value), requestId: entry.requestId, at: entry.at, ...(entry.expiresAt !== undefined ? { expiresAt: entry.expiresAt } : {}) }))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  /** Write values captured from one saved request. */
-  set(scopeId: string, values: Record<string, string>, requestId: string): void {
+  /**
+   * Write values captured from one saved request.
+   * @param lifetimes - lifetime in ms by variable name; a value without one does not expire.
+   */
+  set(scopeId: string, values: Record<string, string>, requestId: string, lifetimes: Record<string, number> = {}): void {
     const names = Object.keys(values).filter(name => VARIABLE_NAME_RE.test(name) && values[name].length <= MAX_CAPTURED_LENGTH)
     if (names.length === 0) return
     const scopes = this.load()
     const scope = scopes[scopeId] ?? {}
     const at = Date.now()
-    for (const name of names) scope[name] = { value: values[name], requestId, at }
+    for (const name of names) {
+      const lifetime = lifetimes[name]
+      scope[name] = { value: values[name], requestId, at, ...(typeof lifetime === 'number' && lifetime > 0 ? { expiresAt: at + lifetime } : {}) }
+    }
     scopes[scopeId] = scope
     this.save(scopes)
   }
@@ -809,7 +874,7 @@ export class ValueStore {
         const scope: Record<string, StoredValue> = {}
         for (const [name, entry] of Object.entries(raw as Record<string, Partial<StoredValue> | null>)) {
           if (!VARIABLE_NAME_RE.test(name) || typeof entry?.value !== 'string') continue
-          scope[name] = { value: entry.value, requestId: typeof entry.requestId === 'string' ? entry.requestId : '', at: typeof entry.at === 'number' ? entry.at : 0 }
+          scope[name] = { value: entry.value, requestId: typeof entry.requestId === 'string' ? entry.requestId : '', at: typeof entry.at === 'number' ? entry.at : 0, ...(typeof entry.expiresAt === 'number' ? { expiresAt: entry.expiresAt } : {}) }
         }
         if (Object.keys(scope).length > 0) out[scopeId] = scope
       }

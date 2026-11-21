@@ -1,10 +1,17 @@
 /**
  * Request engine: resolves a target, substitutes `{{variables}}` (the target's
- * and the values captured in its scope), joins the URL, enforces the host and
- * private-network policy, injects auth, follows redirects with the same
- * checks, caps the response body, runs the saved request's capture rules,
- * masks secrets and records the exchange in the history. A `text/event-stream`
- * response is read incrementally and reported event by event.
+ * variables and secret variables and the values captured in its scope), joins
+ * the URL, enforces the host and private-network policy, injects auth, follows
+ * redirects with the same checks, caps the response body, runs the saved
+ * request's capture rules, masks secrets and records the exchange in the
+ * history. A `text/event-stream` response is read incrementally and reported
+ * event by event.
+ *
+ * Refresh: a capture rule may let the host send its saved request by itself.
+ * Before a request that references such a variable while its value is missing
+ * or expired, the host sends the saved request, captures the value, then sends
+ * the request; a failed refresh stops the request. Concurrent requests share
+ * one refresh per saved request.
  *
  * Requests go through the global `fetch`, so the kernel's outbound proxy
  * policy (undici global dispatcher) applies.
@@ -13,14 +20,18 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
 import { randomBytes } from 'node:crypto'
-import { runCaptures, type CaptureInput } from './capture.ts'
-import { FORBIDDEN_HEADERS, authMissing, normalizeRequestAuth, secretsOf, usableRequestAuth, type HistoryStore, type RequestStore, type TargetStore, type ValueStore } from './store.ts'
+import { VARIABLE_NAME_RE, runCaptures, type CaptureInput } from './capture.ts'
+import { FORBIDDEN_HEADERS, authMissing, missingSecrets, normalizeRequestAuth, secretsOf, usableRequestAuth, type CapturedEntry, type HistoryStore, type RequestStore, type TargetStore, type ValueStore } from './store.ts'
 import {
-  DEFAULT_TIMEOUT_MS, DIRECT_TARGET_ID, HISTORY_BODY_BYTES, PANEL_BODY_BYTES, SseParser, isEventStream, isHttpMethod, joinUrl, substitute,
-  type HttpAuth, type HttpCapture, type HttpExchange, type HttpExchangeRequest, type HttpExchangeResponse, type HttpMethod, type HttpPairs, type HttpRequestInput, type HttpSseEvent, type HttpStreamEnd, type HttpStreamHead, type HttpTarget, type HttpTestResult,
+  DEFAULT_TIMEOUT_MS, DIRECT_TARGET_ID, HISTORY_BODY_BYTES, PANEL_BODY_BYTES, SseParser, isEventStream, isHttpMethod, joinUrl, referencedVariables, requestInputOf, savedRequestTitle, substitute,
+  type HttpAuth, type HttpCapture, type HttpExchange, type HttpExchangeRequest, type HttpExchangeResponse, type HttpMethod, type HttpPairs, type HttpRefresh, type HttpRefreshReason, type HttpRequestInput, type HttpSavedRequest, type HttpSseEvent, type HttpStreamEnd, type HttpStreamHead, type HttpTarget, type HttpTestResult,
 } from './protocol.ts'
 
 const MAX_REDIRECTS = 5
+/** Longest chain of refreshes: a refreshed request may itself need a refresh, this many levels deep. */
+export const MAX_REFRESH_DEPTH = 3
+/** A value counts as expired this long before its expiry, or a tenth of its lifetime when that is shorter. */
+const REFRESH_SKEW_MS = 30_000
 /** Request body cap stored in an exchange. */
 const REQUEST_BODY_BYTES = 64 * 1024
 const MASK = '••••••'
@@ -132,6 +143,47 @@ function mergeHeaders(target: HttpTarget, requestHeaders: Record<string, string>
     if (!FORBIDDEN_HEADERS.has(name.toLowerCase())) headers.set(name, value)
   }
   return headers
+}
+
+/** Texts of an authentication in which `{{variables}}` are substituted. */
+function authTexts(auth: HttpAuth): string[] {
+  switch (auth.type) {
+    case 'none': return []
+    case 'bearer': return [auth.token]
+    case 'basic': return [auth.username, auth.password]
+    case 'header': return [auth.value]
+    case 'query': return [auth.value]
+  }
+}
+
+function substituteAuth(auth: HttpAuth, vars: Record<string, string>): HttpAuth {
+  switch (auth.type) {
+    case 'none': return auth
+    case 'bearer': return { ...auth, token: substitute(auth.token, vars) }
+    case 'basic': return { ...auth, username: substitute(auth.username, vars), password: substitute(auth.password, vars) }
+    case 'header': return { ...auth, value: substitute(auth.value, vars) }
+    case 'query': return { ...auth, value: substitute(auth.value, vars) }
+  }
+}
+
+/** Whether a captured value has reached its expiry, the skew included. */
+export function isExpired(entry: Pick<CapturedEntry, 'at' | 'expiresAt'>, now = Date.now()): boolean {
+  if (entry.expiresAt === undefined) return false
+  return now >= entry.expiresAt - Math.min(REFRESH_SKEW_MS, Math.max(0, entry.expiresAt - entry.at) / 10)
+}
+
+/** Settle with the promise, or reject as soon as the signal aborts; the promise keeps running. */
+function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (signal === undefined) return promise
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => { reject(signal.reason instanceof Error ? signal.reason : new DOMException('The operation was aborted', 'AbortError')) }
+    if (signal.aborted) { onAbort(); return }
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => { signal.removeEventListener('abort', onAbort); resolve(value) },
+      (error: unknown) => { signal.removeEventListener('abort', onAbort); reject(error instanceof Error ? error : new Error(String(error))) },
+    )
+  })
 }
 
 /** Inject the target auth into headers or the URL. */
@@ -296,16 +348,34 @@ export function validateInput(input: unknown): HttpRequestInput {
 /** Reads the response as received and returns the values to mask in everything recorded and returned. */
 type CaptureHook = (input: CaptureInput) => string[]
 
+/** A send the host makes by itself to renew variables. */
+interface RefreshContext {
+  /** Saved requests being refreshed up the chain, outermost first; the last one is the request being sent. */
+  chain: string[]
+  /** Variables the refresh was sent for. */
+  variables: string[]
+}
+
+/** One saved request to send as a refresh, and the variables wanted from it. */
+interface RefreshGroup {
+  request: HttpSavedRequest
+  variables: string[]
+  reason: HttpRefreshReason
+}
+
 export class HttpEngine {
+  /** Refreshes in flight by scope and saved request; concurrent requests wait for the same one. */
+  private readonly refreshing = new Map<string, Promise<HttpExchange>>()
+
   /**
-   * @param requests - saved requests, the source of capture rules; absent disables capturing.
-   * @param values - captured variable values; absent disables capturing and their substitution.
+   * @param requests - saved requests, the source of capture rules and of refreshes; absent disables both.
+   * @param values - captured variable values; absent disables capturing, refreshing and their substitution.
    */
   constructor(
     private readonly store: TargetStore,
     private readonly history: HistoryStore,
     private readonly fetchImpl: FetchLike = (input, init) => globalThis.fetch(input, init),
-    private readonly requests?: Pick<RequestStore, 'get'>,
+    private readonly requests?: Pick<RequestStore, 'get' | 'list'>,
     private readonly values?: ValueStore,
   ) {}
 
@@ -314,7 +384,7 @@ export class HttpEngine {
    * networks included, no injected auth. Only the panel sends through it.
    */
   private directTarget(): HttpTarget {
-    return { id: DIRECT_TARGET_ID, name: '', baseUrl: '', auth: { type: 'none' }, headers: {}, variables: {}, allowedHosts: [], allowMutations: true, allowPrivate: true, timeoutMs: DEFAULT_TIMEOUT_MS, createdAt: 0, updatedAt: 0 }
+    return { id: DIRECT_TARGET_ID, name: '', baseUrl: '', auth: { type: 'none' }, headers: {}, variables: {}, secrets: {}, allowedHosts: [], allowMutations: true, allowPrivate: true, timeoutMs: DEFAULT_TIMEOUT_MS, createdAt: 0, updatedAt: 0 }
   }
 
   /** Resolve a target by id or name. */
@@ -324,24 +394,172 @@ export class HttpEngine {
     return target
   }
 
-  /** Send a request and record it. Policy and transport failures come back as `error` on the exchange. */
+  /**
+   * Send a request and record it, after refreshing the variables it references
+   * whose value is missing or expired. Policy and transport failures, a failed
+   * refresh included, come back as `error` on the exchange.
+   */
   async send(ref: string, rawInput: HttpRequestInput, options: SendOptions): Promise<HttpExchange> {
+    return this.run(ref, rawInput, options, undefined)
+  }
+
+  private async run(ref: string, rawInput: HttpRequestInput, options: SendOptions, context: RefreshContext | undefined): Promise<HttpExchange> {
     const target = ref === DIRECT_TARGET_ID && options.source === 'panel' ? this.directTarget() : this.target(ref)
     const input = validateInput(rawInput)
-    // A request's own authentication applies when the panel sends it and its target has none.
-    const requestAuth = options.source === 'panel' && target.auth.type === 'none' ? usableRequestAuth(input.auth) : undefined
-    const effective: HttpTarget = requestAuth === undefined ? target : { ...target, auth: requestAuth }
+    // A form the user wrote: the panel's send, or a saved request the host sends as a refresh.
+    const authored = options.source === 'panel' || context !== undefined
+    const chain = context?.chain ?? []
+    const refreshed: HttpRefresh[] = []
+    let blocked: string | undefined
+    for (const group of this.refreshGroups(target, input, authored, 'stale')) {
+      const outcome = await this.refresh(target, group, options, chain)
+      refreshed.push(outcome)
+      if (!outcome.ok) {
+        blocked = refreshFailure(outcome)
+        break
+      }
+    }
+    const exchange = await this.exchange(target, input, options, context, refreshed, blocked)
+    // A 401 renews the variables whose rule asks for it, then the request is sent once more.
+    if (blocked !== undefined || exchange.response?.status !== 401 || exchange.response.stream !== undefined || options.signal?.aborted === true) return exchange
+    const again = this.refreshGroups(target, input, authored, 'rejected').filter(group => !refreshed.some(done => done.requestId === group.request.id))
+    if (again.length === 0) return exchange
+    for (const group of again) {
+      const outcome = await this.refresh(target, group, options, chain)
+      refreshed.push(outcome)
+      if (!outcome.ok) return { ...exchange, refreshed: [...refreshed] }
+    }
+    return this.exchange(target, input, options, context, refreshed, undefined)
+  }
+
+  /** The user's saved request behind a send, when the send is the user's form and the request belongs to the scope. */
+  private savedOf(target: HttpTarget, input: HttpRequestInput, authored: boolean): HttpSavedRequest | undefined {
+    if (!authored || input.requestId === undefined || this.values === undefined) return undefined
+    const saved = this.requests?.get(input.requestId)
+    return saved !== undefined && saved.targetId === target.id ? saved : undefined
+  }
+
+  /**
+   * What the target adds to a request, before substitution: its fixed headers
+   * and its authentication. A request that captures a variable is sent without
+   * the fixed headers and the authentication that reference that variable: it
+   * obtains the value, so it does not carry it. The form's own authentication
+   * applies when the user wrote the form and no target authentication does.
+   */
+  private applied(target: HttpTarget, input: HttpRequestInput, authored: boolean): { auth: HttpAuth; headers: Record<string, string> } {
+    const produced = new Set((this.savedOf(target, input, authored)?.captures ?? []).filter(rule => rule.enabled).map(rule => rule.name.trim()))
+    const own = (texts: string[]): boolean => [...referencedVariables(texts)].some(name => produced.has(name))
+    const targetAuth: HttpAuth = own(authTexts(target.auth)) ? { type: 'none' } : target.auth
+    return {
+      auth: (authored && targetAuth.type === 'none' ? usableRequestAuth(input.auth) : undefined) ?? targetAuth,
+      headers: Object.fromEntries(Object.entries(target.headers).filter(([, value]) => !own([value]))),
+    }
+  }
+
+  /** Variable names a request references: in its path, query, headers and body, and in the target's fixed headers and authentication sent with it. */
+  private references(target: HttpTarget, input: HttpRequestInput, authored: boolean): Set<string> {
+    const hasBody = input.body !== undefined && input.method !== 'GET' && input.method !== 'HEAD'
+    const applied = this.applied(target, input, authored)
+    return referencedVariables([
+      input.path, ...(input.query as HttpPairs).flat(), ...Object.values(input.headers ?? {}), hasBody ? input.body as string : '',
+      ...Object.values(applied.headers), ...authTexts(applied.auth),
+    ])
+  }
+
+  /**
+   * Saved requests to send before a request, grouped by request in creation
+   * order. `stale`: the referenced variables with a refresh rule whose value
+   * is missing or expired. `rejected`: those whose rule renews on a 401.
+   * The request being sent never refreshes itself.
+   */
+  private refreshGroups(target: HttpTarget, input: HttpRequestInput, authored: boolean, mode: 'stale' | 'rejected'): RefreshGroup[] {
+    if (this.requests === undefined || this.values === undefined) return []
+    const names = this.references(target, input, authored)
+    if (names.size === 0) return []
+    const sources = new Map<string, { request: HttpSavedRequest; rule: HttpCapture }>()
+    for (const request of this.requests.list(target.id)) {
+      for (const rule of request.captures) {
+        const name = rule.name.trim()
+        if (!rule.enabled || rule.refresh === 'off' || !names.has(name) || !VARIABLE_NAME_RE.test(name)) continue
+        // Of several requests that renew a variable, the one its value came from is sent.
+        if (!sources.has(name) || this.values.entry(target.id, name)?.requestId === request.id) sources.set(name, { request, rule })
+      }
+    }
+    const groups = new Map<string, RefreshGroup>()
+    for (const [name, { request, rule }] of sources) {
+      if (authored && input.requestId === request.id) continue
+      let reason: HttpRefreshReason
+      if (mode === 'rejected') {
+        if (rule.refresh !== 'rejected') continue
+        reason = 'rejected'
+      } else {
+        const entry = this.values.entry(target.id, name)
+        if (entry === undefined) reason = 'missing'
+        else if (isExpired(entry)) reason = 'expired'
+        else continue
+      }
+      const group = groups.get(request.id)
+      if (group === undefined) groups.set(request.id, { request, variables: [name], reason })
+      else group.variables.push(name)
+    }
+    return [...groups.values()]
+  }
+
+  /** Send a saved request as a refresh and report whether it renewed the wanted variables. */
+  private async refresh(target: HttpTarget, group: RefreshGroup, options: SendOptions, chain: string[]): Promise<HttpRefresh> {
+    const { request, variables, reason } = group
+    const base = { requestId: request.id, requestName: savedRequestTitle(request), variables, reason }
+    if (chain.includes(request.id)) return { ...base, ok: false, error: 'the request depends on a variable it refreshes' }
+    if (chain.length >= MAX_REFRESH_DEPTH) return { ...base, ok: false, error: `more than ${MAX_REFRESH_DEPTH} refreshes in a chain` }
+    const start = (): Promise<HttpExchange> => this.run(target.id, { ...requestInputOf(request), requestId: request.id }, { source: options.source }, { chain: [...chain, request.id], variables })
+    // Requests that need the same refresh wait for one send; a refresh within a refresh is its own send.
+    const key = `${target.id}\n${request.id}`
+    let flight = chain.length === 0 ? this.refreshing.get(key) : undefined
+    if (flight === undefined) {
+      flight = start()
+      if (chain.length === 0) {
+        this.refreshing.set(key, flight)
+        const done = (): void => { this.refreshing.delete(key) }
+        flight.then(done, done)
+      }
+    }
+    let exchange: HttpExchange
+    try {
+      exchange = await abortable(flight, options.signal)
+    } catch (error) {
+      return { ...base, ok: false, error: options.signal?.aborted === true ? 'cancelled' : error instanceof Error ? error.message : String(error) }
+    }
+    if (exchange.error !== undefined) return { ...base, exchangeId: exchange.id, ok: false, error: exchange.error }
+    for (const name of variables) {
+      const result = exchange.captures?.find(item => item.name === name)
+      if (result?.ok !== true) return { ...base, exchangeId: exchange.id, ok: false, error: `{{${name}}} was not captured: ${result?.error ?? 'no capture rule ran'}` }
+    }
+    return { ...base, exchangeId: exchange.id, ok: true }
+  }
+
+  /** Send one request and record it. `blocked` records the exchange with that error instead of sending. */
+  private async exchange(target: HttpTarget, input: HttpRequestInput, options: SendOptions, context: RefreshContext | undefined, refreshed: readonly HttpRefresh[], blocked: string | undefined): Promise<HttpExchange> {
+    const authored = options.source === 'panel' || context !== undefined
     // Captured values are variables of the scope; one named like a target variable takes its place.
     const captured = this.values?.map(target.id) ?? {}
-    const vars = { ...target.variables, ...captured }
-    // The panel's saved request brings the capture rules; they run on a response of its own scope.
-    const saved = options.source === 'panel' && input.requestId !== undefined && this.values !== undefined ? this.requests?.get(input.requestId) : undefined
-    const rules: HttpCapture[] = saved !== undefined && saved.targetId === target.id ? saved.captures.filter(rule => rule.enabled && rule.name.trim() !== '') : []
+    const filled = Object.fromEntries(Object.entries(target.secrets).filter(([, value]) => value !== ''))
+    const vars = { ...target.variables, ...filled, ...captured }
+    // The target as this request is sent to it: fixed headers and authentication with their variables in place.
+    const applied = this.applied(target, input, authored)
+    const effective: HttpTarget = {
+      ...target,
+      auth: substituteAuth(applied.auth, vars),
+      headers: Object.fromEntries(Object.entries(applied.headers).map(([name, value]) => [name, substitute(value, vars)])),
+    }
+    // The user's saved request brings the capture rules; they run on a response of its own scope.
+    const saved = this.savedOf(target, input, authored)
+    const rules: HttpCapture[] = (saved?.captures ?? []).filter(rule => rule.enabled && rule.name.trim() !== '')
     const path = substitute(input.path, vars)
     const composedQuery = input.query as HttpPairs
     const query: HttpPairs = composedQuery.map(([k, v]) => [substitute(k, vars), substitute(v, vars)])
     const requestHeaders = Object.fromEntries(Object.entries(input.headers ?? {}).map(([k, v]) => [k, substitute(v, vars)]))
-    const secrets = [...secretsOf(effective), ...typedCredentials(requestHeaders), ...Object.values(captured)]
+    // An authentication value whose variable has no value is the reference as written, not a secret.
+    const secrets = [...secretsOf(effective).filter(value => referencedVariables([value]).size === 0), ...typedCredentials(requestHeaders), ...Object.values(captured)]
     const hasBody = input.body !== undefined && input.body !== '' && input.method !== 'GET' && input.method !== 'HEAD'
     const body = hasBody ? substitute(input.body as string, vars) : undefined
     const storedBody = truncate(maskSecrets(input.body ?? '', secrets), REQUEST_BODY_BYTES)
@@ -362,13 +580,18 @@ export class HttpEngine {
         body: storedBody.text,
         bodyTruncated: storedBody.truncated,
       },
+      ...(refreshed.length > 0 ? { refreshed: [...refreshed] } : {}),
+      ...(context !== undefined ? { refreshOf: [...context.variables] } : {}),
     }
 
     const started = Date.now()
     try {
+      if (blocked !== undefined) throw new HttpPolicyError(blocked)
+      const unfilled = missingSecrets(target).filter(name => this.references(target, input, authored).has(name))
+      if (unfilled.length > 0) throw new HttpPolicyError(`secret variable ${unfilled.map(name => `{{${name}}}`).join(', ')} of target '${target.name}' is not filled in (edit the target in the HTTP panel)`)
       const url = buildUrl(target, path, query)
       if (!allowed(url, target)) throw new HttpPolicyError(`host '${url.hostname}' is not allowed for target '${target.name}' (add it to allowed hosts)`)
-      const headers = mergeHeaders(target, requestHeaders)
+      const headers = mergeHeaders(effective, requestHeaders)
       if (body !== undefined && !headers.has('content-type')) {
         const trimmed = body.trimStart()
         headers.set('content-type', trimmed.startsWith('{') || trimmed.startsWith('[') ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8')
@@ -379,9 +602,9 @@ export class HttpEngine {
       exchange.request.url = maskSecrets(url.toString(), secrets)
       exchange.request.sentHeaders = headersToRecord(headers, secrets)
       const capture: CaptureHook | undefined = rules.length === 0 ? undefined : (received) => {
-        const { values, results } = runCaptures(rules, received)
+        const { values, lifetimes, results } = runCaptures(rules, received)
         exchange.captures = results
-        this.values?.set(target.id, values, saved?.id ?? '')
+        this.values?.set(target.id, values, saved?.id ?? '', lifetimes)
         return Object.values(values)
       }
       exchange.response = await this.perform(effective, url, input.method, headers, body, options.maxBodyBytes ?? PANEL_BODY_BYTES, secrets, started, options, capture)
@@ -558,6 +781,11 @@ export class HttpEngine {
       stream: { ended, times },
     }
   }
+}
+
+/** Error of a request that was not sent because a refresh it needed failed. */
+function refreshFailure(refresh: HttpRefresh): string {
+  return `refresh of ${refresh.variables.map(name => `{{${name}}}`).join(', ')} by request '${refresh.requestName}' failed: ${refresh.error ?? 'unknown error'}`
 }
 
 /** Timeouts, undici causes (ECONNREFUSED, ENOTFOUND…) and policy messages, with secrets masked. */

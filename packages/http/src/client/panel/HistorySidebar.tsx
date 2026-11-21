@@ -56,6 +56,7 @@ export function HistorySidebar(props: HistorySidebarProps): JSX.Element {
                   : <span className="dsh-http-statusText" data-kind="error" title={entry.error}>{tt('history.failed')}</span>}
                 <span>{entry.response !== undefined ? tt('response.time', { ms: entry.response.durationMs }) : ''}</span>
                 <span className="dsh-http-spacer" />
+                {entry.refreshOf !== undefined && <span className="dsh-http-sourceTag" title={entry.refreshOf.map(name => `{{${name}}}`).join(' ')}>{tt('history.refresh')}</span>}
                 {entry.source === 'agent' && <span className="dsh-http-sourceTag" data-source="agent">{tt('history.source.agent')}</span>}
                 <span>{shortTime(entry.at)}</span>
               </span>

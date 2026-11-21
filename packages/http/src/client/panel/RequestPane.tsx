@@ -1,6 +1,6 @@
-import { useState, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import {
-  DIRECT_TARGET_ID, HTTP_AUTH_TYPES, HTTP_BODY_MODES, HTTP_METHODS, joinUrl, substitute,
+  DIRECT_TARGET_ID, HTTP_AUTH_TYPES, HTTP_BODY_MODES, HTTP_METHODS, joinUrl, requestInputOf, substitute,
   type HttpAuth, type HttpAuthType, type HttpBodyMode, type HttpCapture, type HttpCapturedValue, type HttpExchange, type HttpKeyValue, type HttpMethod, type HttpPairs, type HttpRequestInput,
   type HttpSavedRequest, type HttpSavedRequestPayload, type HttpTargetSummary,
 } from '../../protocol.ts'
@@ -9,7 +9,7 @@ import { tt, type HttpKey } from '../locales.ts'
 import { CaptureEditor, activeCaptures } from './CaptureEditor.tsx'
 import { CodeEditor } from './Code.tsx'
 import { copyText, prettyJson, sendShortcut } from './common.tsx'
-import { KeyValueEditor, activeCount, recordToRows, rowsToPairs, rowsToRecord, type KeyValueRow } from './KeyValueEditor.tsx'
+import { KeyValueEditor, activeCount, recordToRows, rowsToPairs, type KeyValueRow } from './KeyValueEditor.tsx'
 
 export type BodyMode = HttpBodyMode
 const BODY_MODES: readonly BodyMode[] = HTTP_BODY_MODES
@@ -119,37 +119,24 @@ export function builderFromCurl(parsed: ParsedCurl, target: HttpTargetSummary): 
 
 /** The request the host receives for a builder state. */
 export function toRequestInput(state: BuilderState): HttpRequestInput {
-  const headers = rowsToRecord(state.headers)
-  const hasContentType = Object.keys(headers).some(name => name.toLowerCase() === 'content-type')
-  let body: string | undefined
-  if (state.method !== 'GET' && state.method !== 'HEAD') {
-    if (state.bodyMode === 'json' || state.bodyMode === 'text') {
-      body = state.body === '' ? undefined : state.body
-      if (body !== undefined && !hasContentType) headers['content-type'] = state.bodyMode === 'json' ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8'
-    } else if (state.bodyMode === 'form') {
-      const params = new URLSearchParams()
-      for (const [key, value] of rowsToPairs(state.form)) params.append(key, value)
-      body = params.toString()
-      if (!hasContentType) headers['content-type'] = 'application/x-www-form-urlencoded; charset=utf-8'
-    }
-  }
-  return { method: state.method, path: state.path, query: rowsToPairs(state.query), headers, body, ...(state.auth.type === 'none' ? {} : { auth: state.auth }) }
+  return requestInputOf(state)
 }
 
 const VALUE_MASK = '••••••'
 
 /**
  * URL the host will request for a builder state (query auth excluded); an
- * error message when it cannot be built. Captured variables show masked: the
- * browser does not hold their values.
+ * error message when it cannot be built. Secret and captured variables show
+ * masked: the browser does not hold their values.
  */
 export function previewUrl(target: HttpTargetSummary, state: BuilderState, captured: readonly HttpCapturedValue[] = []): { url: string } | { error: string } {
-  const vars = { ...target.variables, ...Object.fromEntries(captured.map(value => [value.name, VALUE_MASK])) }
+  const vars = { ...target.variables, ...Object.fromEntries([...Object.keys(target.secrets), ...captured.map(value => value.name)].map(name => [name, VALUE_MASK])) }
   // A request without a target has nothing to preview until a URL is typed.
   if (target.baseUrl === '' && state.path.trim() === '') return { url: '' }
   try {
     const query: HttpPairs = rowsToPairs(state.query).map(([k, v]) => [substitute(k, vars), substitute(v, vars)])
-    return { url: joinUrl(target.baseUrl, substitute(state.path.trim(), vars), query).toString() }
+    // The mask of a hidden value reads as the mask, not as its percent-encoding.
+    return { url: joinUrl(target.baseUrl, substitute(state.path.trim(), vars), query).toString().split(encodeURIComponent(VALUE_MASK)).join(VALUE_MASK) }
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) }
   }
@@ -276,6 +263,9 @@ export interface RequestPaneProps {
 export function RequestPane(props: RequestPaneProps): JSX.Element {
   const { state, onChange, target, tab } = props
   const [copied, setCopied] = useState(false)
+  const tabsRef = useRef<HTMLDivElement>(null)
+  // The tab row scrolls sideways in a narrow pane; the selected tab stays in view.
+  useEffect(() => { tabsRef.current?.querySelector('[data-active]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [tab])
   const set = (patch: Partial<BuilderState>): void => { onChange({ ...state, ...patch }) }
   const bodyAllowed = state.method !== 'GET' && state.method !== 'HEAD'
   const jsonError = state.bodyMode === 'json' && state.body.trim() !== '' ? (() => { try { JSON.parse(state.body); return undefined } catch (error) { return error instanceof Error ? error.message : String(error) } })() : undefined
@@ -345,12 +335,12 @@ export function RequestPane(props: RequestPaneProps): JSX.Element {
         <button type="submit" className="dsh-http-send" disabled={props.sending} title={sendShortcut()}>{tt('request.send')}</button>
       </form>
 
-      <div className="dsh-http-tabs" role="tablist">
+      <div className="dsh-http-tabs" data-scroll role="tablist" ref={tabsRef}>
         {REQUEST_TABS.map(value => {
           const label = badge(value)
           return (
             <button key={value} type="button" role="tab" aria-selected={tab === value} className="dsh-http-tab" {...(tab === value ? { 'data-active': '' } : {})} onClick={() => { props.onTab(value) }}>
-              {tt(`request.tab.${value}` as HttpKey)}{label !== undefined && <span className="dsh-http-count">{label}</span>}
+              {tt(`request.tab.${value}` as HttpKey)}{label !== undefined && <span className="dsh-http-count" {...(/^\d+$/.test(label) ? {} : { 'data-text': '' })}>{label}</span>}
             </button>
           )
         })}

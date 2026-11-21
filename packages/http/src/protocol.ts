@@ -44,7 +44,8 @@ export const HTTP_AUTH_TYPES: readonly HttpAuthType[] = ['none', 'bearer', 'basi
 
 /**
  * Secret-free view of the authentication: type, non-secret names and a hint of
- * the secret. `missing` marks a secret that is not stored (an imported target);
+ * the secret; a value that is one `{{variable}}` reference is given as
+ * written. `missing` marks a secret that is not stored (an imported target);
  * requests to the target are refused until it is filled in.
  */
 export type HttpAuthSummary =
@@ -65,8 +66,10 @@ export interface HttpTarget {
   auth: HttpAuth
   /** Headers sent on every request; a request header of the same name overrides. */
   headers: Record<string, string>
-  /** `{{name}}` substitutions applied to path, query, headers and body. Non-secret; a captured value of the same name takes precedence. */
+  /** `{{name}}` substitutions applied to path, query, headers, body and the target's fixed headers and auth. Non-secret; a captured value of the same name takes precedence. */
   variables: Record<string, string>
+  /** Secret variables: substituted like `variables`, kept on the host, masked in everything recorded and returned. An empty value is not stored yet (an imported target). */
+  secrets: Record<string, string>
   /** Extra hosts a request or redirect may reach besides the base URL host; `*.example.com` matches subdomains. */
   allowedHosts: string[]
   /** Agent may use methods other than GET / HEAD / OPTIONS (each call still needs confirm=true). */
@@ -87,6 +90,8 @@ export interface HttpTargetSummary {
   auth: HttpAuthSummary
   headers: Record<string, string>
   variables: Record<string, string>
+  /** Secret variable names with a masked hint of each value; an empty hint marks a value that is not stored. */
+  secrets: Record<string, string>
   allowedHosts: string[]
   allowMutations: boolean
   allowPrivate: boolean
@@ -110,6 +115,8 @@ export interface HttpTargetPayload {
   auth?: HttpAuthPayload
   headers?: Record<string, string>
   variables?: Record<string, string>
+  /** The complete set of secret variables; on update an empty value keeps the stored one of that name. */
+  secrets?: Record<string, string>
   allowedHosts?: string[]
   allowMutations?: boolean
   allowPrivate?: boolean
@@ -134,7 +141,7 @@ export interface HttpRequestInput {
   headers?: Record<string, string>
   /** Raw body; ignored for GET and HEAD. */
   body?: string
-  /** Saved request this send belongs to; recorded on the exchange. */
+  /** Saved request this send belongs to; recorded on the exchange, and the source of the capture rules when the panel sends it. */
   requestId?: string
   /** Authentication of the request itself; panel only, applied when the target has none. */
   auth?: HttpAuth
@@ -163,10 +170,26 @@ export const HTTP_CAPTURE_SOURCES = ['body', 'header'] as const
 export type HttpCaptureSource = typeof HTTP_CAPTURE_SOURCES[number]
 
 /**
- * One capture rule of a saved request: after the panel sends the request and a
- * 2xx response arrives, the host reads one value from the response and keeps
- * it as the variable `name` of the request's scope. Fields may be incomplete
- * while edited; incomplete rules are skipped.
+ * When the host sends a saved request by itself to renew a variable it
+ * captures, before another request of the scope that references the variable.
+ * `off`: never. `expired`: the value is missing or expired. `rejected`: as
+ * `expired`, and once more when the referencing request receives 401.
+ */
+export const HTTP_CAPTURE_REFRESH = ['off', 'expired', 'rejected'] as const
+export type HttpCaptureRefresh = typeof HTTP_CAPTURE_REFRESH[number]
+
+/** Capture rules a saved request may hold. */
+export const MAX_CAPTURE_RULES = 20
+
+/** Longest fixed lifetime of a captured value, in seconds. */
+export const MAX_CAPTURE_TTL_SECONDS = 366 * 24 * 60 * 60
+
+/**
+ * One capture rule of a saved request: when the request is sent from its form
+ * (by the panel, or by the host as a refresh) and a 2xx response arrives, the
+ * host reads one value from the response and keeps it as the variable `name`
+ * of the request's scope. Fields may be incomplete while edited; incomplete
+ * rules are skipped.
  */
 export interface HttpCapture {
   /** Variable the value is written to; other requests of the scope reference it as `{{name}}`. */
@@ -176,6 +199,16 @@ export interface HttpCapture {
   /** JSON path (`data.token`, `items[0].id`, `$.a["b.c"]`) or header name. */
   path: string
   enabled: boolean
+  /** Lifetime of the value in seconds; 0 means it does not expire. */
+  ttlSeconds: number
+  /** JSON path of the lifetime in seconds within the same response (`expires_in`); takes precedence over `ttlSeconds`. Empty when unused. */
+  ttlPath: string
+  refresh: HttpCaptureRefresh
+}
+
+/** A capture rule with every field at its default. */
+export function blankCapture(): HttpCapture {
+  return { name: '', source: 'body', path: '', enabled: true, ttlSeconds: 0, ttlPath: '', refresh: 'off' }
 }
 
 /** Outcome of one capture rule on an exchange. */
@@ -184,6 +217,8 @@ export interface HttpCaptureResult {
   ok: boolean
   /** Why no value was captured. */
   error?: string
+  /** Captured, but the lifetime could not be read from the response; the value does not expire. */
+  warning?: string
 }
 
 /** A captured variable as shown to the browser and the agent: the value stays on the host. */
@@ -195,6 +230,32 @@ export interface HttpCapturedValue {
   requestId: string
   /** Unix ms of the capture. */
   at: number
+  /** Unix ms from which the value counts as expired; absent when it does not expire. */
+  expiresAt?: number
+}
+
+/** Why the host refreshed a variable: no value, an expired value, or a 401 response to the request that references it. */
+export type HttpRefreshReason = 'missing' | 'expired' | 'rejected'
+
+/** A saved request the host sent by itself to renew variables another request references. */
+export interface HttpRefresh {
+  /** The saved request that was sent. */
+  requestId: string
+  /** Its title when sent. */
+  requestName: string
+  /** Variables the referencing request needed from it. */
+  variables: string[]
+  reason: HttpRefreshReason
+  /** Exchange recorded for the refresh. */
+  exchangeId?: string
+  ok: boolean
+  /** Why the variables were not renewed. */
+  error?: string
+}
+
+/** Title of a saved request: its name, else its path, else its method. */
+export function savedRequestTitle(request: { name: string; path: string; method: string }): string {
+  return request.name.trim() || request.path.trim() || request.method
 }
 
 /** A request form kept under a target: edited in place in the panel and sent as often as needed. */
@@ -399,13 +460,17 @@ export interface HttpExchange {
   error?: string
   /** Outcome of the saved request's capture rules; captured values are masked in this exchange. */
   captures?: HttpCaptureResult[]
+  /** Saved requests the host sent first to renew variables this request references, in order. */
+  refreshed?: HttpRefresh[]
+  /** Present on an exchange the host sent as a refresh: the variables it was sent for. */
+  refreshOf?: string[]
 }
 
 /** Format marker of an export file. */
 export const HTTP_BUNDLE_FORMAT = 'dsh-http'
 export const HTTP_BUNDLE_VERSION = 1
 
-/** A target in an export file: `id` only links the file's requests to it; secrets are blank. */
+/** A target in an export file: `id` only links the file's requests to it; literal secrets are blank. */
 export interface HttpBundleTarget {
   id: string
   name: string
@@ -413,6 +478,8 @@ export interface HttpBundleTarget {
   auth: HttpAuth
   headers: Record<string, string>
   variables: Record<string, string>
+  /** Secret variable names; every value is blank. */
+  secrets?: Record<string, string>
   allowedHosts: string[]
   allowMutations: boolean
   allowPrivate: boolean
@@ -421,8 +488,9 @@ export interface HttpBundleTarget {
 
 /**
  * Export file: targets, saved requests and the history limit. It carries no
- * secrets: target and request credentials and literal credential header values
- * are blank, captured values and the history are left out.
+ * secrets: literal target and request credentials, secret variable values and
+ * literal credential header values are blank (a credential that references a
+ * variable stays), captured values and the history are left out.
  */
 export interface HttpBundle {
   format: typeof HTTP_BUNDLE_FORMAT
@@ -444,7 +512,7 @@ export interface HttpImportResult {
   created: string[]
   overwritten: string[]
   skipped: string[]
-  /** Targets whose credentials have to be filled in. */
+  /** Targets whose credentials or secret variables have to be filled in. */
   needAuth: string[]
   /** Saved requests written. */
   requests: number
@@ -458,9 +526,67 @@ export interface HttpTestResult {
   error?: string
 }
 
+const REFERENCE_RE = /\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}/g
+
 /** Replace `{{name}}` with the variable value; unknown names stay as written. */
 export function substitute(text: string, variables: Record<string, string>): string {
-  return text.replace(/\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}/g, (match, name: string) => Object.hasOwn(variables, name) ? variables[name] : match)
+  return text.replace(REFERENCE_RE, (match, name: string) => Object.hasOwn(variables, name) ? variables[name] : match)
+}
+
+/** Names referenced as `{{name}}` in any of the texts. */
+export function referencedVariables(texts: Iterable<string>): Set<string> {
+  const out = new Set<string>()
+  for (const text of texts) {
+    for (const match of text.matchAll(REFERENCE_RE)) out.add(match[1])
+  }
+  return out
+}
+
+/** A name/value row of a request form; `enabled` defaults to on. */
+export interface HttpFormRow {
+  key: string
+  value: string
+  enabled?: boolean
+}
+
+/** The request form fields that make up what is sent. */
+export interface HttpRequestForm {
+  method: HttpMethod
+  path: string
+  query: HttpFormRow[]
+  headers: HttpFormRow[]
+  auth: HttpAuth
+  bodyMode: HttpBodyMode
+  body: string
+  form: HttpFormRow[]
+}
+
+function activeRows(rows: readonly HttpFormRow[]): HttpPairs {
+  return rows.filter(row => row.key.trim() !== '' && row.enabled !== false).map(row => [row.key.trim(), row.value])
+}
+
+/**
+ * The request a form sends: enabled rows with a name, the body of the selected
+ * mode and its default content type. The panel sends this for the form on
+ * screen; the host builds it for a saved request it sends as a refresh.
+ */
+export function requestInputOf(form: HttpRequestForm): HttpRequestInput {
+  const headers: Record<string, string> = {}
+  for (const [name, value] of activeRows(form.headers)) headers[name] = value
+  const hasContentType = Object.keys(headers).some(name => name.toLowerCase() === 'content-type')
+  let body: string | undefined
+  if (form.method !== 'GET' && form.method !== 'HEAD') {
+    if (form.bodyMode === 'json' || form.bodyMode === 'text') {
+      body = form.body === '' ? undefined : form.body
+      if (body !== undefined && !hasContentType) headers['content-type'] = form.bodyMode === 'json' ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8'
+    } else if (form.bodyMode === 'form') {
+      const params = new URLSearchParams()
+      for (const [key, value] of activeRows(form.form)) params.append(key, value)
+      body = params.toString()
+      if (!hasContentType) headers['content-type'] = 'application/x-www-form-urlencoded; charset=utf-8'
+    }
+  }
+  return { method: form.method, path: form.path, query: activeRows(form.query), headers, body, ...(form.auth.type === 'none' ? {} : { auth: form.auth }) }
 }
 
 /**

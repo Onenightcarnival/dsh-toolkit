@@ -31,11 +31,13 @@ export function TargetForm(props: TargetFormProps): JSX.Element {
   const [authValue, setAuthValue] = useState(seed?.type === 'header' || seed?.type === 'query' ? seed.value : '')
   const [headers, setHeaders] = useState<KeyValueRow[]>(recordToRows(t?.headers))
   const [variables, setVariables] = useState<KeyValueRow[]>(recordToRows(t?.variables))
+  /** Secret variables: stored ones start with an empty value, which keeps what the host holds. */
+  const [secrets, setSecrets] = useState<KeyValueRow[]>(Object.keys(t?.secrets ?? {}).map(key => ({ key, value: '' })))
   const [allowedHosts, setAllowedHosts] = useState((t?.allowedHosts ?? []).join('\n'))
   const [allowMutations, setAllowMutations] = useState(t?.allowMutations ?? false)
   const [allowPrivate, setAllowPrivate] = useState(t?.allowPrivate ?? false)
   const [timeoutMs, setTimeoutMs] = useState(String(t?.timeoutMs ?? DEFAULT_TIMEOUT_MS))
-  const [advanced, setAdvanced] = useState(t !== undefined && (t.allowedHosts.length > 0 || t.allowPrivate || t.timeoutMs !== DEFAULT_TIMEOUT_MS || Object.keys(t.variables).length > 0))
+  const [advanced, setAdvanced] = useState(t !== undefined && (t.allowedHosts.length > 0 || t.allowPrivate || t.timeoutMs !== DEFAULT_TIMEOUT_MS || Object.keys(t.variables).length > 0 || Object.keys(t.secrets).length > 0))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | undefined>()
 
@@ -62,6 +64,7 @@ export function TargetForm(props: TargetFormProps): JSX.Element {
         auth: auth(),
         headers: rowsToRecord(headers),
         variables: rowsToRecord(variables),
+        secrets: rowsToRecord(secrets),
         allowedHosts: allowedHosts.split(/\r?\n/).map(s => s.trim()).filter(s => s !== ''),
         allowMutations,
         allowPrivate,
@@ -153,6 +156,11 @@ export function TargetForm(props: TargetFormProps): JSX.Element {
               <span className="dsh-http-fieldLabel">{tt('form.variables')}</span>
               <KeyValueEditor rows={variables} onChange={setVariables} />
               <span className="dsh-http-fieldHint">{tt('form.variablesHint')}</span>
+            </div>
+            <div className="dsh-http-field">
+              <span className="dsh-http-fieldLabel">{tt('form.secrets')}</span>
+              <KeyValueEditor rows={secrets} onChange={setSecrets} secret valuePlaceholder={row => ((t?.secrets[row.key.trim()] ?? '') !== '' ? tt('form.auth.keep') : undefined)} />
+              <span className="dsh-http-fieldHint">{tt('form.secretsHint')}</span>
             </div>
             <label className="dsh-http-field">
               <span className="dsh-http-fieldLabel">{tt('form.allowedHosts')}</span>

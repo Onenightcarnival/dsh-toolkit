@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseJsonPath, readPath, runCaptures } from '../src/capture.ts'
 import { HttpEngine } from '../src/engine.ts'
-import { DIRECT_TARGET_ID, type HttpCapture } from '../src/protocol.ts'
+import { DIRECT_TARGET_ID, blankCapture, type HttpCapture } from '../src/protocol.ts'
 import { HistoryStore, RequestStore, TargetStore, ValueStore } from '../src/store.ts'
 
 test('parseJsonPath: dots, indexes, quoted names and the optional root', () => {
@@ -28,7 +28,7 @@ test('readPath: missing steps and inherited properties are undefined', () => {
 })
 
 function rule(name: string, path: string, source: HttpCapture['source'] = 'body', enabled = true): HttpCapture {
-  return { name, source, path, enabled }
+  return { ...blankCapture(), name, source, path, enabled }
 }
 
 test('runCaptures: body paths, headers, scalars and the reasons for a miss', () => {
@@ -58,6 +58,39 @@ test('runCaptures: body paths, headers, scalars and the reasons for a miss', () 
   assert.match(runCaptures([rule('token', 'a')], { status: 200, headers, body, truncated: true }).results[0].error ?? '', /truncated/)
   // A header rule does not need a JSON body.
   assert.deepEqual(runCaptures([rule('session', 'x-session', 'header')], { status: 204, headers, body: '', truncated: false }).values, { session: 'sess-1' })
+})
+
+test('runCaptures: a lifetime comes from the response path, else from the fixed seconds', () => {
+  const headers = new Headers()
+  const body = JSON.stringify({ access_token: 'tok-123', expires_in: 7200, text: '90', bad: 'soon', session: 's-1' })
+  const run = runCaptures([
+    { ...rule('fixed', 'access_token'), ttlSeconds: 600 },
+    { ...rule('fromPath', 'access_token'), ttlSeconds: 600, ttlPath: 'expires_in' },
+    { ...rule('numericText', 'access_token'), ttlPath: '$.text' },
+    { ...rule('unreadable', 'access_token'), ttlPath: 'bad' },
+    { ...rule('absent', 'access_token'), ttlPath: 'nope' },
+    rule('forever', 'session'),
+  ], { status: 200, headers, body, truncated: false })
+  assert.deepEqual(run.lifetimes, { fixed: 600_000, fromPath: 7_200_000, numericText: 90_000 })
+  assert.deepEqual(Object.keys(run.values), ['fixed', 'fromPath', 'numericText', 'unreadable', 'absent', 'forever'])
+  assert.deepEqual(run.results.map(r => [r.name, r.ok, r.warning !== undefined]), [['fixed', true, false], ['fromPath', true, false], ['numericText', true, false], ['unreadable', true, true], ['absent', true, true], ['forever', true, false]])
+  // A header value takes its lifetime from the JSON body too.
+  const header = runCaptures([{ ...rule('sid', 'x-sid', 'header'), ttlPath: 'expires_in' }], { status: 200, headers: new Headers({ 'x-sid': 'abc' }), body, truncated: false })
+  assert.deepEqual(header.lifetimes, { sid: 7_200_000 })
+})
+
+test('lifetime field: digits are seconds, other text is a path, and the text reads back', async () => {
+  const { lifetimeText, parseLifetime } = await import('../src/client/lifetime.ts')
+  assert.deepEqual(parseLifetime(' 7200 '), { ttlSeconds: 7200, ttlPath: '' })
+  assert.deepEqual(parseLifetime('expires_in'), { ttlSeconds: 0, ttlPath: 'expires_in' })
+  assert.deepEqual(parseLifetime('data.expires[0]'), { ttlSeconds: 0, ttlPath: 'data.expires[0]' })
+  assert.deepEqual(parseLifetime('1.5'), { ttlSeconds: 0, ttlPath: '1.5' })
+  assert.deepEqual(parseLifetime(''), { ttlSeconds: 0, ttlPath: '' })
+  assert.deepEqual(parseLifetime('0'), { ttlSeconds: 0, ttlPath: '' })
+  assert.equal(parseLifetime('99999999999').ttlSeconds, 366 * 86400)
+  for (const text of ['7200', 'expires_in', '']) assert.equal(lifetimeText(parseLifetime(text)), text)
+  // The path wins when a stored rule carries both.
+  assert.equal(lifetimeText({ ttlSeconds: 60, ttlPath: 'expires_in' }), 'expires_in')
 })
 
 let server: Server

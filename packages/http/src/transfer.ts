@@ -10,23 +10,28 @@ import {
   DIRECT_TARGET_ID, HTTP_BUNDLE_FORMAT, HTTP_BUNDLE_VERSION, MAX_HISTORY_LIMIT, MIN_HISTORY_LIMIT,
   type HttpAuth, type HttpBundle, type HttpBundleTarget, type HttpImportConflict, type HttpImportResult, type HttpKeyValue, type HttpSavedRequest, type HttpSavedRequestPayload, type HttpSettings, type HttpTarget,
 } from './protocol.ts'
-import { MAX_REQUESTS_PER_TARGET, TargetValidationError, authMissing, buildTarget, normalizeRequestPatch } from './store.ts'
+import { MAX_REQUESTS_PER_TARGET, TargetValidationError, authMissing, buildTarget, missingSecrets, normalizeRequestPatch } from './store.ts'
 
 const MAX_BUNDLE_TARGETS = 200
+
+/** A credential that references a variable is configuration and is exported; a literal one is blanked. */
+function exportedSecret(value: string): string {
+  return /\{\{[^{}]+\}\}/.test(value) ? value : ''
+}
 
 function blankAuth(auth: HttpAuth): HttpAuth {
   switch (auth.type) {
     case 'none': return { type: 'none' }
-    case 'bearer': return { type: 'bearer', token: '' }
-    case 'basic': return { type: 'basic', username: auth.username, password: '' }
-    case 'header': return { type: 'header', name: auth.name, value: '' }
-    case 'query': return { type: 'query', name: auth.name, value: '' }
+    case 'bearer': return { type: 'bearer', token: exportedSecret(auth.token) }
+    case 'basic': return { type: 'basic', username: auth.username, password: exportedSecret(auth.password) }
+    case 'header': return { type: 'header', name: auth.name, value: exportedSecret(auth.value) }
+    case 'query': return { type: 'query', name: auth.name, value: exportedSecret(auth.value) }
   }
 }
 
 /** A credential header keeps a value that references a variable; a literal value is blanked. */
 function exportedHeaderValue(name: string, value: string): string {
-  return CREDENTIAL_HEADERS.has(name.trim().toLowerCase()) && !/\{\{[^{}]+\}\}/.test(value) ? '' : value
+  return CREDENTIAL_HEADERS.has(name.trim().toLowerCase()) ? exportedSecret(value) : value
 }
 
 /** The configuration as an export document, without secrets. */
@@ -43,6 +48,7 @@ export function exportBundle(targets: readonly HttpTarget[], requests: readonly 
       auth: blankAuth(target.auth),
       headers: Object.fromEntries(Object.entries(target.headers).map(([name, value]) => [name, exportedHeaderValue(name, value)])),
       variables: { ...target.variables },
+      secrets: Object.fromEntries(Object.keys(target.secrets).map(name => [name, ''])),
       allowedHosts: [...target.allowedHosts],
       allowMutations: target.allowMutations,
       allowPrivate: target.allowPrivate,
@@ -83,8 +89,9 @@ export interface ImportPlan {
  * the state an import leaves. Targets match by name, case-insensitive; the
  * requests without a target form one more unit. `overwrite` replaces a matched
  * target's settings and its request list (a stored secret stays when the
- * authentication type is unchanged); `skip` leaves a matched target and its
- * requests as they are. Nothing is written here.
+ * authentication type is unchanged, a stored secret variable when its name
+ * is); `skip` leaves a matched target and its requests as they are. Nothing
+ * is written here.
  * @throws TargetValidationError when the document or one of its entries is invalid.
  */
 export function planImport(raw: unknown, current: { targets: readonly HttpTarget[]; requests: readonly HttpSavedRequest[] }, conflict: HttpImportConflict): ImportPlan {
@@ -116,7 +123,7 @@ export function planImport(raw: unknown, current: { targets: readonly HttpTarget
       continue
     }
     const previous = index >= 0 ? targets[index] : undefined
-    const payload = { name, baseUrl: item.baseUrl, auth: item.auth, headers: item.headers ?? {}, variables: item.variables ?? {}, allowedHosts: item.allowedHosts ?? [], allowMutations: item.allowMutations === true, allowPrivate: item.allowPrivate === true, timeoutMs: item.timeoutMs }
+    const payload = { name, baseUrl: item.baseUrl, auth: item.auth, headers: item.headers ?? {}, variables: item.variables ?? {}, secrets: item.secrets ?? {}, allowedHosts: item.allowedHosts ?? [], allowMutations: item.allowMutations === true, allowPrivate: item.allowPrivate === true, timeoutMs: item.timeoutMs }
     let built: HttpTarget
     try {
       built = buildTarget(payload, { previous, taken: targets.filter((_, i) => i !== index).map(target => target.name), allowMissingSecret: true })
@@ -136,7 +143,7 @@ export function planImport(raw: unknown, current: { targets: readonly HttpTarget
       targets.push(built)
       result.created.push(built.name)
     }
-    if (authMissing(built.auth)) result.needAuth.push(built.name)
+    if (authMissing(built.auth) || missingSecrets(built).length > 0) result.needAuth.push(built.name)
     if (typeof item.id === 'string' && item.id !== '') receiving.set(item.id, built.id)
   }
 
