@@ -32,7 +32,8 @@
           "error",
           "single",
           {
-            "avoidEscape": true
+            "avoidEscape": true,
+            "allowTemplateLiterals": "avoidEscape" // A template literal stays where quotes would need escapes.
           }
         ],
         "@stylistic/comma-dangle": [
