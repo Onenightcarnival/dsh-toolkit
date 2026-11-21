@@ -400,7 +400,7 @@ export function withTimeout<T>(
   timeoutMs: number,
 ): Promise<T | undefined> {
   const signal = AbortSignal.timeout(timeoutMs)
-  const aborted = new Promise<undefined>(resolve => {
+  const aborted = new Promise<undefined>((resolve) => {
     if (signal.aborted) resolve(undefined)
     else signal.addEventListener('abort', () => resolve(undefined), { once: true })
   })

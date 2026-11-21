@@ -139,7 +139,7 @@ export class ManagedEnvironment {
     this.phase = 'installing'
     this.error = undefined
     this.progress = undefined
-    this.operation = this.installRelease().then(afterInstall).then(() => { this.phase = undefined }, error => {
+    this.operation = this.installRelease().then(afterInstall).then(() => { this.phase = undefined }, (error) => {
       this.phase = 'error'
       this.error = error instanceof Error ? error.message : String(error)
     }).finally(() => { this.operation = undefined; this.progress = undefined })

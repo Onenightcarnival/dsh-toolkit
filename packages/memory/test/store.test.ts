@@ -13,7 +13,7 @@ function fixture(t: { after(fn: () => void): void }, options?: ConstructorParame
   t.after(() => { store.close(); rmSync(dir, { recursive: true, force: true }) })
   return store
 }
-test('tree records survive restart', t => {
+test('tree records survive restart', (t) => {
   const store = fixture(t)
   assert.equal(store.read().revision, 0)
   assert.deepEqual(store.read().entries, [{ id: 'profile', kind: 'profile', fields: {} }])
@@ -29,7 +29,7 @@ test('tree records survive restart', t => {
   assert.equal(state.history[0].actor, 'agent')
   assert.deepEqual(store.snapshot(1), { entries: state.entries })
 })
-test('global access permits editing human-written fields and disabling it blocks Agent writes', t => {
+test('global access permits editing human-written fields and disabling it blocks Agent writes', (t) => {
   const store = fixture(t)
   store.commit({ baseRevision: 0, summary: 'Profile', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
   const changed = store.commit({ baseRevision: 1, summary: 'Update', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'B', abilities: 'Testing' } }] }, 'agent')
@@ -44,7 +44,7 @@ test('global access permits editing human-written fields and disabling it blocks
   assert.equal(store.read().entries[0].fields.name, 'D')
 })
 
-test('stale writers are rejected and a concurrent writer surfaces as busy without altering committed data', t => {
+test('stale writers are rejected and a concurrent writer surfaces as busy without altering committed data', (t) => {
   const store = fixture(t, { busyTimeout: 0 }), other = new MemoryStore(store.path, { busyTimeout: 0 })
   t.after(() => other.close())
   const committed = store.commit({ baseRevision: 0, summary: 'Human edit', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
@@ -57,7 +57,7 @@ test('stale writers are rejected and a concurrent writer surfaces as busy withou
   } finally { writer.exec('ROLLBACK'); writer.close() }
   assert.deepEqual(other.read(), committed)
 })
-test('references, required content and atomic batch validation', t => {
+test('references, required content and atomic batch validation', (t) => {
   const store = fixture(t)
   assert.throws(() => store.commit({ baseRevision: 0, summary: 'Broken link', changes: [{ id: 'l', kind: 'lesson', fields: { parentId: 'missing', lesson: 'Text' } }] }, 'agent'), /reference/)
   assert.throws(() => store.commit({ baseRevision: 0, summary: 'Lesson under work', changes: [
@@ -78,7 +78,7 @@ test('references, required content and atomic batch validation', t => {
   assert.throws(() => store.commit({ baseRevision: 1, summary: 'Remove parent', changes: [{ id: 'p', kind: 'project', remove: true }] }, 'human'), /reference/)
   assert.equal(store.read().revision, 1)
 })
-test('restore creates a revision and preserves later history; Agent cannot restore or enable itself', t => {
+test('restore creates a revision and preserves later history; Agent cannot restore or enable itself', (t) => {
   const store = fixture(t)
   store.commit({ baseRevision: 0, summary: 'A', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
   store.commit({ baseRevision: 1, summary: 'B', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'B' } }] }, 'human')
@@ -91,7 +91,7 @@ test('restore creates a revision and preserves later history; Agent cannot resto
   store.setAgentTools(false)
   assert.throws(() => store.commit({ baseRevision: 3, summary: 'Write', changes: [] }, 'agent'), /disabled/)
 })
-test('diff pairs each revision with its predecessor and the first with the empty resume', t => {
+test('diff pairs each revision with its predecessor and the first with the empty resume', (t) => {
   const store = fixture(t)
   store.commit({ baseRevision: 0, summary: 'A', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
   store.commit({ baseRevision: 1, summary: 'Work', changes: [{ id: 'w', kind: 'work', fields: { organization: 'Company' } }] }, 'human')
@@ -103,7 +103,7 @@ test('diff pairs each revision with its predecessor and the first with the empty
   assert.equal(store.diff(3), undefined)
   assert.equal(store.snapshot(0), undefined)
 })
-test('malformed import cannot erase data; corrupt store fails closed', t => {
+test('malformed import cannot erase data; corrupt store fails closed', (t) => {
   const store = fixture(t)
   assert.throws(() => store.commit({ baseRevision: 0, summary: 'Import', imported: { entries: [] } }, 'human'), /invalid/)
   assert.throws(() => store.commit({ baseRevision: 0, summary: 'Import', imported: { schemaVersion: 4, entries: store.read().entries } }, 'human'), /schemaVersion/)
@@ -117,7 +117,7 @@ test('malformed import cannot erase data; corrupt store fails closed', t => {
   assert.equal(readFileSync(path, 'utf8'), '{broken')
 })
 
-test('import replaces content, keeps ids and rejects unknown entry keys', t => {
+test('import replaces content, keeps ids and rejects unknown entry keys', (t) => {
   const store = fixture(t)
   const state = store.commit({ baseRevision: 0, summary: 'Work', changes: [{ id: 'w', kind: 'work', fields: { organization: 'Company', startDate: '2026-01-01' } }] }, 'human')
   const edited = store.commit({ baseRevision: 1, summary: 'Rename', changes: [{ id: 'w', kind: 'work', fields: { organization: 'Renamed' } }] }, 'human')
@@ -127,7 +127,7 @@ test('import replaces content, keeps ids and rejects unknown entry keys', t => {
   assert.throws(() => store.commit({ baseRevision: 3, summary: 'Legacy keys', imported: { entries: edited.entries.map(e => ({ ...e, protected: [] })) } }, 'human'), /invalid/)
 })
 
-test('dates reject impossible calendar values and reversed ranges atomically', t => {
+test('dates reject impossible calendar values and reversed ranges atomically', (t) => {
   const store = fixture(t)
   for (const value of ['26-01-01', '2026-2-01', '2025-02-29', '2026-13-01', '2026-04-31', 'next week']) {
     assert.throws(() => store.commit({ baseRevision: 0, summary: 'Invalid date', changes: [{ id: 'p', kind: 'project', fields: { title: 'Project', startDate: value } }] }, 'agent'), /date/)
@@ -148,7 +148,7 @@ test('experience sorting ignores creation time and places undated records and le
   assert.deepEqual(sortEntries([make('first', { lesson: 'a' }, 'lesson'), make('second', { lesson: 'b' }, 'lesson')]).map(e => e.id), ['first', 'second'])
 })
 
-test('ongoing experience survives persistence, restore and import without inferring unknown dates', t => {
+test('ongoing experience survives persistence, restore and import without inferring unknown dates', (t) => {
   const store = fixture(t)
   const initial = store.commit({ baseRevision: 0, summary: 'Ongoing', changes: [
     { id: 'w', kind: 'work', fields: { organization: 'Company', startDate: '2020-01-01', endDate: 'present' } },
@@ -165,7 +165,7 @@ test('ongoing experience survives persistence, restore and import without inferr
   assert.throws(() => store.commit({ baseRevision: store.read().revision, summary: 'Invalid start', changes: [{ id: 'w', kind: 'work', fields: { startDate: 'present' } }] }, 'agent'), /date/)
 })
 
-test('tool toggle leaves content, revisions and drafts unchanged; restore and import preserve its value', t => {
+test('tool toggle leaves content, revisions and drafts unchanged; restore and import preserve its value', (t) => {
   const store = fixture(t)
   const first = store.commit({ baseRevision: 0, summary: 'Initial', changes: [{ id: 'profile', kind: 'profile', fields: { name: 'A' } }] }, 'human')
   const disabled = store.setAgentTools(false)
@@ -187,7 +187,7 @@ test('tool toggle leaves content, revisions and drafts unchanged; restore and im
   assert.equal(store.setAgentTools(true).revision, imported.revision)
 })
 
-test('creation time is server-owned, survives edits, restore and import, and never determines order', t => {
+test('creation time is server-owned, survives edits, restore and import, and never determines order', (t) => {
   const store = fixture(t)
   assert.equal(store.commit({ baseRevision: 0, summary: 'No changes', changes: [] }, 'human').revision, 0)
   const before = Date.now()
@@ -204,7 +204,7 @@ test('creation time is server-owned, survives edits, restore and import, and nev
   assert.throws(() => store.commit({ baseRevision: 4, summary: 'Bad timestamp', imported: { entries: imported.entries.map(e => ({ ...e, createdAt: 'invalid' })) } }, 'human'), /invalid/)
 })
 
-test('clear erases all content/history, keeps tool availability and rejects stale drafts/restores', t => {
+test('clear erases all content/history, keeps tool availability and rejects stale drafts/restores', (t) => {
   const store = fixture(t)
   const initial = store.commit({ baseRevision: 0, summary: 'Project', changes: [
     { id: 'p', kind: 'project', fields: { title: 'Private project' } },

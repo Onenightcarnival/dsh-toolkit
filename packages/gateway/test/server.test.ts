@@ -39,13 +39,13 @@ async function* failing(): AsyncIterable<StreamChunk> {
 }
 
 function readSse(text: string): Array<{ event?: string; data: string }> {
-  return text.split('\n\n').filter(part => part.trim() !== '').map(part => {
+  return text.split('\n\n').filter(part => part.trim() !== '').map((part) => {
     const lines = part.split('\n')
     return { event: lines.find(line => line.startsWith('event: '))?.slice(7), data: lines.filter(line => line.startsWith('data: ')).map(line => line.slice(6)).join('\n') }
   })
 }
 
-test('gateway server: auth, models, three protocols, usage ledger', async t => {
+test('gateway server: auth, models, three protocols, usage ledger', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-gateway-server-'))
   const keys = new KeyStore(join(dir, 'keys.json'))
   const usage = new UsageStore(join(dir, 'usage.sqlite'))

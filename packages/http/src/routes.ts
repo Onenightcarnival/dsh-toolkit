@@ -196,7 +196,7 @@ export function makeRoutes(deps: RouteDeps): Route[] {
         try {
           const exchange = await engine.send(id, body.request as HttpRequestInput, {
             source: 'panel', maxBodyBytes: PANEL_BODY_BYTES, signal: cancel.signal, keepBinary: true,
-            ...(lines ? { onStreamStart: head => { line({ type: 'head', head }) }, onStreamEvent: (event, at) => { line({ type: 'event', event, at }) } } : {}),
+            ...(lines ? { onStreamStart: (head) => { line({ type: 'head', head }) }, onStreamEvent: (event, at) => { line({ type: 'event', event, at }) } } : {}),
           })
           if (lines) line({ type: 'done', exchange })
           else if (!cancel.signal.aborted) writeJson(res, 200, { exchange })

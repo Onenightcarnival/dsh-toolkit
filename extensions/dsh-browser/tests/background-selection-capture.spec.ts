@@ -128,8 +128,8 @@ async function connectPanelForTest(sharePageContent: 'auto' | 'off' = 'auto', wi
 function selectionMessages(postMessage: ReturnType<typeof vi.fn>): unknown[] {
   return postMessage.mock.calls
     .map(([message]) => message as { type?: string; selection?: unknown })
-    .filter((message) => message.type === 'selection')
-    .map((message) => message.selection)
+    .filter(message => message.type === 'selection')
+    .map(message => message.selection)
 }
 
 afterEach(() => {
@@ -170,10 +170,10 @@ describe('page selection capture', () => {
     await vi.waitFor(() => {
       const commands = sendMessage.mock.calls
         .map(([, message]) => message as { type?: string; enabled?: boolean; revision?: number })
-        .filter((message) => message.type === 'DSH_SELECTION_WATCH')
+        .filter(message => message.type === 'DSH_SELECTION_WATCH')
       expect(commands.length).toBeGreaterThanOrEqual(2)
       // Every command is ordered, so a late arrival is identifiable as stale.
-      const revisions = commands.map((command) => command.revision)
+      const revisions = commands.map(command => command.revision)
       expect(revisions).toEqual([...revisions].sort((a, b) => (a ?? 0) - (b ?? 0)))
       expect(new Set(revisions).size).toBe(revisions.length)
     })

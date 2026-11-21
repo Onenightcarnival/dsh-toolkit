@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: `export * from './providers/grok.ts'; export * from './tools/x-search.ts'; export * from './auth/store.ts'; export * from './providers/accounts.ts'; export { OAuthEndpointError } from './providers/common.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: 'export * from \'./providers/grok.ts\'; export * from \'./tools/x-search.ts\'; export * from \'./auth/store.ts\'; export * from \'./providers/accounts.ts\'; export { OAuthEndpointError } from \'./providers/common.ts\';', resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|undici$)/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }))
@@ -28,7 +28,7 @@ const tokens = (initial = session) => {
 }
 const sse = events => new Response(events.map(event => `data: ${JSON.stringify(event)}\n\n`).join(''), { headers: { 'content-type': 'text/event-stream' } })
 const complete = [{ type: 'response.output_text.delta', delta: 'hello' }, { type: 'response.completed', response: { usage: { input_tokens: 1, output_tokens: 1 } } }]
-const consume = async iterable => { const result = []; for await (const value of iterable) result.push(value); return result }
+const consume = async (iterable) => { const result = []; for await (const value of iterable) result.push(value); return result }
 const signal = () => new AbortController().signal
 
 test('Grok OIDC discovery accepts x.ai endpoints only; the flow, exchange and refresh follow the Grok CLI contract', async () => {
@@ -59,7 +59,7 @@ test('Grok OIDC discovery accepts x.ai endpoints only; the flow, exchange and re
   assert.equal(exchanged.account, 'Grok@Example.test')
   assert.equal(exchanged.tokenEndpoint, discovery.tokenEndpoint)
   assert.equal(exchanged.scopes, 'openid')
-  const refreshed = await mod.refreshGrok(exchanged, async target => { assert.equal(target, discovery.tokenEndpoint); return Response.json({ access_token: 'next', expires_in: 60 }) })
+  const refreshed = await mod.refreshGrok(exchanged, async (target) => { assert.equal(target, discovery.tokenEndpoint); return Response.json({ access_token: 'next', expires_in: 60 }) })
   assert.equal(refreshed.accessToken, 'next')
   assert.equal(refreshed.refreshToken, 'refresh', 'a rotation-less refresh keeps the stored refresh token')
   assert.equal(refreshed.account, 'Grok@Example.test')

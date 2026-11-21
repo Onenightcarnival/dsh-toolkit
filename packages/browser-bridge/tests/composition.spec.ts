@@ -222,7 +222,7 @@ async function connectReady(port: number): Promise<Awaited<ReturnType<typeof con
   const client = await connect(port)
   send(client.ws, { t: 'hello', token: '', caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 } })
   await Promise.race([
-    waitFor(() => client.frames.some((f) => f.t === 'hello.ok')),
+    waitFor(() => client.frames.some(f => f.t === 'hello.ok')),
     client.closed.then(({ code, reason }) => {
       throw new Error(`bridge closed before hello.ok (${String(code)} ${reason}): ${JSON.stringify(client.frames)}`)
     }),
@@ -294,7 +294,7 @@ describe('real Loader composition', () => {
     expect(tools.get('browser_snapshot')).toBeDefined()
 
     const browserPrompt = (await ctx.systemPrompt.assemble()).sections
-      .find((section) => section.name === 'tool:bridge-browser')?.text
+      .find(section => section.name === 'tool:bridge-browser')?.text
     expect(browserPrompt).toContain('page content you have not read')
     expect(browserPrompt).toContain('reuse that snapshot and its indices')
     expect(browserPrompt).toContain('browser_screenshot')
@@ -312,14 +312,14 @@ describe('real Loader composition', () => {
     // Zero-config semantics: loopback connections need no token (the
     // non-loopback token gate is covered by server.spec overrides).
     const client = await connectReady(port)
-    expect(client.frames.find((f) => f.t === 'hello.ok')).toEqual({
+    expect(client.frames.find(f => f.t === 'hello.ok')).toEqual({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 200_000, maxInteractiveItems: 400 },
     })
 
     // Gateway RPC round-trip against the real session store.
     send(client.ws, { t: 'rpc', id: 'c-1', method: 'session.create', payload: { cwd: root } })
-    await waitFor(() => client.frames.some((f) => f.t === 'rpc.result' && f.id === 'c-1'))
+    await waitFor(() => client.frames.some(f => f.t === 'rpc.result' && f.id === 'c-1'))
     const created = client.frames.find((f): f is Extract<BridgeFrame, { t: 'rpc.result' }> => f.t === 'rpc.result' && f.id === 'c-1')!
     expect(created.ok).toBe(true)
     const sessionId = ((created as { result: { result: { value: { sessionId: string } } } }).result).result.value.sessionId
@@ -327,8 +327,8 @@ describe('real Loader composition', () => {
     expect(ctx.sessions.get(SessionId(sessionId))?.header.cwd).toBe(root)
 
     send(client.ws, { t: 'rpc', id: 'c-2', method: 'session.list', payload: {} })
-    await waitFor(() => client.frames.some((f) => f.t === 'rpc.result' && f.id === 'c-2'))
-    const listed = client.frames.find((f) => f.t === 'rpc.result' && f.id === 'c-2')!
+    await waitFor(() => client.frames.some(f => f.t === 'rpc.result' && f.id === 'c-2'))
+    const listed = client.frames.find(f => f.t === 'rpc.result' && f.id === 'c-2')!
     const listedText = JSON.stringify((listed as { result: unknown }).result)
     expect(listedText).toContain(sessionId)
 
@@ -340,7 +340,7 @@ describe('real Loader composition', () => {
     const tools = ctx.get('tools') as ToolRegistry
     expect(tools.get('browser_snapshot')).toBeDefined()
 
-    const bridgeEntry = [...ctx.loader.entries()].find((entry) => entry.options.name === BRIDGE)!
+    const bridgeEntry = [...ctx.loader.entries()].find(entry => entry.options.name === BRIDGE)!
     await bridgeEntry.fiber!.dispose()
     expect(tools.get('browser_snapshot')).toBeUndefined()
     expect(tools.get('browser_click')).toBeUndefined()

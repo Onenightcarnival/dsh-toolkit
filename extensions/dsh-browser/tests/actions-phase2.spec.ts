@@ -81,7 +81,7 @@ describe('browser_drag', () => {
     const srcEvents: string[] = []
     const dstEvents: Array<[string, number]> = []
     for (const type of ['pointerdown', 'mousedown', 'dragstart', 'dragend']) src.addEventListener(type, () => srcEvents.push(type))
-    for (const type of ['mouseup', 'pointerup', 'drop', 'dragover']) dst.addEventListener(type, (event) => dstEvents.push([type, (event as MouseEvent).clientX]))
+    for (const type of ['mouseup', 'pointerup', 'drop', 'dragover']) dst.addEventListener(type, event => dstEvents.push([type, (event as MouseEvent).clientX]))
 
     const result = await runAction('browser_drag', { index: srcIndex, toIndex: dstIndex }, { ids, budget })
     expect(srcEvents).toEqual(expect.arrayContaining(['pointerdown', 'mousedown', 'dragstart', 'dragend']))

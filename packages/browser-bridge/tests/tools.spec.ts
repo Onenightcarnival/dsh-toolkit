@@ -24,7 +24,7 @@ describe('registerBrowserTools', () => {
   it('registers the full v1 tool set', () => {
     const { ctx, bridge, registered } = makeHarness()
     const disposers = registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    expect(registered.map((r) => r.name).sort()).toEqual([...BROWSER_TOOL_NAMES].sort())
+    expect(registered.map(r => r.name).sort()).toEqual([...BROWSER_TOOL_NAMES].sort())
     expect(disposers.size).toBe(BROWSER_TOOL_NAMES.length)
     for (const dispose of disposers.values()) dispose()
   })
@@ -32,7 +32,7 @@ describe('registerBrowserTools', () => {
   it('executes browser_click with mapped args', async () => {
     const { ctx, bridge, requestTool, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const tool = registered.find((r) => r.name === 'browser_click')!
+    const tool = registered.find(r => r.name === 'browser_click')!
     const exec = { signal: new AbortController().signal }
     const result = await (tool.definition.execute as (args: unknown, e: { signal: AbortSignal }) => Promise<unknown>)({ index: 3, frame: 7 }, exec)
     expect(requestTool).toHaveBeenCalledWith('browser_click', { index: 3, frame: 7 }, exec.signal, 1_000)
@@ -43,7 +43,7 @@ describe('registerBrowserTools', () => {
     const { ctx, bridge, requestTool, registered } = makeHarness()
     requestTool.mockResolvedValue({ text: 'Assets 👍 13 🎉 1 ❤️ 3 \uD83D… low \uDE80 🚀' })
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const tool = registered.find((r) => r.name === name)!
+    const tool = registered.find(r => r.name === name)!
     const exec = { signal: new AbortController().signal }
     const result = await (tool.definition.execute as (args: unknown, e: typeof exec) => Promise<unknown>)({ ms: 1 }, exec)
     expect(result).toEqual({ text: 'Assets 👍 13 🎉 1 ❤️ 3 �… low � 🚀' })
@@ -53,7 +53,7 @@ describe('registerBrowserTools', () => {
   it('associates browser calls with the owning Agent session', async () => {
     const { ctx, bridge, requestTool, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const tool = registered.find((r) => r.name === 'browser_click')!
+    const tool = registered.find(r => r.name === 'browser_click')!
     const exec = {
       signal: new AbortController().signal,
       agent: { id: 'session-browser' },
@@ -73,7 +73,7 @@ describe('registerBrowserTools', () => {
   it('normalizes snapshot args (delta/region omitted when absent)', async () => {
     const { ctx, bridge, requestTool, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const tool = registered.find((r) => r.name === 'browser_snapshot')!
+    const tool = registered.find(r => r.name === 'browser_snapshot')!
     const exec = { signal: new AbortController().signal }
     await (tool.definition.execute as (args: unknown, e: { signal: AbortSignal }) => Promise<unknown>)({ delta: true }, exec)
     expect(requestTool).toHaveBeenLastCalledWith('browser_snapshot', { delta: true }, exec.signal, 1_000)
@@ -86,7 +86,7 @@ describe('registerBrowserTools', () => {
   it('executes every remaining tool with mapped args', async () => {
     const { ctx, bridge, requestTool, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const byName = new Map(registered.map((r) => [r.name, r.definition]))
+    const byName = new Map(registered.map(r => [r.name, r.definition]))
     const exec = { signal: new AbortController().signal }
     const run = async (name: string, args: unknown): Promise<void> => {
       await (byName.get(name)!.execute as (a: unknown, e: { signal: AbortSignal }) => Promise<unknown>)(args, exec)
@@ -221,7 +221,7 @@ describe('registerBrowserTools', () => {
   it('exposes optional frame routing on frame-local tools only', () => {
     const { ctx, bridge, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 5_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const byName = new Map(registered.map((entry) => [entry.name, entry.definition]))
+    const byName = new Map(registered.map(entry => [entry.name, entry.definition]))
     for (const name of ['browser_click', 'browser_type', 'browser_press', 'browser_scroll', 'browser_get_text', 'browser_wait']) {
       const params = byName.get(name)!.parameters as { properties: { frame?: { type?: unknown } } }
       expect(params.properties.frame?.type).toBe('number')
@@ -236,7 +236,7 @@ describe('registerBrowserTools', () => {
     const { ctx, bridge, requestTool, registered } = makeHarness()
     requestTool.mockResolvedValueOnce(null)
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const tool = registered.find((r) => r.name === 'browser_wait')!
+    const tool = registered.find(r => r.name === 'browser_wait')!
     const exec = { signal: new AbortController().signal }
     const result = await (tool.definition.execute as (args: unknown, e: { signal: AbortSignal }) => Promise<unknown>)({}, exec)
     expect(result).toEqual({ text: expect.stringContaining('no text') })
@@ -245,7 +245,7 @@ describe('registerBrowserTools', () => {
   it('renders the canonical result as one text block', () => {
     const { ctx, bridge, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const tool = registered.find((r) => r.name === 'browser_click')!
+    const tool = registered.find(r => r.name === 'browser_click')!
     const output = tool.definition.output as { render: (args: unknown, value: unknown) => unknown }
     expect(output.render({}, { text: 'hello' })).toEqual([{ type: 'text', text: 'hello' }])
   })
@@ -253,7 +253,7 @@ describe('registerBrowserTools', () => {
   it('forwards batch, drag, dialog, console, network, and evaluate args', async () => {
     const { ctx, bridge, requestTool, registered } = makeHarness()
     registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-    const byName = new Map(registered.map((r) => [r.name, r.definition]))
+    const byName = new Map(registered.map(r => [r.name, r.definition]))
     const exec = { signal: new AbortController().signal, agent: { id: 'session-x' } }
     const run = async (name: string, args: unknown): Promise<unknown> =>
       (byName.get(name)!.execute as (a: unknown, e: typeof exec) => Promise<unknown>)(args, exec)
@@ -293,7 +293,7 @@ describe('registerBrowserTools', () => {
 
       const { ctx, bridge, requestTool, registered } = makeHarness()
       registerBrowserTools(ctx, bridge, { toolTimeoutMs: 1_000, snapshotMaxChars: 12_000, maxInteractiveItems: 60 })
-      const upload = registered.find((r) => r.name === 'browser_upload')!.definition
+      const upload = registered.find(r => r.name === 'browser_upload')!.definition
       const exec = { signal: new AbortController().signal, agent: { id: 's', session: { header: { cwd: root } } } }
       const run = (args: unknown): Promise<unknown> => (upload.execute as (a: unknown, e: typeof exec) => Promise<unknown>)(args, exec)
 

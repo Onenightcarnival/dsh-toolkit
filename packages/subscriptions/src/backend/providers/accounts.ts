@@ -76,7 +76,7 @@ export async function unionAccountCatalogs(
 ): Promise<LlmModelInfo[]> {
   const timeoutMs = options?.timeoutMs
   const caller = options?.signal
-  const catalogs = await Promise.all(accounts.map(async account => {
+  const catalogs = await Promise.all(accounts.map(async (account) => {
     try {
       if (timeoutMs === undefined) return await listOne(account, caller)
       const models = await withTimeout(
@@ -193,7 +193,7 @@ export class AccountTokenManager<S extends TimedSession> {
         displayName: this.options.displayName,
         ...this.options.makeOptions(account),
         load: () => io.get(boundAccount),
-        save: async session => {
+        save: async (session) => {
           await io.save(boundAccount, session)
           const canonical = await this.resolveAccount(boundAccount)
           if (canonical !== boundAccount) {

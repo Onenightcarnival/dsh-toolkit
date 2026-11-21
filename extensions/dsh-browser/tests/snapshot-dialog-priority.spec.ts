@@ -25,7 +25,7 @@ describe('open dialog prioritization', () => {
     `
     const view = buildSnapshot(new ElementIds(), { budget: TIGHT }, null)
 
-    expect(view.items.map((item) => item.name)).toContain('modal-action')
+    expect(view.items.map(item => item.name)).toContain('modal-action')
   })
 
   it('ranks modal controls above the page they cover', () => {
@@ -49,7 +49,7 @@ describe('open dialog prioritization', () => {
     `
     const view = buildSnapshot(new ElementIds(), { budget: TIGHT }, null)
 
-    expect(view.items.map((item) => item.name)).not.toContain('stale-action')
+    expect(view.items.map(item => item.name)).not.toContain('stale-action')
   })
 
   it('recognizes a role=dialog wrapper without aria-modal', () => {
@@ -75,7 +75,7 @@ describe('open dialog prioritization', () => {
     `
     const view = buildSnapshot(new ElementIds(), { budget: TIGHT }, null)
 
-    expect(view.items.map((item) => item.name)).not.toContain('faded-action')
+    expect(view.items.map(item => item.name)).not.toContain('faded-action')
   })
 
   it('does not let a faded dialog evict the controls actually on screen', () => {
@@ -90,7 +90,7 @@ describe('open dialog prioritization', () => {
     const view = buildSnapshot(new ElementIds(), { budget: TIGHT }, null)
 
     // The faded dialog's control is not promoted into the three slots.
-    expect(view.items.map((item) => item.name)).toEqual(['page-0', 'page-1', 'page-2'])
+    expect(view.items.map(item => item.name)).toEqual(['page-0', 'page-1', 'page-2'])
   })
 
   it('still promotes a dialog whose sibling is faded', () => {
@@ -125,6 +125,6 @@ describe('open dialog prioritization', () => {
 
     const view = buildSnapshot(new ElementIds(), { budget: TIGHT }, null)
 
-    expect(view.items.map((item) => item.name)).not.toContain('svg-faded-action')
+    expect(view.items.map(item => item.name)).not.toContain('svg-faded-action')
   })
 })

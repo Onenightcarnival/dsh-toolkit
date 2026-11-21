@@ -18,7 +18,7 @@ const module = { exports: {} }
 new Function('require', 'module', 'exports', result.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports)
 const { SubscriptionsPanel } = module.exports
 const button = text => [...document.querySelectorAll('button')].find(b => b.textContent.includes(text))
-const click = async element => { assert.ok(element, 'missing UI element'); await act(async () => element.click()) }
+const click = async (element) => { assert.ok(element, 'missing UI element'); await act(async () => element.click()) }
 
 test('model toggles stay interactive, serialize saves and restore the last saved selection on failure', async () => {
   const pending = []
@@ -84,13 +84,13 @@ test('provider selection isolates accounts, preferences, tools and late catalog 
     provider: 'antigravity',
     status: async () => ({ busy: false, accounts: [{ key: 'google-account', account: 'google@example.test', isDefault: true }] }),
     catalog: async () => ({ provider: 'antigravity', settings: googlePrefs, tools: [], models: [{ id: 'google', name: 'Google model', contextWindow: googlePrefs.contextWindows.google, defaultContextWindow: 1048576, efforts: [] }], accounts: [] }),
-    save: async settings => { googlePrefs = settings },
+    save: async (settings) => { googlePrefs = settings },
     usage: async () => ({ supported: true, windows: [{ kind: 'weekly', scope: 'Gemini', usedPercent: 25 }] }),
   }
   const api = {
-    provider: 'codex', forProvider: provider => { assert.equal(provider, 'antigravity'); return google },
+    provider: 'codex', forProvider: (provider) => { assert.equal(provider, 'antigravity'); return google },
     status: async () => ({ busy: false, accounts: [{ key: 'codex-account', account: 'codex@example.test', isDefault: true }] }),
-    catalog: () => new Promise(resolve => { finishCodex = resolve }),
+    catalog: () => new Promise((resolve) => { finishCodex = resolve }),
   }
   const root = createRoot(document.getElementById('root'))
   try {
@@ -127,10 +127,10 @@ test('context editor saves shorthand, preserves preferences, validates limits an
   const api = {
     status: async () => ({ busy: false, accounts: [{ key: 'a', account: 'a@example.test', isDefault: true }] }),
     catalog: async () => ({ settings: prefs, models: [{ id: 'm1', name: 'Model One', efforts: [], defaultContextWindow: 272000, contextWindow: prefs.contextWindows.m1 ?? 272000, maxContextWindow: 1000000 }], accounts: [] }),
-    save: async next => { if (fail) throw new Error('Save failed'); saves++; prefs = next },
+    save: async (next) => { if (fail) throw new Error('Save failed'); saves++; prefs = next },
   }
   const input = () => document.querySelector('input[aria-label="Model One Context"]')
-  const change = async value => { await act(async () => Simulate.change(input(), { target: { value } })) }
+  const change = async (value) => { await act(async () => Simulate.change(input(), { target: { value } })) }
   const submit = async () => { await act(async () => input().closest('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }))) }
   const root = createRoot(document.getElementById('root'))
   try {
@@ -171,8 +171,8 @@ test('panel saves tool preferences, filters models, switches accounts and handle
   const api = {
     status: async () => ({ busy: false, accounts }),
     catalog: async () => ({ settings: prefs, models: [{ id: 'm1', name: 'Model One', efforts: [], contextWindow: 128000 }], accounts: accounts.map(a => ({ key: a.key, models: [{ id: 'm1' }] })) }),
-    save: async next => { prefs = next },
-    usage: async key => { if (key === 'b') throw new Error('Usage unavailable'); return { supported: true, windows: [{ kind: 'session', usedPercent: 38, resetsAt: 1800000000000 }] } },
+    save: async (next) => { prefs = next },
+    usage: async (key) => { if (key === 'b') throw new Error('Usage unavailable'); return { supported: true, windows: [{ kind: 'session', usedPercent: 38, resetsAt: 1800000000000 }] } },
   }
   const root = createRoot(document.getElementById('root'))
   try {
@@ -202,7 +202,7 @@ test('panel keeps browser authorization link available and cancels login', async
   let status = { busy: false, accounts: [] }
   let cancelled = 0
   let opened
-  window.open = url => { opened = url; return null }
+  window.open = (url) => { opened = url; return null }
   const api = {
     status: async () => status,
     login: async () => { status = { ...status, busy: true, manualOnly: true }; return { authorizeUrl: 'https://auth.openai.com/oauth/authorize?state=fixture', manualOnly: true } },
@@ -229,8 +229,8 @@ test('ChatGPT shows shared usage and reconnects saved registrations without show
     status: async () => ({ busy: false, accounts: [{ key: 'oaiapp_saved', account: 'chat@example.test', isDefault: connected, connected }] }),
     catalog: async () => ({ provider: 'chatgpt', models: [], settings: {}, accounts: [], tools: [] }),
     usage: async () => ({ supported: false }),
-    logout: async key => { calls.push(['logout', key]); connected = false },
-    login: async key => { calls.push(['login', key]); throw new Error('Fixture login stopped') },
+    logout: async (key) => { calls.push(['logout', key]); connected = false },
+    login: async (key) => { calls.push(['login', key]); throw new Error('Fixture login stopped') },
   }
   const root = createRoot(document.getElementById('root'))
   try {

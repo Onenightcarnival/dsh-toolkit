@@ -108,9 +108,9 @@ describe('panel model picker', () => {
     await click(chip())
     const menu = document.querySelector('.model-menu')
     expect(menu).not.toBeNull()
-    expect([...menu!.querySelectorAll('.model-group-name > span:first-child')].map((el) => el.textContent)).toEqual(['DeepSeek', 'My relay'])
+    expect([...menu!.querySelectorAll('.model-group-name > span:first-child')].map(el => el.textContent)).toEqual(['DeepSeek', 'My relay'])
     const options = [...menu!.querySelectorAll<HTMLButtonElement>('.model-option')]
-    expect(options.map((option) => option.querySelector('.model-option-name')?.textContent)).toEqual(['DeepSeek V4 Flash', 'DeepSeek V4', 'GPT X'])
+    expect(options.map(option => option.querySelector('.model-option-name')?.textContent)).toEqual(['DeepSeek V4 Flash', 'DeepSeek V4', 'GPT X'])
     expect(options[0]?.getAttribute('aria-selected')).toBe('true')
     // The relay provider is configured but not routable: visible, disabled, flagged.
     expect(options[2]?.disabled).toBe(true)
@@ -126,7 +126,7 @@ describe('panel model picker', () => {
 
     await click(chip())
     const efforts = [...document.querySelectorAll<HTMLButtonElement>('.model-effort')]
-    expect(efforts.map((effort) => effort.textContent)).toEqual(['Low', 'High'])
+    expect(efforts.map(effort => effort.textContent)).toEqual(['Low', 'High'])
     expect(efforts[1]?.getAttribute('aria-checked')).toBe('true')
     await click(efforts[0]!)
     expect(rpc).toHaveBeenLastCalledWith('session.selectModel', {

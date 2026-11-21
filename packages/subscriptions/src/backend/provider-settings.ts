@@ -110,7 +110,7 @@ export class ProviderSettingsStore {
       for (const provider of PROVIDER_IDS) {
         if (Object.hasOwn(raw.providers, provider)) this.current.providers[provider] = validatePreferences(provider, raw.providers[provider])
       }
-      this.current.toolHistory = raw.toolHistory.map(revision => {
+      this.current.toolHistory = raw.toolHistory.map((revision) => {
         if (!PROVIDER_IDS.includes(revision.provider) || !Number.isSafeInteger(revision.at) || revision.at < 0) throw new Error('invalid tool history')
         const tools = validatePreferences(revision.provider, { tools: revision.tools }).tools ?? {}
         return { at: revision.at, provider: revision.provider, tools }

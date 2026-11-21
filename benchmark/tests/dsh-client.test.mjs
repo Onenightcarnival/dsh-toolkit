@@ -36,7 +36,7 @@ async function fixture(t, { unary, stream, onUpgrade, authentication = false } =
   server.on('upgrade', (request, socket, head) => {
     assert.equal(request.url, '/api/remote.mux')
     onUpgrade?.(request)
-    wss.handleUpgrade(request, socket, head, (ws) => wss.emit('connection', ws))
+    wss.handleUpgrade(request, socket, head, ws => wss.emit('connection', ws))
   })
   wss.on('connection', (ws) => {
     sockets.add(ws)
@@ -53,9 +53,9 @@ async function fixture(t, { unary, stream, onUpgrade, authentication = false } =
   t.after(async () => {
     client.close()
     for (const ws of sockets) ws.terminate()
-    await new Promise((resolve) => wss.close(resolve))
+    await new Promise(resolve => wss.close(resolve))
     server.closeAllConnections()
-    await new Promise((resolve) => server.close(resolve))
+    await new Promise(resolve => server.close(resolve))
   })
   return { client, baseUrl, requests, messages, sockets }
 }
@@ -64,7 +64,7 @@ const item = (ws, streamId, value) => ws.send(JSON.stringify({ type: 'item', str
 const until = async (predicate) => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if (predicate()) return
-    await new Promise((resolve) => setTimeout(resolve, 5))
+    await new Promise(resolve => setTimeout(resolve, 5))
   }
   assert.fail('condition did not become true')
 }
@@ -74,7 +74,7 @@ test('unary calls use current Typert endpoints, args and correlated prompt IDs',
   await client.rpc('session.create', { cwd: '/tmp/benchmark' })
   await client.rpc('session.modelCatalog')
   await client.rpc('session.prompt', { sessionId: SID, mode: 'queue', content: [{ type: 'text', text: 'hello' }] })
-  assert.deepEqual(requests.map((entry) => entry.url), ['/api/session/create', '/api/session/modelCatalog', '/api/session/prompt'])
+  assert.deepEqual(requests.map(entry => entry.url), ['/api/session/create', '/api/session/modelCatalog', '/api/session/prompt'])
   assert.deepEqual(requests[0].body.payload, { args: { request: { cwd: '/tmp/benchmark' } } })
   assert.deepEqual(requests[1].body.payload, { args: {} })
   assert.equal(requests[2].body.method, 'session/prompt')
@@ -139,9 +139,9 @@ test('history snapshots use independent streams and cancel only their own subscr
   })
   await client.followSession(SID)
   const history = await client.rpc('session.history', { sessionId: SID })
-  await until(() => messages.some((frame) => frame.type === 'cancel'))
-  const opens = messages.filter((frame) => frame.type === 'open')
-  const cancels = messages.filter((frame) => frame.type === 'cancel')
+  await until(() => messages.some(frame => frame.type === 'cancel'))
+  const opens = messages.filter(frame => frame.type === 'open')
+  const cancels = messages.filter(frame => frame.type === 'cancel')
   assert.equal(opens.length, 2)
   assert.deepEqual(cancels, [{ type: 'cancel', streamId: opens[1].streamId }])
   assert.equal(history.projections.values.sessionStats.turns, 1)
@@ -157,7 +157,7 @@ test('stream errors and premature disconnects fail explicitly without waiting fo
   })
   await assert.rejects(client.followSession('missing'), { code: 'session/not-found' })
   await client.followSession(SID)
-  const failure = new Promise((resolve) => client.onFrame((frame) => { if (frame.type === 'connection/error') resolve(frame) }))
+  const failure = new Promise(resolve => client.onFrame((frame) => { if (frame.type === 'connection/error') resolve(frame) }))
   for (const ws of sockets) ws.terminate()
   const frame = await failure
   assert.equal(frame.sessionId, SID)
@@ -178,7 +178,7 @@ test('readiness verifies the new model catalog and event source; interaction rem
   })
   const readyClient = await waitForDsh(baseUrl, { timeoutMs: 1_000 })
   t.after(() => readyClient.close())
-  const seen = new Promise((resolve) => readyClient.onFrame(resolve))
+  const seen = new Promise(resolve => readyClient.onFrame(resolve))
   item(eventSource.ws, eventSource.streamId, { type: 'waterfall', event: 'approval/request', eventId: 'approval-1', agentId: SID, request: { toolName: 'unexpected-tool' } })
   assert.equal((await seen).type, 'approval/requested')
   await until(() => requests.length === 2)

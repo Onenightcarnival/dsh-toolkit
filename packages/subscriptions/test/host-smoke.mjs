@@ -22,8 +22,8 @@ try {
     const install = spawn(process.execPath, [cli, 'plugin', '--profile', 'web', 'add', '-w',
       `@onenightcarnival/dsh-${module}@link:${join(root, 'packages', module)}`], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
     let installLog = ''
-    install.stdout.on('data', data => { installLog += data })
-    install.stderr.on('data', data => { installLog += data })
+    install.stdout.on('data', (data) => { installLog += data })
+    install.stderr.on('data', (data) => { installLog += data })
     const timeout = setTimeout(() => install.kill('SIGKILL'), 120_000)
     try { const [code] = await once(install, 'exit'); assert.equal(code, 0, installLog) }
     finally { clearTimeout(timeout) }
@@ -35,8 +35,8 @@ try {
       cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'],
     })
     let log = ''
-    child.stdout.on('data', data => { log += data })
-    child.stderr.on('data', data => { log += data })
+    child.stdout.on('data', (data) => { log += data })
+    child.stderr.on('data', (data) => { log += data })
     try {
       let url
       for (let i = 0; i < 600; i++) {

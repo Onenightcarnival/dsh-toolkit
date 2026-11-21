@@ -96,7 +96,7 @@ describe('apply', () => {
   it.each([undefined, {}, { wireStream: {} }])('rejects unsupported Gateway capabilities: %j', async (gateway) => {
     const ctx = stubContext()
     const get = ctx.get.bind(ctx)
-    vi.spyOn(ctx, 'get').mockImplementation((key) => key === 'typertGateway' ? gateway : get(key))
+    vi.spyOn(ctx, 'get').mockImplementation(key => key === 'typertGateway' ? gateway : get(key))
     const register = vi.spyOn(ctx.webServer, 'registerUpgrade')
     await expect(apply(ctx, { token: 'fixed-token', ...VALID })).rejects.toThrow(/dsh 0\.2\.2-rc\.5.*wireStream unavailable/)
     expect(register).not.toHaveBeenCalled()
@@ -149,7 +149,7 @@ describe('apply', () => {
         const response = await fetch(`http://127.0.0.1:${free}/ext/bridge-config`)
         if (response.ok) body = await response.json() as { wsUrl?: string }
       } catch {
-        await new Promise((resolve) => setTimeout(resolve, 20))
+        await new Promise(resolve => setTimeout(resolve, 20))
       }
     }
     expect(body?.wsUrl).toBe('ws://127.0.0.1:4321/ext/bridge')

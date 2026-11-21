@@ -30,7 +30,7 @@ test('answer validators normalize lightweight markdown and whitespace', () => {
 test('inventory validation measures the unique filtered product, not a seed suffix', () => {
   const instance = makeTaskInstance('inventory_filter', 1, 'inventory-run', 'http://127.0.0.1:4173')
   const state = { filterApplied: true, filter: instance.page.filter }
-  const target = instance.page.products.find((product) => product.sku === `SKU-${instance.page.filter.sku}`)
+  const target = instance.page.products.find(product => product.sku === `SKU-${instance.page.filter.sku}`)
 
   assert.equal(instance.expected.value, target.name)
   assert.doesNotMatch(instance.expected.value, /\s1$/u)

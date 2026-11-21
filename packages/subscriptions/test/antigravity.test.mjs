@@ -9,7 +9,7 @@ import { join } from 'node:path'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: `export * from './providers/antigravity.ts'; export * from './translate/antigravity.ts'; export * from './auth/antigravity-client.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: 'export * from \'./providers/antigravity.ts\'; export * from \'./translate/antigravity.ts\'; export * from \'./auth/antigravity-client.ts\';', resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|@cortexkit\/|undici$)/ }, args => ({ path: args.path.startsWith('@cortexkit/') ? import.meta.resolve(args.path) : pathToFileURL(require.resolve(args.path)).href, external: true }))
@@ -82,7 +82,7 @@ test('model discovery merges catalogs, honors endpoint overrides and rejects tot
   assert.deepEqual(models.map(model => model.id), ['gemini-prod', 'gemini-shared', 'claude-daily'])
   assert.equal(models[1].contextWindow, 2000)
   const visits = []
-  await assert.rejects(fetchAntigravityModels(session, { baseURL: 'https://cloudcode-pa.googleapis.com' }, async url => {
+  await assert.rejects(fetchAntigravityModels(session, { baseURL: 'https://cloudcode-pa.googleapis.com' }, async (url) => {
     visits.push(url); return new Response('', { status: 403 })
   }), /HTTP 403/)
   assert.equal(visits.length, 1)
@@ -121,7 +121,7 @@ test('generation retries endpoint permission failures while preserving individua
 
 test('project discovery accepts legacy response shapes and optional project-list 404', async () => {
   for (const field of ['antigravityProjectId', 'projectId', 'backendProjectId', 'userDefinedCloudaicompanionProject', 'cloudaicompanionProject', 'project']) {
-    const account = await discoverAntigravityAccount('fixture', {}, async url => {
+    const account = await discoverAntigravityAccount('fixture', {}, async (url) => {
       if (url.endsWith('loadCodeAssist')) return Response.json({ [field]: { id: 'discovered' } })
       if (url.endsWith('/userinfo')) return Response.json({ email: 'fixture@example.test' })
       throw Error('Unexpected project-list lookup')
@@ -133,7 +133,7 @@ test('project discovery accepts legacy response shapes and optional project-list
       ? Response.json({ projects: [{ projectId: 'nested-project' }] }) : Response.json({ email: 'fixture@example.test' }))
   assert.equal(nested.projectId, 'nested-project')
   const requests = []
-  const discover = email => discoverAntigravityAccount('fixture', {}, async url => {
+  const discover = email => discoverAntigravityAccount('fixture', {}, async (url) => {
     requests.push(url)
     if (url.endsWith('loadCodeAssist')) return Response.json({ paidTier: { name: 'Google AI Pro' } })
     if (url.endsWith('listCloudAICompanionProjects')) return new Response('<!DOCTYPE html><html>Not Found</html>', { status: 404 })
@@ -148,14 +148,14 @@ test('project discovery accepts legacy response shapes and optional project-list
 })
 
 test('project-list 404 permits explicit onboarding; permission errors remain failures without HTML', async () => {
-  const account = await discoverAntigravityAccount('fixture', { onboard: true }, async url => {
+  const account = await discoverAntigravityAccount('fixture', { onboard: true }, async (url) => {
     if (url.endsWith('loadCodeAssist')) return Response.json({ allowedTiers: [{ id: 'free', isDefault: true }] })
     if (url.endsWith('listCloudAICompanionProjects')) return new Response('', { status: 404 })
     if (url.endsWith('onboardUser')) return Response.json({ done: true, response: { cloudaicompanionProject: 'onboarded' } })
     return Response.json({ email: 'fixture@example.test' })
   })
   assert.equal(account.projectId, 'onboarded')
-  const fixed = await discoverAntigravityAccount('fixture', { projectId: 'configured' }, async url => {
+  const fixed = await discoverAntigravityAccount('fixture', { projectId: 'configured' }, async (url) => {
     if (url.endsWith('loadCodeAssist')) return Response.json({ projectId: 'discovered' })
     if (url.endsWith('/userinfo')) return Response.json({})
     throw Error('Unexpected project-list lookup')
@@ -163,7 +163,7 @@ test('project-list 404 permits explicit onboarding; permission errors remain fai
   assert.equal(fixed.projectId, 'configured')
   for (const status of [401, 403, 429, 503]) {
     await assert.rejects(discoverAntigravityAccount('fixture', {}, async url => url.endsWith('loadCodeAssist')
-      ? Response.json({}) : new Response('<!DOCTYPE html><html><style>body{color:red}</style>Error</html>', { status })), error => {
+      ? Response.json({}) : new Response('<!DOCTYPE html><html><style>body{color:red}</style>Error</html>', { status })), (error) => {
       assert.match(error.message, new RegExp(`HTTP ${status}`))
       assert.doesNotMatch(error.message, /<html|<!DOCTYPE|<style|color:red/)
       return true
@@ -201,7 +201,7 @@ test('Google OAuth uses PKCE, discovers project and preserves refresh credential
 })
 
 test('live Antigravity catalog includes image models and excludes internal models; quotas preserve unknown values', async () => {
-  const fetchFn = async url => {
+  const fetchFn = async (url) => {
     if (url.endsWith('fetchAvailableModels')) return Response.json({ models: {
       'gemini-3.7-flash-tiered': { displayName: 'Gemini Flash', inputTokenLimit: 1048576, maxOutputTokens: 65535 },
       'claude-sonnet-fixture': { displayName: 'Claude Sonnet' },
@@ -264,7 +264,7 @@ test('image models request image output without functions and store streamed ima
   assert.equal(body.request.tools, undefined)
   const ref = { attachmentId: 'fixture-image', mediaType: 'image/png', bytes: 3, width: 1, height: 1 }
   const saved = []
-  const store = { imageLimits: { maxImageBytes: 100, maxMessageImageBytes: 200, maxImagesPerMessage: 2 }, saveImage: async input => { saved.push(input); return ref } }
+  const store = { imageLimits: { maxImageBytes: 100, maxMessageImageBytes: 200, maxImagesPerMessage: 2 }, saveImage: async (input) => { saved.push(input); return ref } }
   const event = { response: { candidates: [{ content: { parts: [{ text: 'Before' }, { inlineData: { mimeType: 'image/png', data: 'AQID' }, thoughtSignature: 'image-signature' }, { text: 'After' }] }, finishReason: 'STOP' }] } }
   const chunks = await Array.fromAsync(streamAntigravity(sse([event]), undefined, store))
   assert.deepEqual(chunks.filter(chunk => chunk.type === 'block-end').map(chunk => chunk.block.type), ['text', 'image', 'text'])

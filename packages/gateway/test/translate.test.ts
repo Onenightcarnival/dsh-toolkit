@@ -28,7 +28,7 @@ const sampleChunks: StreamChunk[] = [
 ]
 
 function frames(text: string): Array<{ event?: string; data: unknown }> {
-  return text.split('\n\n').filter(part => part.trim() !== '').map(part => {
+  return text.split('\n\n').filter(part => part.trim() !== '').map((part) => {
     const lines = part.split('\n')
     const event = lines.find(line => line.startsWith('event: '))?.slice(7)
     const data = lines.filter(line => line.startsWith('data: ')).map(line => line.slice(6)).join('\n')

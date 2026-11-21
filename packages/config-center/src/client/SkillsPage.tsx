@@ -29,19 +29,19 @@ export function SkillsPage({ api, close }: { api: ConfigCenterApi; close: () => 
   }
   useEffect(() => {
     let active = true
-    void api.skills().then(next => { if (active) applyList(next) }).catch(value => { if (active) error(value) })
+    void api.skills().then((next) => { if (active) applyList(next) }).catch((value) => { if (active) error(value) })
     return () => { active = false }
   }, [api, revision])
   useEffect(() => {
     let active = true
     setDetail(undefined); setFile(''); setPreview(undefined); setPreviewError('')
-    if (selected) void api.skillDetail(selected).then(next => { if (active) { setDetail(next); setFile(next.entryFile) } }).catch(value => { if (active) error(value) })
+    if (selected) void api.skillDetail(selected).then((next) => { if (active) { setDetail(next); setFile(next.entryFile) } }).catch((value) => { if (active) error(value) })
     return () => { active = false }
   }, [api, selected, revision])
   useEffect(() => {
     let active = true
     setPreview(undefined); setPreviewError('')
-    if (selected && file) void api.skillFile(selected, file).then(next => { if (active) setPreview(next) }).catch(value => { if (active) setPreviewError(value instanceof Error ? value.message : String(value)) })
+    if (selected && file) void api.skillFile(selected, file).then((next) => { if (active) setPreview(next) }).catch((value) => { if (active) setPreviewError(value instanceof Error ? value.message : String(value)) })
     return () => { active = false }
   }, [api, selected, file, revision])
   const run = async (operation: () => Promise<unknown>): Promise<void> => {
@@ -82,7 +82,7 @@ export function SkillsPage({ api, close }: { api: ConfigCenterApi; close: () => 
       <Button size="sm" disabled={busy} onClick={() => { void run(() => api.openSkills()) }}>{tt('skills.open')}</Button>
       <Button size="sm" variant="primary" disabled={busy || !!pending} onClick={() => input.current?.click()}>{tt('skills.install')}</Button>
       <Button size="sm" variant="outline" onClick={close}>{tt('common.back')}</Button>
-      <input ref={input} type="file" accept=".zip,.skill" hidden onChange={event => { const archive = event.target.files?.[0]; event.target.value = ''; if (archive) void install(archive, 'ask') }} />
+      <input ref={input} type="file" accept=".zip,.skill" hidden onChange={(event) => { const archive = event.target.files?.[0]; event.target.value = ''; if (archive) void install(archive, 'ask') }} />
     </header>
     {notice && <div role="status" style={{ ...styles.info, flex: 'none', maxHeight: 120, overflow: 'auto' }}>{notice}</div>}
     {pending && <div style={{ ...styles.info, minHeight: 0, maxHeight: '35%', overflow: 'auto' }} role="group" aria-label={tt('skills.conflicts')}>
@@ -105,7 +105,7 @@ export function SkillsPage({ api, close }: { api: ConfigCenterApi; close: () => 
       {detail && <article className="dsh-skills-detail">
         <div style={{ ...styles.cardHead, flexWrap: 'wrap' }}>
           <h3 style={{ ...styles.cardTitle, flex: 1 }}>{detail.name}</h3>
-          <Switch checked={detail.enabled} disabled={busy} label={tt('mcp.enabled')} onChange={enabled => { void run(async () => { applyList(await api.setSkillEnabled(detail.name, enabled)); setRevision(value => value + 1) }) }} />
+          <Switch checked={detail.enabled} disabled={busy} label={tt('mcp.enabled')} onChange={(enabled) => { void run(async () => { applyList(await api.setSkillEnabled(detail.name, enabled)); setRevision(value => value + 1) }) }} />
           <Button size="sm" disabled={busy} onClick={() => { void run(() => api.openSkills(detail.name)) }}>{tt('skills.open')}</Button>
           <Button size="sm" style={styles.danger} disabled={busy} onClick={() => { if (window.confirm(tt('skills.deleteConfirm', { name: detail.name }))) void run(async () => { applyList(await api.deleteSkill(detail.name)); setRevision(value => value + 1) }) }}>{tt('mcp.delete')}</Button>
         </div>

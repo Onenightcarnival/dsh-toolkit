@@ -29,7 +29,7 @@ export function toggleQuestionOption(
   const selected = item.multiSelect === true
     ? checked
       ? [...new Set([...draft.selected, label])]
-      : draft.selected.filter((candidate) => candidate !== label)
+      : draft.selected.filter(candidate => candidate !== label)
     : checked ? [label] : []
   return replaceDraft(drafts, index, {
     selected,

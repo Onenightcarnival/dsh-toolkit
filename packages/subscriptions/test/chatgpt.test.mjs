@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: `export * from './auth/chatgpt.ts'; export * from './providers/chatgpt.ts'; export * from './auth/oauth-flow.ts'; export * from './auth/store.ts'; export * from './providers/accounts.ts'; export * from './providers/chatgpt-tokens.ts'; export * from './auth/chatgpt-lock.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: 'export * from \'./auth/chatgpt.ts\'; export * from \'./providers/chatgpt.ts\'; export * from \'./auth/oauth-flow.ts\'; export * from \'./auth/store.ts\'; export * from \'./providers/accounts.ts\'; export * from \'./providers/chatgpt-tokens.ts\'; export * from \'./auth/chatgpt-lock.ts\';', resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|undici$)/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }))
@@ -48,7 +48,7 @@ test('ChatGPT validates signature, issuer, client, nonce, expiration and subject
   await assert.rejects(mod.validateChatGptIdentity(jwt({}, privateKey, { alg: 'none' }), 'oaiapp_fixture', 'fixture-nonce', keys), /signature/)
 })
 
-test('dynamic registration keeps the host and issued client, and exchange uses granted scopes', async () => isolated(async home => {
+test('dynamic registration keeps the host and issued client, and exchange uses granted scopes', async () => isolated(async (home) => {
   const registration = await mod.prepareChatGptRegistration()
   assert.equal((await mod.prepareChatGptRegistration()).hostId, registration.hostId)
   const spec = mod.chatGptFlow(registration)
@@ -160,7 +160,7 @@ function adapter(fetchFn, sessionFn = async () => session) {
   return new mod.ChatGptAdapter({ tokens: { session: sessionFn }, models: [], streamIdleTimeoutMs: 5000, fetchFn })
 }
 const options = { provider: 'chatgpt', model: 'fixture-model', messages: [], signal: new AbortController().signal, system: 'Be concise', tools: [{ name: 'read_file', description: 'Read a file', parameters: { type: 'object', properties: {} } }] }
-const consume = async iterable => { const result = []; for await (const value of iterable) result.push(value); return result }
+const consume = async (iterable) => { const result = []; for await (const value of iterable) result.push(value); return result }
 
 test('ChatGPT streams through public Responses, namespaces tools and retries a rejected token once', async () => {
   const forced = [], requests = []
@@ -199,7 +199,7 @@ test('two token managers serialize rotating refresh and logout cannot be undone 
   const io = { list: async () => stored ? [{ key: session.clientId, session: stored }] : [], get: async () => stored,
     save: async (_key, value) => { stored = value }, remove: async () => { stored = undefined } }
   const config = { provider: 'chatgpt', displayName: 'ChatGPT', io,
-    makeOptions: () => ({ preemptMs: 300000, isPermanent: () => false, refresh: async old => {
+    makeOptions: () => ({ preemptMs: 300000, isPermanent: () => false, refresh: async (old) => {
       refreshes++; await new Promise(resolve => setTimeout(resolve, 20))
       assert.equal(old.refreshToken, session.refreshToken)
       return { ...old, accessToken: 'rotated-access', refreshToken: 'rotated-refresh', expiresAt: Date.now() + 3600000 }

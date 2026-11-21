@@ -46,7 +46,7 @@ export function approvalPromptForCall(
     if (sharePageContent !== 'ask') return undefined
     const targetFrames = call.name === 'browser_snapshot' || call.name === 'browser_screenshot'
       ? frames
-      : frames.filter((frame) => frame.frameId === requestedFrame(call.args))
+      : frames.filter(frame => frame.frameId === requestedFrame(call.args))
     return {
       kind: 'read',
       action: call.name,
@@ -69,7 +69,7 @@ export function approvalPromptForCall(
     }
   }
   const frameId = requestedFrame(call.args)
-  const target = frames.find((frame) => frame.frameId === frameId) ?? frames.find((frame) => frame.frameId === 0)
+  const target = frames.find(frame => frame.frameId === frameId) ?? frames.find(frame => frame.frameId === 0)
   const origins = uniqueOrigins(target === undefined ? [] : [target], frames)
   let canTrust = origins.length === 1 && call.name !== 'browser_back' && call.name !== 'browser_forward'
   if (call.name === 'browser_navigate') {
@@ -106,7 +106,7 @@ function effectiveFrameOrigin(frame: TabFrame, frames: TabFrame[], visited = new
   visited.add(frame.frameId)
   const direct = originFromUrl(frame.url)
   if (direct !== undefined) return direct
-  const parent = frames.find((candidate) => candidate.frameId === frame.parentFrameId)
+  const parent = frames.find(candidate => candidate.frameId === frame.parentFrameId)
   return parent === undefined ? undefined : effectiveFrameOrigin(parent, frames, visited)
 }
 

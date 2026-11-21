@@ -402,7 +402,7 @@ async function fetchAntigravityCatalog(
 ): Promise<AntigravityModelsResponse> {
   const endpoints = runtime.baseURL?.trim() ? [antigravityBaseURL(runtime.baseURL)]
     : [ANTIGRAVITY_DEFAULT_BASE_URL, ANTIGRAVITY_FALLBACK_BASE_URL]
-  const results = await Promise.allSettled(endpoints.map(async baseURL => {
+  const results = await Promise.allSettled(endpoints.map(async (baseURL) => {
     const payload = await callInternal<AntigravityModelsResponse>('fetchAvailableModels',
       { project: runtime.projectId?.trim() || session.projectId }, session.accessToken, { ...runtime, baseURL }, fetchFn, signal)
     if (!payload.models || typeof payload.models !== 'object' || Array.isArray(payload.models)) {
@@ -674,7 +674,7 @@ export class AntigravityAdapter extends LlmAdapter {
   private async discovered(model: string, account?: string): Promise<DiscoveredModel | undefined> {
     if (!this.options.discovery) return undefined
     const accounts = account === undefined ? (await this.options.tokens.list()).map(entry => entry.key) : [account]
-    return discoverAcrossAccounts(accounts, async key => {
+    return discoverAcrossAccounts(accounts, async (key) => {
       const catalog = await this.catalogFor(key)
       const models = await catalog.resolve(() => this.fetchCatalog(key))
       return models?.find(entry => entry.id === model)

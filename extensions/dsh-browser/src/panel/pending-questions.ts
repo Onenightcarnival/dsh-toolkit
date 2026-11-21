@@ -7,7 +7,7 @@ export function upsertPendingQuestion(
   questions: PendingQuestion[],
   next: PendingQuestion,
 ): PendingQuestion[] {
-  const index = questions.findIndex((candidate) => sameQuestion(candidate, next))
+  const index = questions.findIndex(candidate => sameQuestion(candidate, next))
   if (index === -1) return [...questions, next]
   const updated = questions.slice()
   updated[index] = next
@@ -19,14 +19,14 @@ export function removePendingQuestion<T extends ResolvedQuestion>(
   questions: T[],
   resolved: ResolvedQuestion,
 ): T[] {
-  return questions.filter((candidate) => !sameQuestion(candidate, resolved))
+  return questions.filter(candidate => !sameQuestion(candidate, resolved))
 }
 
 export function hasPendingQuestion(
   questions: ResolvedQuestion[],
   target: ResolvedQuestion,
 ): boolean {
-  return questions.some((candidate) => sameQuestion(candidate, target))
+  return questions.some(candidate => sameQuestion(candidate, target))
 }
 
 /** Interpret /api/respond receipts without discarding a host-pending bad response. */

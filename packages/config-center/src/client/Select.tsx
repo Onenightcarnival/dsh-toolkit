@@ -28,10 +28,10 @@ export function Select({ value, options, onChange, label, style }: {
     <Menu open={open} portal autoFocus dense selectedId={value} anchorRef={trigger} listClassName={popupClass}
       items={options.map(option => ({ id: option.value, label: option.label }))}
       onClose={() => setOpen(false)}
-      onSelect={next => { onChange(next); setOpen(false) }}
+      onSelect={(next) => { onChange(next); setOpen(false) }}
       anchor={<button ref={trigger} type="button" aria-label={label} aria-haspopup="menu" aria-expanded={open}
         onClick={() => setOpen(previous => !previous)}
-        onKeyDown={event => {
+        onKeyDown={(event) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault()
             setOpen(true)

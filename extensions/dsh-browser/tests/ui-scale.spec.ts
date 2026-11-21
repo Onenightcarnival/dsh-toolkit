@@ -54,7 +54,7 @@ describe('panel text scale', () => {
     const declarations = styles.match(/font-size:[^;]+;/g) ?? []
 
     expect(declarations.length).toBeGreaterThan(0)
-    const unscaled = declarations.filter((declaration) => (
+    const unscaled = declarations.filter(declaration => (
       /[0-9]px/.test(declaration) && !declaration.includes(`var(${UI_SCALE_PROPERTY})`)
     ))
     expect(unscaled).toEqual([])

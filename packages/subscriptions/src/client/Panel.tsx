@@ -32,7 +32,7 @@ const messageOf = (error: unknown): string => {
 function DisconnectDialog({ label, busy, cancel, confirm }: { label: string; busy: boolean; cancel: () => void; confirm: () => void }): JSX.Element {
   const dialog = useRef<HTMLDialogElement>(null)
   useEffect(() => { dialog.current?.showModal() }, [])
-  return <dialog ref={dialog} className="dsh-sub-modal" data-window-drag-exclude="" aria-labelledby="sub-disconnect-title" onCancel={e => { e.preventDefault(); cancel() }}>
+  return <dialog ref={dialog} className="dsh-sub-modal" data-window-drag-exclude="" aria-labelledby="sub-disconnect-title" onCancel={(e) => { e.preventDefault(); cancel() }}>
     <h3 id="sub-disconnect-title">{tt('disconnect')}</h3><p>{tt('disconnectHint', { account: label })}</p>
     <div className="dsh-sub-actions"><button autoFocus onClick={cancel}>{tt('cancel')}</button><button className="dsh-sub-danger" disabled={busy} onClick={confirm}>{tt('confirm')}</button></div>
   </dialog>
@@ -106,12 +106,12 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
     finally { lock.current = false; if (mounted.current) setBusy(false) }
   }, [])
 
-  useEffect(() => { void refreshStatus().catch(e => { if (mounted.current) setError(messageOf(e)) }) }, [refreshStatus])
+  useEffect(() => { void refreshStatus().catch((e) => { if (mounted.current) setError(messageOf(e)) }) }, [refreshStatus])
   const accountSignature = JSON.stringify(status?.accounts.map(a => [a.key, a.expiresAt]))
   useEffect(() => {
     if (!status) return
     if (status.accounts.length === 0) { ++catalogSequence.current; setCatalog(undefined); setCatalogBusy(false); return }
-    void refreshCatalog().catch(e => { if (mounted.current) setError(messageOf(e)) })
+    void refreshCatalog().catch((e) => { if (mounted.current) setError(messageOf(e)) })
   }, [accountSignature, refreshCatalog])
   useEffect(() => {
     if (!status?.busy) return
@@ -137,7 +137,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   useEffect(() => {
     ++usageSequence.current
     setUsage(undefined); setUsageBusy(false)
-    if (tab === 'usage' && active) void refreshUsage().catch(e => { if (mounted.current) setError(messageOf(e)) })
+    if (tab === 'usage' && active) void refreshUsage().catch((e) => { if (mounted.current) setError(messageOf(e)) })
   }, [tab, active, refreshUsage])
 
   const login = (accountKey?: string): void => {
@@ -208,7 +208,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
         {status?.busy && <div className="dsh-sub-auth" role="status">
           <strong>{tt('waiting')}</strong><p>{tt(status.manualOnly ? 'manualOnlyHint' : 'authHint')}</p>
           <div className="dsh-sub-actions">{authUrl && <a href={authUrl} target="_blank" rel="noopener noreferrer">{tt('openAuth')}</a>}<button disabled={busy} onClick={() => { void run(async () => { await api.cancel(); await refreshStatus() }) }}>{tt('cancel')}</button></div>
-          <details open={status.manualOnly || undefined}><summary>{tt('manual')}</summary><p className="dsh-sub-hint">{tt('manualHint')}</p><form className="dsh-sub-actions" onSubmit={e => { e.preventDefault(); void run(async () => { await api.manual(manual.trim()); await refreshStatus() }) }}>
+          <details open={status.manualOnly || undefined}><summary>{tt('manual')}</summary><p className="dsh-sub-hint">{tt('manualHint')}</p><form className="dsh-sub-actions" onSubmit={(e) => { e.preventDefault(); void run(async () => { await api.manual(manual.trim()); await refreshStatus() }) }}>
             <input aria-label={tt('manual')} value={manual} onChange={e => setManual(e.target.value)} placeholder={profile.callback} autoComplete="off" spellCheck={false}/><button disabled={busy || !manual.trim()}>{tt('submit')}</button>
           </form></details>
         </div>}
@@ -225,14 +225,14 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
               <p className="dsh-sub-hint">{tt('modelHint')}</p>
               <p className="dsh-sub-hint">{tt('contextHint')}</p>
               {ownCatalog?.unavailable && <p className="dsh-sub-hint" role="status">{tt('unavailable')}</p>}
-              <label className="dsh-sub-check"><input type="checkbox" disabled={busy || !catalog || catalogBusy} checked={settings.visibleModels === undefined} onChange={e => {
+              <label className="dsh-sub-check"><input type="checkbox" disabled={busy || !catalog || catalogBusy} checked={settings.visibleModels === undefined} onChange={(e) => {
                 const checked = e.target.checked
                 save(previous => ({ ...previous, visibleModels: checked ? undefined : catalog?.models.map(m => m.id) }))
               }}/>{tt('autoModels')}</label>
               <div className="dsh-sub-tableWrap"><table><thead><tr><th>{tt('modelName')}</th><th>{tt('context')}</th><th>{tt('reasoning')}</th></tr></thead><tbody>
-                {models.map(model => <tr key={model.id}><td><label className="dsh-sub-check"><input type="checkbox" aria-label={model.name} disabled={busy || catalogBusy} checked={settings.visibleModels?.includes(model.id) ?? true} onChange={e => {
+                {models.map(model => <tr key={model.id}><td><label className="dsh-sub-check"><input type="checkbox" aria-label={model.name} disabled={busy || catalogBusy} checked={settings.visibleModels?.includes(model.id) ?? true} onChange={(e) => {
                   const checked = e.target.checked
-                  save(previous => {
+                  save((previous) => {
                     const ids = new Set(previous.visibleModels ?? catalog?.models.map(m => m.id))
                     if (checked) ids.add(model.id); else ids.delete(model.id)
                     return { ...previous, visibleModels: [...ids] }
@@ -251,7 +251,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
                     setNotice(tt('saved'))
                   })}/>
                 </td><td>
-                  {model.efforts.length > 0 ? <select aria-label={`${model.name} ${tt('reasoning')}`} value={model.configured ?? ''} disabled={busy || catalogBusy} onChange={e => { const effort = e.target.value || undefined; void run(async () => {
+                  {model.efforts.length > 0 ? <select aria-label={`${model.name} ${tt('reasoning')}`} value={model.configured ?? ''} disabled={busy || catalogBusy} onChange={(e) => { const effort = e.target.value || undefined; void run(async () => {
                     await api.effort(model.id, effort); setCatalog(previous => previous ? { ...previous, models: previous.models.map(m => m.id === model.id ? { ...m, configured: effort } : m) } : previous); setNotice(tt('saved'))
                   }) }}><option value="">{tt('providerDefault')}</option>{model.efforts.map(effort => <option key={effort.id} value={effort.id}>{effort.name}</option>)}</select> : '—'}
                 </td></tr>)}
@@ -263,7 +263,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
                 <label className="dsh-sub-toggle">
                   <input type="checkbox" aria-label={tt(tool.title)} disabled={busy || !catalog || catalogBusy}
                     checked={settings.tools?.[tool.setting] !== false}
-                    onChange={e => {
+                    onChange={(e) => {
                       const checked = e.target.checked
                       save(previous => ({ ...previous, tools: { ...previous.tools, [tool.setting]: checked } }))
                     }}/>

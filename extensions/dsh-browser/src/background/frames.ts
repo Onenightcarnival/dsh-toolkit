@@ -32,7 +32,7 @@ export async function listTabFrames(tabId: number, mainUrl: string | undefined):
   try {
     const discovered = await chrome.webNavigation.getAllFrames({ tabId })
     if (discovered !== null && discovered !== undefined && discovered.length > 0) {
-      return sortTabFrames(discovered.map((frame) => ({
+      return sortTabFrames(discovered.map(frame => ({
         frameId: frame.frameId,
         parentFrameId: frame.parentFrameId,
         documentId: frame.documentId,
@@ -47,7 +47,7 @@ export async function listTabFrames(tabId: number, mainUrl: string | undefined):
 
 /** Sort parents before descendants without rebuilding the frame graph per comparison. */
 export function sortTabFrames(frames: TabFrame[]): TabFrame[] {
-  const parents = new Map(frames.map((frame) => [frame.frameId, frame.parentFrameId]))
+  const parents = new Map(frames.map(frame => [frame.frameId, frame.parentFrameId]))
   const depths = new Map<number, number>()
   for (const frame of frames) depths.set(frame.frameId, frameDepth(frame.frameId, parents))
   return [...frames].sort((a, b) => depths.get(a.frameId)! - depths.get(b.frameId)! || a.frameId - b.frameId)
@@ -69,20 +69,20 @@ function frameDepth(frameId: number, parents: Map<number, number>): number {
 export function allocateFrameBudgets(frames: TabFrame[], budget: ContentBudget): Map<number, FrameBudget> {
   if (frames.length <= 1) return new Map([[frames[0]?.frameId ?? 0, { ...budget }]])
 
-  const mainFrame = frames.find((frame) => frame.frameId === 0) ?? frames[0]!
-  const childFrames = frames.filter((frame) => frame !== mainFrame)
+  const mainFrame = frames.find(frame => frame.frameId === 0) ?? frames[0]!
+  const childFrames = frames.filter(frame => frame !== mainFrame)
   const childIndex = new Map(childFrames.map((frame, index) => [frame.frameId, index]))
   const chars = allocateDimension(budget.maxChars, childFrames.length)
   const items = allocateDimension(budget.maxItems, childFrames.length)
 
-  return new Map(frames.map((frame) => [
+  return new Map(frames.map(frame => [
     frame.frameId,
     frame === mainFrame
       ? { maxChars: chars.main, maxItems: items.main }
       : {
-          maxChars: chars.children[childIndex.get(frame.frameId)!]!,
-          maxItems: items.children[childIndex.get(frame.frameId)!]!,
-        },
+        maxChars: chars.children[childIndex.get(frame.frameId)!]!,
+        maxItems: items.children[childIndex.get(frame.frameId)!]!,
+      },
   ]))
 }
 

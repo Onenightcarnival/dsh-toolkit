@@ -83,7 +83,7 @@ export class MemoryStore {
 
   /** One revision with its predecessor for field comparison; undefined when the revision is not in history. */
   diff(revision: number): Diff | undefined {
-    return transaction(this.open(), 'BEGIN', db => {
+    return transaction(this.open(), 'BEGIN', (db) => {
       const after = snapshotAt(db, revision)
       if (!after) return undefined
       const previous = db.prepare('SELECT revision FROM revisions WHERE revision < ? ORDER BY revision DESC LIMIT 1').get(revision)
@@ -94,7 +94,7 @@ export class MemoryStore {
   /** Tool availability is runtime configuration and never creates a content revision. */
   setAgentTools(enabled: boolean): State {
     if (typeof enabled !== 'boolean') fail('invalid')
-    return transaction(this.open(), 'BEGIN IMMEDIATE', db => {
+    return transaction(this.open(), 'BEGIN IMMEDIATE', (db) => {
       db.prepare('UPDATE meta SET value = ? WHERE key = ?').run(enabled ? '1' : '0', 'agentTools')
       return readState(db)
     })
@@ -104,7 +104,7 @@ export class MemoryStore {
   clear(baseRevision: number): State {
     if (!Number.isSafeInteger(baseRevision)) fail('invalid')
     const db = this.open()
-    const { state, erased } = transaction(db, 'BEGIN IMMEDIATE', db => {
+    const { state, erased } = transaction(db, 'BEGIN IMMEDIATE', (db) => {
       const state = readState(db)
       if (baseRevision !== state.revision) fail('conflict')
       const empty = emptySnapshot()
@@ -126,7 +126,7 @@ export class MemoryStore {
     if (!plain(input) || !Number.isSafeInteger(input.baseRevision) || typeof input.summary !== 'string' || !input.summary.trim() || input.summary.length > 500) fail('invalid')
     if (typeof source !== 'string' || source.length > 2000) fail('invalid')
     if ('agentTools' in input) fail('invalid')
-    return transaction(this.open(), 'BEGIN IMMEDIATE', db => {
+    return transaction(this.open(), 'BEGIN IMMEDIATE', (db) => {
       const state = readState(db)
       if (input.baseRevision !== state.revision) fail('conflict')
       if (actor === 'agent' && !state.agentTools) fail('disabled')

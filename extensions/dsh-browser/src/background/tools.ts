@@ -332,7 +332,7 @@ async function trustedInputDispatch(
   includeActionDelta: boolean = false,
   commitAction?: () => void,
 ): Promise<ToolAnswer | undefined> {
-  const frame = frames.find((candidate) => candidate.frameId === 0)
+  const frame = frames.find(candidate => candidate.frameId === 0)
   if (frame === undefined) return undefined
   try {
     await attachDebugger(tabId)
@@ -640,8 +640,8 @@ async function snapshotAllFrames(
   }
 
   if (deltaRequested) {
-    const liveIds = new Set(frames.map((frame) => frame.frameId))
-    const removed = [...previous.keys()].filter((frameId) => frameId !== 0 && !liveIds.has(frameId))
+    const liveIds = new Set(frames.map(frame => frame.frameId))
+    const removed = [...previous.keys()].filter(frameId => frameId !== 0 && !liveIds.has(frameId))
     if (removed.length > 0) sections.push(`\nRemoved iframes: ${removed.join(', ')}`)
   }
 
@@ -699,7 +699,7 @@ async function dispatchOnce(
     const tab = await chrome.tabs.get(tabId)
     if (isCancelled(call, signal)) return cancelled()
     if (targetStillAllowed?.() === false) return targetChanged()
-    return screenshotTab(tab, frames.find((frame) => frame.frameId === 0), call, signal, budget, trustedInput)
+    return screenshotTab(tab, frames.find(frame => frame.frameId === 0), call, signal, budget, trustedInput)
   }
   if (trustedInput && TRUSTED_INPUT_TOOLS.has(call.name) && requestedFrame(call.args) === 0) {
     const trusted = await trustedInputDispatch(tabId, frames, call, budget, signal, targetStillAllowed, includeActionDelta, commitAction)
@@ -709,7 +709,7 @@ async function dispatchOnce(
 
   const frameId = requestedFrame(call.args)
   if (frameId < 0) return { ok: false, error: { code: 'action-failed', message: 'frame must be a non-negative integer.' } }
-  const frame = frames.find((candidate) => candidate.frameId === frameId)
+  const frame = frames.find(candidate => candidate.frameId === frameId)
   if (frame === undefined) {
     return unavailable(`Frame ${frameId} does not exist or has navigated. Call browser_snapshot again.`)
   }
@@ -843,8 +843,8 @@ async function mainWorldTool(
         const records = await readConsole(tabId, call.args.clear === true)
         if (records === null) return unavailable('Console capture is not installed on this page yet; capture starts with the first browser action on it.')
         const level = typeof call.args.level === 'string' ? call.args.level : undefined
-        const filtered = level === undefined ? records : records.filter((record) => record.level === level || (level === 'error' && record.level === 'error'))
-        const lines = filtered.slice(-200).map((record) => `[${new Date(record.at).toISOString().slice(11, 23)}] ${record.level}: ${record.text}`)
+        const filtered = level === undefined ? records : records.filter(record => record.level === level || (level === 'error' && record.level === 'error'))
+        const lines = filtered.slice(-200).map(record => `[${new Date(record.at).toISOString().slice(11, 23)}] ${record.level}: ${record.text}`)
         const text = lines.length === 0
           ? 'No console output captured since capture started (page load output before the first browser action is not included).'
           : lines.join('\n')
@@ -854,8 +854,8 @@ async function mainWorldTool(
         const records = await readNetwork(tabId, call.args.clear === true)
         if (records === null) return unavailable('Network capture is not installed on this page yet; capture starts with the first browser action on it.')
         const filter = typeof call.args.urlContains === 'string' ? call.args.urlContains : undefined
-        const filtered = filter === undefined ? records : records.filter((record) => record.url.includes(filter))
-        const lines = filtered.slice(-200).map((record) =>
+        const filtered = filter === undefined ? records : records.filter(record => record.url.includes(filter))
+        const lines = filtered.slice(-200).map(record =>
           `[${new Date(record.at).toISOString().slice(11, 23)}] ${record.kind} ${record.method} ${record.url} → ${record.status === 0 ? 'failed' : record.status} (${record.ms}ms)`)
         const text = lines.length === 0
           ? 'No fetch/XHR requests captured since capture started (requests before the first browser action, and non-JS loads like images or navigations, are not included).'
@@ -973,7 +973,7 @@ async function dispatchTabManagementTool(
     const records = tabs
       .filter((tab): tab is chrome.tabs.Tab & { id: number } => tab.id !== undefined)
       .sort((left, right) => left.windowId - right.windowId || left.index - right.index)
-      .map((tab) => ({
+      .map(tab => ({
         tabId: tab.id,
         windowId: tab.windowId,
         index: tab.index,
@@ -1125,7 +1125,7 @@ export async function dispatchToolCall(
   // Main-world dialog and console/network hooks precede the first action.
   // Pure reads leave the page unmodified.
   if (!HOOK_FREE_TOOLS.has(call.name)) {
-    const mainFrame = executionFrames.find((frame) => frame.frameId === 0)
+    const mainFrame = executionFrames.find(frame => frame.frameId === 0)
     try {
       await ensurePageHooks(tab.id, mainFrame?.documentId)
     } catch {
@@ -1198,7 +1198,7 @@ function validateFrameTarget(call: ToolCall, frames: TabFrame[]): ToolAnswer | u
   if (call.name === 'browser_snapshot') return undefined
   const frameId = requestedFrame(call.args)
   if (frameId < 0) return { ok: false, error: { code: 'action-failed', message: 'frame must be a non-negative integer.' } }
-  if (!frames.some((frame) => frame.frameId === frameId)) {
+  if (!frames.some(frame => frame.frameId === frameId)) {
     return unavailable(`Frame ${frameId} does not exist or has navigated. Call browser_snapshot again.`)
   }
   return undefined
@@ -1209,7 +1209,7 @@ function validateElementTarget(call: ToolCall, tabId: number, frames: TabFrame[]
   // Coordinate clicks address the viewport, not an inventory entry.
   if (call.name === 'browser_click' && typeof call.args.x === 'number' && typeof call.args.y === 'number') return undefined
   const frameId = requestedFrame(call.args)
-  const frame = frames.find((candidate) => candidate.frameId === frameId)
+  const frame = frames.find(candidate => candidate.frameId === frameId)
   const snapshotted = snapshotDocumentsByTab.get(tabId)?.get(frameId)
   if (frame === undefined || snapshotted === undefined || snapshotted !== frameDocumentKey(frame)) {
     return unavailable('The element reference does not belong to the current document. Call browser_snapshot again for current frame and index values.')
@@ -1226,8 +1226,8 @@ function sameApprovalBoundary(before: ApprovalPrompt, after: ApprovalPrompt): bo
 
 function sameTargetDocument(call: ToolCall, before: TabFrame[], after: TabFrame[]): boolean {
   const frameId = requestedFrame(call.args)
-  const beforeFrame = before.find((frame) => frame.frameId === frameId)
-  const afterFrame = after.find((frame) => frame.frameId === frameId)
+  const beforeFrame = before.find(frame => frame.frameId === frameId)
+  const afterFrame = after.find(frame => frame.frameId === frameId)
   return beforeFrame !== undefined
     && afterFrame !== undefined
     && frameDocumentKey(beforeFrame) === frameDocumentKey(afterFrame)

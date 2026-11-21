@@ -25,15 +25,15 @@ export function ContextWindowInput({ model, configured, disabled, save }: {
       setError(tt('contextTooLarge', { max: formatCapacity(model.maxContextWindow) })); return
     }
     setError('')
-    void save(value).then(saved => { if (saved) setDraft(value === undefined ? '' : formatCapacity(value)) })
+    void save(value).then((saved) => { if (saved) setDraft(value === undefined ? '' : formatCapacity(value)) })
   }
-  return <form className="dsh-sub-context" onSubmit={e => { e.preventDefault(); submit() }}>
+  return <form className="dsh-sub-context" onSubmit={(e) => { e.preventDefault(); submit() }}>
     <div className="dsh-sub-contextControls">
       <input aria-label={`${model.name} ${tt('context')}`} aria-describedby={hintId} aria-invalid={!!error}
         disabled={disabled} value={draft} placeholder={fallback === undefined ? '256K / 1M' : formatCapacity(fallback)}
         autoComplete="off" spellCheck={false}
-        onChange={e => { setDraft(e.target.value); setError('') }}
-        onKeyDown={e => { if (e.key === 'Escape') { setDraft(initial); setError('') } }}/>
+        onChange={(e) => { setDraft(e.target.value); setError('') }}
+        onKeyDown={(e) => { if (e.key === 'Escape') { setDraft(initial); setError('') } }}/>
       {dirty && <button disabled={disabled} aria-label={`${model.name} ${tt('saveContext')}`}>{tt('save')}</button>}
       {!dirty && configured !== undefined && <button type="button" className="dsh-sub-link" disabled={disabled}
         aria-label={`${model.name} ${tt('resetContext')}`} onClick={() => { setError(''); void save(undefined) }}>{tt('resetContext')}</button>}

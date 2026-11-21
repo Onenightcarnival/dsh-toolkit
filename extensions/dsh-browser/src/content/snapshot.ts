@@ -229,7 +229,7 @@ export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: S
   }
 
   // Form fields are the input/select/textarea subset of the inventory.
-  const formElements = elements.filter((el) => el instanceof HTMLInputElement
+  const formElements = elements.filter(el => el instanceof HTMLInputElement
     || el instanceof HTMLSelectElement
     || el instanceof HTMLTextAreaElement)
   const forms: FormFieldView[] = []
@@ -241,10 +241,10 @@ export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: S
     const value = checkable
       ? ''
       : el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
-      ? el.value
-      : el instanceof HTMLSelectElement
-        ? selectedText(el)
-        : ''
+        ? el.value
+        : el instanceof HTMLSelectElement
+          ? selectedText(el)
+          : ''
     forms.push({
       index,
       label: nameOf(el),
@@ -263,8 +263,8 @@ export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: S
   const mainBudget = Math.floor(options.budget.maxChars * 0.5)
   const main = truncate(mainSource, mainBudget)
 
-  const lastItems = last === null ? new Map<number, InventoryItem>() : new Map(last.items.map((item) => [item.index, item]))
-  const lastForms = last === null ? new Map<number, FormFieldView>() : new Map(last.forms.map((form) => [form.index, form]))
+  const lastItems = last === null ? new Map<number, InventoryItem>() : new Map(last.items.map(item => [item.index, item]))
+  const lastForms = last === null ? new Map<number, FormFieldView>() : new Map(last.forms.map(form => [form.index, form]))
 
   const changed = new Set<number>()
   const removedIds: number[] = []
@@ -276,7 +276,7 @@ export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: S
       const before = lastItems.get(item.index)
       if (before === undefined || !sameItem(before, item)) changed.add(item.index)
     }
-    const currentItemIds = new Set(items.map((item) => item.index))
+    const currentItemIds = new Set(items.map(item => item.index))
     for (const index of lastItems.keys()) {
       if (!currentItemIds.has(index)) removedIds.push(index)
     }
@@ -307,7 +307,7 @@ export function buildSnapshot(ids: ElementIds, options: SnapshotOptions, last: S
 }
 
 function selectedText(select: HTMLSelectElement): string {
-  return [...select.selectedOptions].map((option) => option.textContent ?? '').join(', ')
+  return [...select.selectedOptions].map(option => option.textContent ?? '').join(', ')
 }
 
 /** `<select>` choices as the model should quote them back to browser_form_input. */
@@ -345,11 +345,11 @@ function renderItem(item: InventoryItem): string {
     item.checked === undefined ? undefined : item.checked ? 'checked' : 'unchecked',
     item.expanded === undefined ? undefined : item.expanded ? 'expanded' : 'collapsed',
     item.inViewport ? undefined : 'outside viewport',
-  ].filter((value) => value !== undefined).join('/')
+  ].filter(value => value !== undefined).join('/')
   const stateText = state === '' ? '' : ` [${state}]`
   const hrefText = item.href !== undefined ? ` → ${item.href}` : ''
   const optionsText = item.options !== undefined && item.options.length > 0
-    ? ` options: ${item.options.map((option) => JSON.stringify(option)).join(', ')}`
+    ? ` options: ${item.options.map(option => JSON.stringify(option)).join(', ')}`
     : ''
   return `  [${item.index}] ${item.role} "${item.name}"${stateText}${hrefText}${optionsText}`
 }
@@ -381,10 +381,10 @@ export function renderSnapshot(view: SnapshotView, delta: boolean, maxChars: num
   const lines: string[] = []
   if (delta) {
     lines.push(`Page change v${view.version} (${view.url})`)
-    const elementChanges = view.changed.filter((id) => id !== -1)
+    const elementChanges = view.changed.filter(id => id !== -1)
     const changedIds = new Set(elementChanges)
-    const changedItems = view.items.filter((item) => changedIds.has(item.index))
-    const changedForms = view.forms.filter((form) => changedIds.has(form.index))
+    const changedItems = view.items.filter(item => changedIds.has(item.index))
+    const changedForms = view.forms.filter(form => changedIds.has(form.index))
 
     lines.push(`Status: ${view.ready}${view.reindexed ? ' (element indices were reassigned; use the indices in this snapshot)' : ''}`)
     if (view.changed.includes(-1)) {
@@ -403,7 +403,7 @@ export function renderSnapshot(view: SnapshotView, delta: boolean, maxChars: num
     if (changedForms.length > 0) {
       lines.push('')
       lines.push('Changed form fields:')
-      const renderedItems = new Set(changedItems.map((item) => item.index))
+      const renderedItems = new Set(changedItems.map(item => item.index))
       for (const form of changedForms) lines.push(renderForm(form, !renderedItems.has(form.index)))
     }
     if (view.removed.length > 0) lines.push(`Removed elements: ${view.removed.join(', ')}`)
@@ -427,7 +427,7 @@ export function renderSnapshot(view: SnapshotView, delta: boolean, maxChars: num
   if (view.forms.length > 0) {
     lines.push('')
     lines.push('Form fields:')
-    const renderedItems = new Set(view.items.map((item) => item.index))
+    const renderedItems = new Set(view.items.map(item => item.index))
     for (const form of view.forms) {
       lines.push(renderForm(form, !renderedItems.has(form.index)))
     }

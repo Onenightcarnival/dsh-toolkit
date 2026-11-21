@@ -230,10 +230,10 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
                     ? <div className="dsh-http-empty">{tt('response.noBody')}</div>
                     : streamRows !== undefined
                       ? <SseView rows={streamRows} raw={response.body} streaming={false} ended={response.stream?.ended} />
-                    : html && rendered
+                      : html && rendered
                       // Scripts, forms and same-origin access stay off; relative links resolve against the request URL.
-                      ? <iframe className="dsh-http-frame" sandbox="" referrerPolicy="no-referrer" title={tt('response.render')} srcDoc={`<base href="${escapeAttribute(exchange.request.url)}">${response.body}`} />
-                      : <CodeView text={bodyText} language={languageOf(response.contentType, bodyText)} />
+                        ? <iframe className="dsh-http-frame" sandbox="" referrerPolicy="no-referrer" title={tt('response.render')} srcDoc={`<base href="${escapeAttribute(exchange.request.url)}">${response.body}`} />
+                        : <CodeView text={bodyText} language={languageOf(response.contentType, bodyText)} />
             )}
             {response?.bodyTruncated === true && <div className="dsh-http-note">{tt('response.truncated', { size: humanSize(response.bodyBytes) })}</div>}
             {captured.length > 0 && <div className="dsh-http-note" data-kind="ok">{tt('response.captured', { names: captured.map(name => `{{${name}}}`).join(' ') })}</div>}

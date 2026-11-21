@@ -210,7 +210,7 @@ export class SkillStore {
     const modes = new Map<string, boolean>()
     const directories: string[] = []
     let total = 0, count = 0
-    const raw = unzipSync(bytes, { filter: entry => {
+    const raw = unzipSync(bytes, { filter: (entry) => {
       const index = count++
       total += entry.originalSize
       if (total > MAX_EXPANDED || count > 4000) throw new Error('解压内容超出限制')

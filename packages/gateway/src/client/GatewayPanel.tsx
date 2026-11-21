@@ -76,8 +76,8 @@ export function GatewayPanel({ api, close }: { api: GatewayApi; close: () => voi
 
   const state = status === undefined ? undefined
     : status.listening ? { className: 'gw-badge on', text: tt('listener.state.on', { url: `http://${status.listening.host}:${status.listening.port}/v1` }) }
-    : status.listenError ? { className: 'gw-badge err', text: tt('listener.state.error', { error: status.listenError }) }
-    : { className: 'gw-badge', text: tt('listener.state.off') }
+      : status.listenError ? { className: 'gw-badge err', text: tt('listener.state.error', { error: status.listenError }) }
+        : { className: 'gw-badge', text: tt('listener.state.off') }
 
   return <div className="gw-app">
     <div className="gw-top">
@@ -179,18 +179,18 @@ function ModelPicker({ models, selected, onClose, onConfirm }: { models: Gateway
   const stale = [...picked].filter(id => !known.has(id))
   const needle = query.trim().toLowerCase()
   const visible = (model: GatewayModel): boolean => needle === '' || `${model.id} ${model.name} ${model.providerName}`.toLowerCase().includes(needle)
-  const toggleModel = (id: string): void => setPicked(current => {
+  const toggleModel = (id: string): void => setPicked((current) => {
     const next = new Set(current)
     if (next.has(id)) next.delete(id)
     else next.add(id)
     return next
   })
-  const toggleGroup = (group: ProviderGroup, on: boolean): void => setPicked(current => {
+  const toggleGroup = (group: ProviderGroup, on: boolean): void => setPicked((current) => {
     const next = new Set(current)
     for (const model of group.models) { if (on) next.add(model.id); else next.delete(model.id) }
     return next
   })
-  const toggleExpanded = (provider: string): void => setExpanded(current => {
+  const toggleExpanded = (provider: string): void => setExpanded((current) => {
     const next = new Set(current)
     if (next.has(provider)) next.delete(provider)
     else next.add(provider)
@@ -209,7 +209,7 @@ function ModelPicker({ models, selected, onClose, onConfirm }: { models: Gateway
       </div>
       <div className="gw-list">
         {models.length === 0 && <p className="gw-empty" style={{ padding: 12 }}>{tt('models.empty')}</p>}
-        {groups.map(group => {
+        {groups.map((group) => {
           const shown = group.models.filter(visible)
           if (shown.length === 0) return null
           const pickedCount = group.models.filter(model => picked.has(model.id)).length
@@ -219,7 +219,7 @@ function ModelPicker({ models, selected, onClose, onConfirm }: { models: Gateway
             <div className="gw-group-head">
               <button className="gw-caret" aria-label={open ? tt('keys.pickCollapse') : tt('keys.pickExpand')} aria-expanded={open} onClick={() => toggleExpanded(group.provider)}>{open ? '▾' : '▸'}</button>
               <label className="gw-group-label">
-                <input type="checkbox" checked={all} ref={el => { if (el) el.indeterminate = !all && pickedCount > 0 }} onChange={e => toggleGroup(group, e.target.checked)} />
+                <input type="checkbox" checked={all} ref={(el) => { if (el) el.indeterminate = !all && pickedCount > 0 }} onChange={e => toggleGroup(group, e.target.checked)} />
                 <span>{group.name}</span>
                 <span className="gw-group-count">{tt('keys.pickGroupCount', { picked: pickedCount, total: group.models.length })}</span>
               </label>
@@ -254,7 +254,7 @@ function KeysTab({ api, status, busy, run, refresh }: Shared): JSX.Element {
   const [copied, setCopied] = useState<string>()
   /** Picker target: the creation form, or an existing key. */
   const [picker, setPicker] = useState<{ target: 'new' } | { target: ApiKeyView }>()
-  const forget = (id: string): void => setRevealed(current => { const next = { ...current }; delete next[id]; return next })
+  const forget = (id: string): void => setRevealed((current) => { const next = { ...current }; delete next[id]; return next })
   const create = (): Promise<void> => run(async () => {
     const result = await api.createKey(name.trim() === '' ? 'key' : name.trim(), models)
     setCreated(result.key)
@@ -328,7 +328,7 @@ function useUsage(api: GatewayApi, range: UsageRange, filter: UsageFilter): { su
   const key = JSON.stringify(filter)
   useEffect(() => {
     let active = true
-    api.usage(range, JSON.parse(key) as UsageFilter).then(next => { if (active) { setSummary(next); setError('') } }, (reason: unknown) => { if (active) setError(message(reason)) })
+    api.usage(range, JSON.parse(key) as UsageFilter).then((next) => { if (active) { setSummary(next); setError('') } }, (reason: unknown) => { if (active) setError(message(reason)) })
     return () => { active = false }
   }, [api, range, key])
   return { summary, error }
@@ -351,7 +351,7 @@ function UsageTab({ api, status }: { api: GatewayApi; status: GatewayStatus }): 
   const { summary, error } = useUsage(api, range, filter)
   const totals = summary?.totals
   const cost = totals !== undefined && totals.cost !== null
-  const patch = (next: Partial<UsageFilter>): void => setFilter(current => {
+  const patch = (next: Partial<UsageFilter>): void => setFilter((current) => {
     const merged = { ...current, ...next }
     for (const field of Object.keys(merged) as Array<keyof UsageFilter>) if (merged[field] === undefined) delete merged[field]
     return merged

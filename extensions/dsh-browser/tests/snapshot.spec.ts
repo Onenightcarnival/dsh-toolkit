@@ -37,7 +37,7 @@ describe('buildSnapshot', () => {
     const first = buildSnapshot(ids, { budget: BUDGET }, null)
     const second = buildSnapshot(ids, { budget: BUDGET }, first)
     expect(second.version).toBe(2)
-    const firstItems = new Map(first.items.map((item) => [item.name, item.index]))
+    const firstItems = new Map(first.items.map(item => [item.name, item.index]))
     for (const item of second.items) {
       if (firstItems.has(item.name)) expect(item.index).toBe(firstItems.get(item.name))
     }

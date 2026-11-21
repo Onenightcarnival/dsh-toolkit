@@ -11,7 +11,7 @@ export function localeFromLanguage(language: string | null | undefined): UiLocal
 export function getUiLocale(): UiLocale {
   let language: string | undefined
   if (typeof navigator !== 'undefined') {
-    const preferred = navigator.languages?.find((candidate) => candidate.trim() !== '') ?? navigator.language
+    const preferred = navigator.languages?.find(candidate => candidate.trim() !== '') ?? navigator.language
     language = preferred.trim() === '' ? undefined : preferred
   }
   if (language === undefined && typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage !== undefined) {

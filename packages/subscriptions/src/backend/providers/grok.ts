@@ -688,7 +688,7 @@ export class GrokAdapter extends LlmAdapter {
   private async discovered(model: string, account?: string): Promise<DiscoveredModel | undefined> {
     if (!this.options.discovery) return undefined
     const accounts = account === undefined ? (await this.options.tokens.list()).map(entry => entry.key) : [account]
-    return discoverAcrossAccounts(accounts, async key => {
+    return discoverAcrossAccounts(accounts, async (key) => {
       const catalog = await this.catalogFor(key)
       const models = await catalog.resolve(() => this.fetchCatalog(key, catalog))
       return models?.find(entry => entry.id === model)

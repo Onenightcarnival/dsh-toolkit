@@ -51,7 +51,7 @@ export function withSessionWorkspace(
         }
         const value = response.value
         if (!isRecord(value) || !isRecord(value.workspace) || typeof value.workspace.workspaceId !== 'string') {
-          warn(`browser bridge: workspace.create returned an invalid response; sessions will remain ungrouped`)
+          warn('browser bridge: workspace.create returned an invalid response; sessions will remain ungrouped')
           return undefined
         }
         return value.workspace.workspaceId

@@ -96,7 +96,7 @@ describe('deleteSession', () => {
     const outcome = await deleteSession({
       purge: purgeDeps(root, new Set([SESSION_A]), archived),
       store,
-      isLive: (id) => id === SESSION_A,
+      isLive: id => id === SESSION_A,
     }, SESSION_A)
     expect(outcome).toBe('deferred')
     expect(archived).toEqual([SESSION_A])

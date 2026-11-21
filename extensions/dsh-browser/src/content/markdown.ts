@@ -37,11 +37,11 @@ function renderTable(table: Element, base: string): string {
   const rows: string[][] = []
   for (const tr of table.querySelectorAll('tr')) {
     if (tr.closest('table') !== table) continue
-    const cells = [...tr.children].filter((cell) => cell.tagName === 'TD' || cell.tagName === 'TH')
-    if (cells.length > 0) rows.push(cells.map((cell) => cellText(cell, base)))
+    const cells = [...tr.children].filter(cell => cell.tagName === 'TD' || cell.tagName === 'TH')
+    if (cells.length > 0) rows.push(cells.map(cell => cellText(cell, base)))
   }
   if (rows.length === 0) return ''
-  const width = Math.max(...rows.map((row) => row.length))
+  const width = Math.max(...rows.map(row => row.length))
   const pad = (row: string[]): string[] => [...row, ...Array.from({ length: width - row.length }, () => '')]
   const header = pad(rows[0] as string[])
   const lines = [`| ${header.join(' | ')} |`, `| ${header.map(() => '---').join(' | ')} |`]
@@ -62,7 +62,7 @@ function renderList(list: Element, base: string, depth: number): string {
     const body = renderChildren(li, base, depth + 1).trim()
     const [first = '', ...rest] = body.split('\n')
     const indent = '  '.repeat(depth + 1)
-    items.push(`${'  '.repeat(depth)}${marker} ${first}${rest.length > 0 ? `\n${rest.map((line) => (line === '' ? '' : `${indent}${line}`)).join('\n')}` : ''}`)
+    items.push(`${'  '.repeat(depth)}${marker} ${first}${rest.length > 0 ? `\n${rest.map(line => (line === '' ? '' : `${indent}${line}`)).join('\n')}` : ''}`)
   }
   return items.join('\n')
 }
@@ -118,7 +118,7 @@ function renderElement(el: Element, base: string, depth: number): string {
       return `\`\`\`${lang}\n${code.replace(/\n$/, '')}\n\`\`\``
     }
     case 'CODE': return `\`${inlineText(el.textContent ?? '').trim()}\``
-    case 'BLOCKQUOTE': return renderChildren(el, base, depth).trim().split('\n').map((line) => `> ${line}`).join('\n')
+    case 'BLOCKQUOTE': return renderChildren(el, base, depth).trim().split('\n').map(line => `> ${line}`).join('\n')
     case 'A': {
       const text = renderChildren(el, base, depth).replace(/\s+/g, ' ').trim()
       const href = el.getAttribute('href')
@@ -148,7 +148,7 @@ function renderElement(el: Element, base: string, depth: number): string {
     }
     case 'SELECT': {
       const select = el as HTMLSelectElement
-      const chosen = [...select.selectedOptions].map((option) => inlineText(option.textContent ?? '').trim()).join(', ')
+      const chosen = [...select.selectedOptions].map(option => inlineText(option.textContent ?? '').trim()).join(', ')
       return chosen === '' ? '' : `[${chosen}]`
     }
     case 'TEXTAREA': return (el as HTMLTextAreaElement).value.trim()
@@ -171,7 +171,7 @@ export function toMarkdown(root: Element | null | undefined, base: string = docu
   const body = renderElement(target, base, 0)
   return body
     .split('\n')
-    .map((line) => line.replace(/[ \t]+$/g, ''))
+    .map(line => line.replace(/[ \t]+$/g, ''))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()

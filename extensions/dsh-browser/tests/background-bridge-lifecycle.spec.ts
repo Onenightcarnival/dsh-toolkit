@@ -560,7 +560,7 @@ describe('background bridge lifecycle', () => {
       localSet: async (items) => {
         persistedAccess.push((items.dshSettings as { unrestrictedBrowserAccess: boolean }).unrestrictedBrowserAccess)
       },
-      tabGet: async (tabId) => ({ id: tabId, windowId: 1, title: `Tab ${tabId}`, url: `https://example.com/${tabId}` } as chrome.tabs.Tab),
+      tabGet: async tabId => ({ id: tabId, windowId: 1, title: `Tab ${tabId}`, url: `https://example.com/${tabId}` } as chrome.tabs.Tab),
       tabRemove: async (tabId) => {
         if (tabId === 1) await firstClose
       },
@@ -602,7 +602,7 @@ describe('background bridge lifecycle', () => {
     const approval = await vi.waitFor(() => {
       const message = panel.postMessage.mock.calls
         .map((args: unknown[]) => args[0] as { type?: string; request?: { id?: string } })
-        .find((value) => value.type === 'approval.request')
+        .find(value => value.type === 'approval.request')
       expect(message?.request?.id).toBeTypeOf('string')
       return message!
     })
@@ -826,7 +826,7 @@ describe('background bridge lifecycle', () => {
           sharePageContent: 'auto',
         },
       }),
-      tabQuery: async (queryInfo) => holdTarget && queryInfo.active === true ? await target : [tab],
+      tabQuery: async queryInfo => holdTarget && queryInfo.active === true ? await target : [tab],
       tabSendMessage: async (_tabId, message) => (message as { type?: unknown }).type === 'DSH_ACTION'
         ? { ok: true, result: { text: 'Pressed Enter.' } }
         : undefined,
@@ -863,7 +863,7 @@ describe('background bridge lifecycle', () => {
     const approval = await vi.waitFor(() => {
       const message = panel.postMessage.mock.calls
         .map((args: unknown[]) => args[0] as { type?: string; request?: { id?: string } })
-        .find((value) => value.type === 'approval.request')
+        .find(value => value.type === 'approval.request')
       expect(message?.request?.id).toBeTypeOf('string')
       return message!
     })

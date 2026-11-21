@@ -107,7 +107,7 @@ test('models: catalog ids and aliases; a request must name a registered model', 
   const settings = { enabled: true, host: '127.0.0.1', port: 1, aliases: { 'gpt-4o': 'deepseek:deepseek-chat' }, pricing: {} }
   const catalog = new ModelCatalog({
     listProviders: () => [{ id: 'deepseek', name: 'DeepSeek' }, { id: 'broken', name: 'Broken' }],
-    listModels: async provider => {
+    listModels: async (provider) => {
       if (provider === 'broken') throw new Error('offline')
       return [{ id: 'deepseek-chat', name: 'DeepSeek Chat' }, { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' }]
     },

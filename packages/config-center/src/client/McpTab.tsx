@@ -182,7 +182,7 @@ export function McpTab({ api, close }: { api: ConfigCenterApi; close: () => void
         <div style={styles.settingsBody}>
           <label style={{ ...styles.field, width: 220 }}>
             <span>{tt('mcp.stdioTimeout')}</span>
-            <Input type="number" min={1} max={MAX_STDIO_TIMEOUT_SECONDS} step={1} value={timeout} disabled={savingTimeout || busy !== undefined} onChange={event => { setTimeoutValue(event.target.value); setTimeoutNotice(undefined) }} />
+            <Input type="number" min={1} max={MAX_STDIO_TIMEOUT_SECONDS} step={1} value={timeout} disabled={savingTimeout || busy !== undefined} onChange={(event) => { setTimeoutValue(event.target.value); setTimeoutNotice(undefined) }} />
           </label>
           <Button size="sm" variant="outline" disabled={savingTimeout || busy !== undefined || servers === undefined} onClick={() => { void saveTimeout() }}>{tt('mcp.saveTimeout')}</Button>
         </div>

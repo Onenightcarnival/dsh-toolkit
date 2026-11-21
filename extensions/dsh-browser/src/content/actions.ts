@@ -446,7 +446,7 @@ async function pressAction(args: Record<string, unknown>, ctx: ActionContext): P
     // Synthetic Tab does not move focus; focus walks the visible focusable
     // elements in DOM order.
     const focusables = deepQuerySelectorAll(document, 'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"]), [contenteditable="true"]')
-      .filter((el) => el instanceof HTMLElement && !(el as HTMLButtonElement).disabled && el.getBoundingClientRect().width > 0)
+      .filter(el => el instanceof HTMLElement && !(el as HTMLButtonElement).disabled && el.getBoundingClientRect().width > 0)
     const at = focusables.indexOf(target)
     const next = focusables[(at + (modifiers.shiftKey ? -1 : 1) + focusables.length) % Math.max(1, focusables.length)]
     if (next instanceof HTMLElement) next.focus()
@@ -588,7 +588,7 @@ function findAction(args: Record<string, unknown>, ctx: ActionContext): ActionRe
   }
   // Only innermost matches are listed; a text hit on a wrapper is also a hit
   // on every ancestor.
-  const leafMatches = matches.filter((el) => !matches.some((other) => other !== el && el.contains(other)))
+  const leafMatches = matches.filter(el => !matches.some(other => other !== el && el.contains(other)))
   const listed = leafMatches.slice(0, MAX_FIND_RESULTS)
   ctx.ids.ensure(listed)
   if (listed.length === 0) return { text: 'No elements matched.' }
@@ -678,7 +678,7 @@ async function formInputAction(args: Record<string, unknown>, ctx: ActionContext
 
 function setFieldValue(el: Element, index: number, value: unknown): string {
   if (el instanceof HTMLSelectElement) {
-    const wanted = (Array.isArray(value) ? value : [value]).map((entry) => String(entry).trim().toLowerCase())
+    const wanted = (Array.isArray(value) ? value : [value]).map(entry => String(entry).trim().toLowerCase())
     let hit = 0
     for (const option of el.options) {
       const label = (option.label || option.textContent || '').trim().toLowerCase()
@@ -687,7 +687,7 @@ function setFieldValue(el: Element, index: number, value: unknown): string {
       else if (matched && hit === 0) el.selectedIndex = option.index
       if (matched) hit += 1
     }
-    if (hit === 0) throw new ActionError('action-failed', `[${index}] has no option matching ${JSON.stringify(value)}. Options: ${[...el.options].map((option) => option.label || option.textContent).join(', ')}`)
+    if (hit === 0) throw new ActionError('action-failed', `[${index}] has no option matching ${JSON.stringify(value)}. Options: ${[...el.options].map(option => option.label || option.textContent).join(', ')}`)
     el.dispatchEvent(new Event('input', { bubbles: true }))
     el.dispatchEvent(new Event('change', { bubbles: true }))
     return `[${index}] selected ${JSON.stringify(Array.isArray(value) ? value : String(value))}.`
@@ -756,8 +756,8 @@ async function waitForAction(args: Record<string, unknown>, ctx: ActionContext):
       }
       results.push(ok)
     }
-    const present = results.every((result) => result)
-    return gone ? results.every((result) => !result) : present
+    const present = results.every(result => result)
+    return gone ? results.every(result => !result) : present
   }
   const started = Date.now()
   if (!check()) {
@@ -779,7 +779,7 @@ async function waitForAction(args: Record<string, unknown>, ctx: ActionContext):
   }
   const elapsed = Date.now() - started
   const what = [text !== undefined ? `text "${text}"` : '', selector !== undefined ? `selector "${selector}"` : '', url !== undefined ? `url "${url}"` : '']
-    .filter((part) => part !== '').join(', ')
+    .filter(part => part !== '').join(', ')
   if (!check()) {
     throw new ActionError('action-failed', `Timed out after ${timeoutMs}ms waiting for ${what} to ${gone ? 'disappear' : 'appear'}.`)
   }
@@ -865,7 +865,7 @@ async function uploadAction(args: Record<string, unknown>, ctx: ActionContext): 
   for (const entry of files) {
     const file = entry as { name?: unknown; mediaType?: unknown; data?: unknown }
     if (typeof file.name !== 'string' || typeof file.data !== 'string') throw new ActionError('bad-args', 'Each file needs name and base64 data.')
-    const bytes = Uint8Array.from(atob(file.data), (char) => char.charCodeAt(0))
+    const bytes = Uint8Array.from(atob(file.data), char => char.charCodeAt(0))
     transfer.items.add(new File([bytes], file.name, { type: typeof file.mediaType === 'string' ? file.mediaType : 'application/octet-stream' }))
     names.push(`${file.name} (${bytes.byteLength} bytes)`)
   }
@@ -882,8 +882,8 @@ function elementRectsAction(ctx: ActionContext): ActionResult {
   const view = lastSnapshot ?? buildSnapshot(ctx.ids, { budget: ctx.budget }, null)
   if (lastSnapshot === null) lastSnapshot = view
   const rects = view.items
-    .filter((item) => item.rect !== undefined && item.inViewport)
-    .map((item) => ({ index: item.index, ...item.rect as { x: number; y: number; width: number; height: number } }))
+    .filter(item => item.rect !== undefined && item.inViewport)
+    .map(item => ({ index: item.index, ...item.rect as { x: number; y: number; width: number; height: number } }))
   return {
     text: JSON.stringify({
       rects,

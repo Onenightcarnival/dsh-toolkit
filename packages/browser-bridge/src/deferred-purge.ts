@@ -168,7 +168,7 @@ export function withDeferredPurgeFilter(api: BrowserHostApi, store: DeferredPurg
       if (call.method !== 'session.list' || !result.ok || !isRecord(result.value) || !Array.isArray(result.value.items)) {
         return result
       }
-      const items = result.value.items.filter((item) => !(isRecord(item) && typeof item.sessionId === 'string' && store.has(item.sessionId)))
+      const items = result.value.items.filter(item => !(isRecord(item) && typeof item.sessionId === 'string' && store.has(item.sessionId)))
       return items.length === result.value.items.length ? result : { ...result, value: { ...result.value, items } }
     },
     events: signal => api.events(signal),

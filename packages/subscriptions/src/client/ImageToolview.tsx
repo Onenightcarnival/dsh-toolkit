@@ -22,10 +22,10 @@ function Image({ api, attachment }: { api: SubscriptionsApi; attachment: Record<
   useEffect(() => {
     let cancelled = false
     setUrl(''); setError('')
-    void api.call<{ mediaType: string; dataBase64: string }>('image', JSON.parse(key)).then(result => {
+    void api.call<{ mediaType: string; dataBase64: string }>('image', JSON.parse(key)).then((result) => {
       if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(result.mediaType)) throw new Error('Unsupported image type')
       if (!cancelled) setUrl(`data:${result.mediaType};base64,${result.dataBase64}`)
-    }).catch(error => { if (!cancelled) setError(error instanceof Error ? error.message : String(error)) })
+    }).catch((error) => { if (!cancelled) setError(error instanceof Error ? error.message : String(error)) })
     return () => { cancelled = true }
   }, [api, key])
   return url ? <a href={url} download="subscription-image" title={tt('imagePreview')}><img src={url} alt={tt('imagePreview')} /></a> : <p role={error ? 'alert' : 'status'}>{error || tt('imageLoading')}</p>

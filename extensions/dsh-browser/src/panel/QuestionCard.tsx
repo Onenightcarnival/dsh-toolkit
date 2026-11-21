@@ -45,8 +45,8 @@ export function QuestionCard({
             drafts={drafts}
             disabled={submitting}
             copy={copy}
-            onToggle={(label, checked) => { setDrafts((current) => toggleQuestionOption(current, index, item, label, checked)) }}
-            onCustom={(value) => { setDrafts((current) => setQuestionCustomAnswer(current, index, item, value)) }}
+            onToggle={(label, checked) => { setDrafts(current => toggleQuestionOption(current, index, item, label, checked)) }}
+            onCustom={(value) => { setDrafts(current => setQuestionCustomAnswer(current, index, item, value)) }}
           />
         ))}
       </div>
@@ -86,7 +86,7 @@ function QuestionItemView({
     item.header ?? '',
     item.question,
     item.detail ?? '',
-  ].filter((part) => part !== '').join(' ')
+  ].filter(part => part !== '').join(' ')
   return (
     <fieldset className="question-item" disabled={disabled}>
       <legend className="question-legend">{legend}</legend>

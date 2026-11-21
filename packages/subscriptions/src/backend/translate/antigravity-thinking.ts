@@ -9,9 +9,9 @@ export function antigravityReasoning(model: string): LlmResolvedModelInfo['reaso
   if (/-image(?:-|$)/.test(model) && !configurableImageThinking(model)) return undefined
   const ids = configurableImageThinking(model) ? ['minimal', 'high']
     : model.startsWith('claude-') ? ['high']
-    : model.startsWith('gpt-oss-') ? ['medium']
-      : model.startsWith('gemini-3.1-pro') || model === 'gemini-pro-agent' ? ['low', 'high']
-        : /^gemini-(?:2\.5|3)/.test(model) ? ['low', 'medium', 'high'] : []
+      : model.startsWith('gpt-oss-') ? ['medium']
+        : model.startsWith('gemini-3.1-pro') || model === 'gemini-pro-agent' ? ['low', 'high']
+          : /^gemini-(?:2\.5|3)/.test(model) ? ['low', 'medium', 'high'] : []
   const fixedEffort = /^gemini-.*-(low|medium|high)$/.exec(model)?.[1]
   const efforts = fixedEffort !== undefined && ids.includes(fixedEffort) ? [fixedEffort] : ids
   return efforts.length === 0 ? undefined : {

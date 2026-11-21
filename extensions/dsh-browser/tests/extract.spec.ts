@@ -71,7 +71,7 @@ describe('collectInteractive', () => {
       <button>B</button>
     `
     const elements = collectInteractive(document)
-    expect(elements.map((el) => el.tagName.toLowerCase())).toEqual(['a', 'input', 'button'])
+    expect(elements.map(el => el.tagName.toLowerCase())).toEqual(['a', 'input', 'button'])
   })
 })
 

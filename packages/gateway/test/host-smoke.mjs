@@ -29,8 +29,8 @@ const freePort = () => new Promise((resolve, reject) => {
 async function run(command, args, options) {
   const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], ...options })
   let output = ''
-  child.stdout.on('data', data => { output += data })
-  child.stderr.on('data', data => { output += data })
+  child.stdout.on('data', (data) => { output += data })
+  child.stderr.on('data', (data) => { output += data })
   const [code] = await once(child, 'exit')
   assert.equal(code, 0, `${command} ${args.join(' ')}\n${output}`)
 }
@@ -56,8 +56,8 @@ try {
     '',
   ].join('\n'))
   host = spawn(process.execPath, [cli, 'web', '--patch', overlay, '--no-open', '--port', '0'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
-  host.stdout.on('data', data => { log += data })
-  host.stderr.on('data', data => { log += data })
+  host.stdout.on('data', (data) => { log += data })
+  host.stderr.on('data', (data) => { log += data })
   let url
   for (let i = 0; i < 900; i++) {
     url = log.match(/dsh web: (http:\/\/127\.0\.0\.1:\d+\S*)/)?.[1]

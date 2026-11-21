@@ -37,7 +37,7 @@ export async function fetchChatGptModels(session: ChatGptSession, fetchFn: Fetch
   if (!response.ok) throw await oauthEndpointError(response, 'ChatGPT models')
   const payload = await response.json() as { models?: (Parameters<typeof parseCodexModels>[0][number] & { input_modalities?: string[] })[] }
   if (!Array.isArray(payload.models)) throw new Error('ChatGPT models endpoint returned no models array')
-  return payload.models.filter(entry => entry && entry.visibility === 'list').flatMap(entry => {
+  return payload.models.filter(entry => entry && entry.visibility === 'list').flatMap((entry) => {
     const model = parseCodexModels([entry])[0]
     if (!model) return []
     return [{ ...model, inputModalities: entry.input_modalities?.includes('image') ? ['text', 'image'] as ('text' | 'image')[] : ['text'] as ('text' | 'image')[] }]

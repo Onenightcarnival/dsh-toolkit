@@ -146,7 +146,7 @@ export function ModelPicker({
           })}
           {catalog !== null && catalog.failures.length > 0 && (
             <p className="model-menu-note model-menu-error">
-              {copy.model.failures(catalog.failures.map((failure) => failure.name).join(', '))}
+              {copy.model.failures(catalog.failures.map(failure => failure.name).join(', '))}
             </p>
           )}
           {selection !== null && efforts.length > 0 && (

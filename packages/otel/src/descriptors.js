@@ -4,10 +4,10 @@
  * carry the npm package that exports the manifest; the toolkit bundle builds
  * them under its own name.
  */
-import * as S from "./schemas.js";
+import * as S from './schemas.js'
 
-export const OWN_PACKAGE = "@onenightcarnival/dsh-otel";
-const NS = "dshOtel";
+export const OWN_PACKAGE = '@onenightcarnival/dsh-otel'
+const NS = 'dshOtel'
 
 function def(PACKAGE, method, requestSchema, requestType, resultSchema, resultType) {
   return {
@@ -15,32 +15,32 @@ function def(PACKAGE, method, requestSchema, requestType, resultSchema, resultTy
     service: NS,
     namespace: NS,
     method,
-    invocation: { kind: "direct" },
+    invocation: { kind: 'direct' },
     parameters: [
       {
-        name: "request",
-        wire: "request",
-        source: "json",
-        codec: { mode: "strict", typeSymbol: `${PACKAGE}/types#${requestType}`, create: () => requestSchema }
-      }
+        name: 'request',
+        wire: 'request',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: `${PACKAGE}/types#${requestType}`, create: () => requestSchema },
+      },
     ],
     result: {
-      mode: "strict",
+      mode: 'strict',
       typeSymbol: `${PACKAGE}/types#${resultType}`,
-      create: () => resultSchema
+      create: () => resultSchema,
     },
-    sourceLocation: { file: "src/index.js", line: 1, column: 1 }
-  };
+    sourceLocation: { file: 'src/index.js', line: 1, column: 1 },
+  }
 }
 
 /** @param {string} pkg the npm package exporting the manifest */
 export function descriptorsFor(pkg) {
   return [
-    def(pkg, "status", S.statusRequestSchema, "OtelStatusRequest", S.statusResultSchema, "OtelStatusResult"),
-    def(pkg, "save", S.saveRequestSchema, "OtelSaveRequest", S.saveResultSchema, "OtelSaveResult"),
-    def(pkg, "test", S.testRequestSchema, "OtelTestRequest", S.testResultSchema, "OtelTestResult"),
-    def(pkg, "verifyRecent", S.verifyRecentRequestSchema, "OtelVerifyRecentRequest", S.verifyRecentResultSchema, "OtelVerifyRecentResult")
-  ];
+    def(pkg, 'status', S.statusRequestSchema, 'OtelStatusRequest', S.statusResultSchema, 'OtelStatusResult'),
+    def(pkg, 'save', S.saveRequestSchema, 'OtelSaveRequest', S.saveResultSchema, 'OtelSaveResult'),
+    def(pkg, 'test', S.testRequestSchema, 'OtelTestRequest', S.testResultSchema, 'OtelTestResult'),
+    def(pkg, 'verifyRecent', S.verifyRecentRequestSchema, 'OtelVerifyRecentRequest', S.verifyRecentResultSchema, 'OtelVerifyRecentResult'),
+  ]
 }
 
-export const DESCRIPTORS = descriptorsFor(OWN_PACKAGE);
+export const DESCRIPTORS = descriptorsFor(OWN_PACKAGE)

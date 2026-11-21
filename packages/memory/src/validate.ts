@@ -26,8 +26,8 @@ export function validateSnapshot(value: unknown): asserts value is Snapshot {
     if (entry.fields.startDate && entry.fields.endDate && entry.fields.endDate !== 'present' && entry.fields.startDate > entry.fields.endDate) fail('dateRange')
     const complete = entry.kind === 'profile' ? entry.id === 'profile'
       : entry.kind === 'work' ? Object.values(entry.fields).some(v => v.trim())
-      : entry.kind === 'project' ? !!entry.fields.title?.trim()
-      : !!entry.fields.lesson?.trim()
+        : entry.kind === 'project' ? !!entry.fields.title?.trim()
+          : !!entry.fields.lesson?.trim()
     if (!complete) fail('content', entry.id)
   }
   if (snapshot.entries.filter(e => e.kind === 'profile').length !== 1) fail('invalid')

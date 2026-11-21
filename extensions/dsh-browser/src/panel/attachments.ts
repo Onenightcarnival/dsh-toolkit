@@ -234,7 +234,7 @@ export function draftImageDataUrl(image: DraftImage): string {
 export function promptContent(text: string, images: readonly DraftImage[]): PromptContentPart[] {
   const content: PromptContentPart[] = []
   if (text !== '') content.push({ type: 'text', text })
-  content.push(...images.map((image) => ({
+  content.push(...images.map(image => ({
     type: 'image' as const,
     mediaType: image.mediaType,
     data: image.data,

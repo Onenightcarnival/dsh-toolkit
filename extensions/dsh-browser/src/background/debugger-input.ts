@@ -57,7 +57,7 @@ export async function detachDebugger(tabId: number): Promise<void> {
 
 /** Detach from every tab (setting turned off, extension suspending). */
 export async function detachAllDebuggers(): Promise<void> {
-  await Promise.all([...attached].map((tabId) => detachDebugger(tabId)))
+  await Promise.all([...attached].map(tabId => detachDebugger(tabId)))
 }
 
 export function debuggerAttached(tabId: number): boolean {
@@ -100,7 +100,7 @@ export async function debuggerDrag(tabId: number, from: { x: number; y: number }
     const x = from.x + ((to.x - from.x) * step) / steps
     const y = from.y + ((to.y - from.y) * step) / steps
     await send(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1 })
-    await new Promise((resolve) => setTimeout(resolve, 16))
+    await new Promise(resolve => setTimeout(resolve, 16))
   }
   await send(tabId, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 })
 }

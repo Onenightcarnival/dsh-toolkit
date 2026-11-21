@@ -487,7 +487,7 @@ describe('dsh 0.2.0 Remote Host adapter', () => {
 
   it('reads workspace.list from the workspace/follow baseline', async () => {
     const { api, open } = harness({
-      open: async (endpoint) => ({
+      open: async endpoint => ({
         async *[Symbol.asyncIterator]() {
           if (endpoint === 'workspace/follow') {
             yield { type: 'baseline', value: { items: [{ workspaceId: 'w1' }], archivedSessionIds: ['s1'] } }

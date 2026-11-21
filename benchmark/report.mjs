@@ -5,7 +5,7 @@ import { bootstrapGeometricMeanCI, geometricMean, mean, summarize } from './lib/
 import { TASK_CATALOG } from './lib/tasks.mjs'
 
 const benchmarkRoot = dirname(fileURLToPath(import.meta.url))
-const taskNames = new Map(TASK_CATALOG.map((task) => [task.id, task.name]))
+const taskNames = new Map(TASK_CATALOG.map(task => [task.id, task.name]))
 
 function fixed(value, digits = 1) {
   return Number.isFinite(value) ? Number(value).toFixed(digits) : '—'
@@ -34,8 +34,8 @@ function promptTokens(record) {
 }
 
 function summaryRow(label, records) {
-  const successful = records.filter((record) => record.success === true)
-  const durations = summarize(successful.map((record) => record.timings?.completionMs))
+  const successful = records.filter(record => record.success === true)
+  const durations = summarize(successful.map(record => record.timings?.completionMs))
   return [
     label,
     records.length,
@@ -44,26 +44,26 @@ function summaryRow(label, records) {
     fixed(durations.p50),
     durations.n >= 10 ? fixed(durations.p90) : '—',
     fixed(durations.mean),
-    fixed(mean(successful.map((record) => record.tools?.count))),
+    fixed(mean(successful.map(record => record.tools?.count))),
     fixed(mean(successful.map(promptTokens))),
-    fixed(mean(successful.map((record) => token(record, 'outputTokens')))),
+    fixed(mean(successful.map(record => token(record, 'outputTokens')))),
   ]
 }
 
 function phaseRow(label, records) {
-  const successful = records.filter((record) => record.success === true)
+  const successful = records.filter(record => record.success === true)
   return [
     label,
     successful.length,
-    fixed(mean(successful.map((record) => record.timings?.ttftMs))),
-    fixed(mean(successful.map((record) => record.timings?.stateReachedMs))),
-    fixed(mean(successful.map((record) => record.timings?.llmMs))),
-    fixed(mean(successful.map((record) => record.timings?.toolWallMs))),
-    fixed(mean(successful.map((record) => record.tools?.count))),
-    fixed(mean(successful.map((record) => token(record, 'inputTokens')))),
-    fixed(mean(successful.map((record) => token(record, 'cacheReadTokens')))),
-    fixed(mean(successful.map((record) => token(record, 'cacheWriteTokens')))),
-    fixed(mean(successful.map((record) => token(record, 'outputTokens')))),
+    fixed(mean(successful.map(record => record.timings?.ttftMs))),
+    fixed(mean(successful.map(record => record.timings?.stateReachedMs))),
+    fixed(mean(successful.map(record => record.timings?.llmMs))),
+    fixed(mean(successful.map(record => record.timings?.toolWallMs))),
+    fixed(mean(successful.map(record => record.tools?.count))),
+    fixed(mean(successful.map(record => token(record, 'inputTokens')))),
+    fixed(mean(successful.map(record => token(record, 'cacheReadTokens')))),
+    fixed(mean(successful.map(record => token(record, 'cacheWriteTokens')))),
+    fixed(mean(successful.map(record => token(record, 'outputTokens')))),
   ]
 }
 
@@ -75,7 +75,7 @@ function table(headers, rows) {
   return [
     `| ${headers.map(escapeCell).join(' | ')} |`,
     `| ${headers.map(() => '---').join(' | ')} |`,
-    ...rows.map((row) => `| ${row.map(escapeCell).join(' | ')} |`),
+    ...rows.map(row => `| ${row.map(escapeCell).join(' | ')} |`),
   ].join('\n')
 }
 
@@ -100,8 +100,8 @@ function pairedAnalysis(records) {
   const warnings = []
 
   for (const [identifier, pair] of pairs) {
-    const playwrightRecords = pair.filter((record) => record.backend === 'playwright')
-    const extensionRecords = pair.filter((record) => record.backend === 'extension')
+    const playwrightRecords = pair.filter(record => record.backend === 'playwright')
+    const extensionRecords = pair.filter(record => record.backend === 'extension')
     if (playwrightRecords.length > 1 || extensionRecords.length > 1) {
       warnings.push(`配对 ${identifier.replace('\u0000', ' / ')} 有重复后端记录，已跳过。`)
       continue
@@ -205,8 +205,8 @@ function failureCategory(record) {
 
 function failureRows(records) {
   const groups = groupBy(
-    records.filter((record) => !record.success),
-    (record) => `${record.backend}\u0000${failureCategory(record)}`,
+    records.filter(record => !record.success),
+    record => `${record.backend}\u0000${failureCategory(record)}`,
   )
   return [...groups.entries()]
     .sort((left, right) => right[1].length - left[1].length || left[0].localeCompare(right[0]))
@@ -218,29 +218,29 @@ function failureRows(records) {
 }
 
 export function renderReport(records, { sourceName = 'benchmark.jsonl' } = {}) {
-  const valid = records.filter((record) => record?.schemaVersion === 1 && typeof record.backend === 'string')
-  const suiteVersions = [...new Set(valid.map((record) => record.benchmarkSuiteVersion ?? 'legacy/unknown'))]
+  const valid = records.filter(record => record?.schemaVersion === 1 && typeof record.backend === 'string')
+  const suiteVersions = [...new Set(valid.map(record => record.benchmarkSuiteVersion ?? 'legacy/unknown'))]
   if (suiteVersions.length > 1) {
     throw new Error(`不能汇总多个评测套件版本：${suiteVersions.join('、')}。请按 benchmarkSuiteVersion 分别生成报告。`)
   }
-  const benchmarkIds = [...new Set(valid.map((record) => record.benchmarkId).filter(Boolean))]
-  const backendGroups = groupBy(valid, (record) => record.backend)
+  const benchmarkIds = [...new Set(valid.map(record => record.benchmarkId).filter(Boolean))]
+  const backendGroups = groupBy(valid, record => record.backend)
   const overview = [...backendGroups.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([backend, rows]) => summaryRow(backend, rows))
   const taskRows = []
   for (const [backend, rows] of [...backendGroups.entries()].sort(([left], [right]) => left.localeCompare(right))) {
-    for (const [taskId, taskRecords] of [...groupBy(rows, (record) => record.taskId).entries()].sort(([left], [right]) => left.localeCompare(right))) {
+    for (const [taskId, taskRecords] of [...groupBy(rows, record => record.taskId).entries()].sort(([left], [right]) => left.localeCompare(right))) {
       taskRows.push(summaryRow(`${backend} / ${taskNames.get(taskId) ?? taskId}`, taskRecords))
     }
   }
-  const failures = valid.filter((record) => !record.success)
+  const failures = valid.filter(record => !record.success)
   const paired = pairedAnalysis(valid)
   const phaseRows = [...backendGroups.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([backend, rows]) => phaseRow(backend, rows))
-  const controlledRecords = valid.filter((record) => record.environment !== undefined && record.model !== undefined)
-  const configurationCount = new Set(controlledRecords.map((record) => JSON.stringify({
+  const controlledRecords = valid.filter(record => record.environment !== undefined && record.model !== undefined)
+  const configurationCount = new Set(controlledRecords.map(record => JSON.stringify({
     environment: record.environment,
     model: record.model,
     timeoutMs: record.timeoutMs,
@@ -257,7 +257,7 @@ export function renderReport(records, { sourceName = 'benchmark.jsonl' } = {}) {
     '# DSH Browser 基准评测报告',
     '',
     `数据文件：\`${sourceName}\`  `,
-    `Benchmark ID：${benchmarkIds.length === 0 ? '—' : benchmarkIds.map((id) => `\`${id}\``).join('、')}  `,
+    `Benchmark ID：${benchmarkIds.length === 0 ? '—' : benchmarkIds.map(id => `\`${id}\``).join('、')}  `,
     `生成时间：${new Date().toISOString()}`,
     '',
     '## 总览',
@@ -298,7 +298,7 @@ export function renderReport(records, { sourceName = 'benchmark.jsonl' } = {}) {
     '',
     '## 数据一致性',
     '',
-    ...consistencyNotes.map((note) => `- ${note}`),
+    ...consistencyNotes.map(note => `- ${note}`),
     '',
     '## 解释边界',
     '',
@@ -314,7 +314,7 @@ export function renderReport(records, { sourceName = 'benchmark.jsonl' } = {}) {
 
 export async function readJsonl(path) {
   const text = await readFile(path, 'utf8')
-  return text.split(/\r?\n/u).filter((line) => line.trim() !== '').map((line, index) => {
+  return text.split(/\r?\n/u).filter(line => line.trim() !== '').map((line, index) => {
     try { return JSON.parse(line) } catch (error) { throw new Error(`${path}:${index + 1}: invalid JSON: ${error.message}`) }
   })
 }
@@ -328,7 +328,7 @@ export async function writeReportForFile(inputPath, outputPath) {
 
 async function latestResult() {
   const resultsRoot = join(benchmarkRoot, 'results')
-  const candidates = (await readdir(resultsRoot)).filter((name) => name.endsWith('.jsonl')).sort().reverse()
+  const candidates = (await readdir(resultsRoot)).filter(name => name.endsWith('.jsonl')).sort().reverse()
   if (candidates.length === 0) throw new Error('benchmark/results 中没有 JSONL 结果，请先运行 node benchmark/run.mjs')
   return join(resultsRoot, candidates[0])
 }

@@ -35,12 +35,12 @@ describe('page hooks', () => {
     const mod = await load()
     await mod.ensurePageHooks(3, 'doc-a')
     await mod.ensurePageHooks(3, 'doc-a')
-    expect(executed.filter((entry) => entry.name === 'installHooks')).toHaveLength(1)
+    expect(executed.filter(entry => entry.name === 'installHooks')).toHaveLength(1)
     await mod.ensurePageHooks(3, 'doc-b')
-    expect(executed.filter((entry) => entry.name === 'installHooks')).toHaveLength(2)
+    expect(executed.filter(entry => entry.name === 'installHooks')).toHaveLength(2)
     mod.forgetPageHooks(3)
     await mod.ensurePageHooks(3, 'doc-b')
-    expect(executed.filter((entry) => entry.name === 'installHooks')).toHaveLength(3)
+    expect(executed.filter(entry => entry.name === 'installHooks')).toHaveLength(3)
   })
 
   it('answers dialogs per policy and records them for the model', async () => {
@@ -61,7 +61,7 @@ describe('page hooks', () => {
     expect(window.prompt('name?', 'dflt')).toBe('dflt')
 
     const records = await mod.readDialogs(1, true)
-    expect(records.map((record) => `${record.type}:${record.outcome}`)).toEqual([
+    expect(records.map(record => `${record.type}:${record.outcome}`)).toEqual([
       'alert:accepted', 'confirm:dismissed', 'prompt:dismissed', 'confirm:accepted', 'confirm:dismissed',
       'prompt:accepted', 'prompt:accepted', 'prompt:accepted',
     ])
@@ -80,7 +80,7 @@ describe('page hooks', () => {
     console.error(new Error('bad'))
     window.dispatchEvent(Object.assign(new Event('error'), { message: 'boom', filename: 'app.js', lineno: 3 }))
     const records = await mod.readConsole(2, true)
-    expect(records?.map((record) => `${record.level}:${record.text}`)).toEqual([
+    expect(records?.map(record => `${record.level}:${record.text}`)).toEqual([
       'log:hello {"a":1}',
       'warn:careful',
       'error:Error: bad',
@@ -94,7 +94,7 @@ describe('page hooks', () => {
     await mod.ensurePageHooks(4, 'doc')
     const xhr = new XMLHttpRequest()
     xhr.open('GET', 'data:text/plain,ok')
-    const done = new Promise<void>((resolve) => xhr.addEventListener('loadend', () => setTimeout(resolve, 0)))
+    const done = new Promise<void>(resolve => xhr.addEventListener('loadend', () => setTimeout(resolve, 0)))
     xhr.send()
     await done
     const records = await mod.readNetwork(4, true)

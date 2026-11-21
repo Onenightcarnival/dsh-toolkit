@@ -15,7 +15,7 @@ test('event diagnostics use lossless run-length encoding', () => {
     { type: 'tool/call', count: 1 },
     { type: 'tool/result', count: 2 },
   ])
-  assert.deepEqual(eventTypeRuns.flatMap((run) => Array(run.count).fill(run.type)), [
+  assert.deepEqual(eventTypeRuns.flatMap(run => Array(run.count).fill(run.type)), [
     'assistant/chunk',
     'assistant/chunk',
     'tool/call',

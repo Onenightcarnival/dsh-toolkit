@@ -84,7 +84,7 @@ export function Browser(props: BrowserProps): JSX.Element {
   }, [prefix, profile.bucket, profile.prefix])
 
   const toggleSelect = (key: string): void => {
-    setSelected(prev => {
+    setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)

@@ -11,7 +11,7 @@ import { writeReportForFile } from './report.mjs'
 
 const benchmarkRoot = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(benchmarkRoot, '..')
-const taskMetadata = new Map(TASK_CATALOG.map((task) => [task.id, task]))
+const taskMetadata = new Map(TASK_CATALOG.map(task => [task.id, task]))
 
 function valueAfter(args, index, flag) {
   const value = args[index + 1]
@@ -61,7 +61,7 @@ export function parseArgs(args) {
       const value = valueAfter(args, index, flag)
       index += 1
       options.backends = value === 'both' ? ['playwright', 'extension'] : [value]
-      if (options.backends.some((backend) => !['playwright', 'extension'].includes(backend))) throw new Error('--backend must be both, playwright, or extension')
+      if (options.backends.some(backend => !['playwright', 'extension'].includes(backend))) throw new Error('--backend must be both, playwright, or extension')
     } else if (flag === '--tasks') {
       options.tasks = valueAfter(args, index, flag).split(',').filter(Boolean)
       index += 1
@@ -84,7 +84,7 @@ export function parseArgs(args) {
       index += 1
     } else throw new Error(`unknown option: ${flag}`)
   }
-  const invalidTasks = options.tasks.filter((task) => !TASK_IDS.includes(task))
+  const invalidTasks = options.tasks.filter(task => !TASK_IDS.includes(task))
   if (invalidTasks.length > 0) throw new Error(`unknown tasks: ${invalidTasks.join(', ')}`)
   if ((options.provider === undefined) !== (options.model === undefined)) throw new Error('--provider and --model must be supplied together')
   if (options.smoke) {
@@ -96,7 +96,7 @@ export function parseArgs(args) {
 }
 
 function usage() {
-  return `DSH Browser benchmark\n\nUsage: node benchmark/run.mjs [options]\n\n  --smoke                 Run one paired form task\n  --dry-run               Print the matrix without starting DSH or a model\n  --backend <both|playwright|extension>\n  --tasks <id,id>         Default: all six tasks\n  --seeds <1-5|1,2,3>     Default: 1-5\n  --trials <n>            Default: 1\n  --timeout-ms <n>        Per-run timeout, default: 120000\n  --provider <id> --model <id> [--reasoning-effort <id>]\n  --output <path>         Must stay inside benchmark/; default: results/<timestamp>.jsonl`
+  return 'DSH Browser benchmark\n\nUsage: node benchmark/run.mjs [options]\n\n  --smoke                 Run one paired form task\n  --dry-run               Print the matrix without starting DSH or a model\n  --backend <both|playwright|extension>\n  --tasks <id,id>         Default: all six tasks\n  --seeds <1-5|1,2,3>     Default: 1-5\n  --trials <n>            Default: 1\n  --timeout-ms <n>        Per-run timeout, default: 120000\n  --provider <id> --model <id> [--reasoning-effort <id>]\n  --output <path>         Must stay inside benchmark/; default: results/<timestamp>.jsonl'
 }
 
 function pairOrder(taskId, seed, trial, backends) {

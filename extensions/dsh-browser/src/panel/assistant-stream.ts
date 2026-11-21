@@ -134,7 +134,10 @@ export class AssistantStreamView {
 }
 
 function validStart(value: Record<string, unknown>): value is Record<string, unknown> & {
-  attemptId: string; turn: number; step: number; startedAfterSeq: number
+  attemptId: string
+  turn: number
+  step: number
+  startedAfterSeq: number
 } {
   return typeof value.attemptId === 'string' && value.attemptId !== ''
     && isIndex(value.turn) && isIndex(value.step)

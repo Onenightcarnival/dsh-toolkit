@@ -148,7 +148,7 @@ export function accessibleName(el: Element): string {
 /** CSS.escape with a fallback for environments that lack it (jsdom). */
 function cssEscape(value: string): string {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value)
-  return value.replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`)
+  return value.replace(/[^a-zA-Z0-9_-]/g, ch => `\\${ch}`)
 }
 
 /**

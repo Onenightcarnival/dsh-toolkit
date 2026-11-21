@@ -9,7 +9,7 @@ import { registerMemoryTools } from '../src/registration.ts'
 import { memoryTools } from '../src/tools.ts'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 
-test('toggle registers and disposes tools and guidance without a new content version', async t => {
+test('toggle registers and disposes tools and guidance without a new content version', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'memory-registration-')); const store = new MemoryStore(join(dir, 'career.sqlite'))
   t.after(() => { store.close(); rmSync(dir, { recursive: true, force: true }) })
   const active = new Set<string>(), cleanup: (() => void)[] = []

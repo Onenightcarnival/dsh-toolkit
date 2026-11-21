@@ -26,7 +26,7 @@ Object.defineProperty(globalThis, 'CSS', {
   configurable: true,
   value: {
     escape(value: string): string {
-      return value.replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`)
+      return value.replace(/[^a-zA-Z0-9_-]/g, ch => `\\${ch}`)
     },
   },
 })

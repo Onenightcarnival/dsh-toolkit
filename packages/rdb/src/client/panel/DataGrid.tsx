@@ -84,7 +84,7 @@ export function DataGrid(props: DataGridProps): JSX.Element {
   const commitEdit = (value: unknown): void => {
     if (editing === undefined) return
     const name = columns[editing.col].name
-    setUpdates(prev => {
+    setUpdates((prev) => {
       const next = new Map(prev)
       const rowPatch = { ...(next.get(editing.row) ?? {}) }
       const original = page?.rows[editing.row]?.[editing.col]
@@ -178,7 +178,7 @@ export function DataGrid(props: DataGridProps): JSX.Element {
             <tbody>
               {(page?.rows ?? []).map((row, r) => (
                 <tr key={r} {...(deletes.has(r) ? { 'data-deleted': '' } : {})} {...(updates.has(r) ? { 'data-changed': '' } : {})}>
-                  {editable && <td className="dsh-rdb-colCheck"><input type="checkbox" className="dsh-rdb-check" checked={selected.has(r)} onChange={() => { setSelected(prev => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n }) }} /></td>}
+                  {editable && <td className="dsh-rdb-colCheck"><input type="checkbox" className="dsh-rdb-check" checked={selected.has(r)} onChange={() => { setSelected((prev) => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n }) }} /></td>}
                   {row.map((v, c) => {
                     const name = columns[c]?.name
                     const patched = updates.get(r)

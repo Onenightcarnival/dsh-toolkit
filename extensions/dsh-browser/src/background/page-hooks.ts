@@ -52,7 +52,7 @@ function installHooks(): boolean {
     network: [] as Array<{ kind: string; method: string; url: string; status: number; ok: boolean; ms: number; at: number }>,
     policy: { action: 'dismiss', text: '', once: false } as { action: 'accept' | 'dismiss'; text?: string; once: boolean },
   }
-  const cap = <T,>(list: T[], max: number): void => { if (list.length > max) list.splice(0, list.length - max) }
+  const cap = <T>(list: T[], max: number): void => { if (list.length > max) list.splice(0, list.length - max) }
   const stringify = (value: unknown): string => {
     try {
       if (typeof value === 'string') return value

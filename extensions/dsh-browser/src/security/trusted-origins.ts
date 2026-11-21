@@ -54,8 +54,8 @@ export function actionCoveredByTrustedOrigins(
     || (prompt.action === 'browser_navigate' && prompt.origins.length > 1)
     || (prompt.action === 'browser_open_tab' && prompt.origins.length === 1)
   if (!hasKnownBoundary) return false
-  return prompt.origins.every((origin) =>
-    trustedCollections.some((trusted) => originMatchesTrusted(origin, trusted)))
+  return prompt.origins.every(origin =>
+    trustedCollections.some(trusted => originMatchesTrusted(origin, trusted)))
 }
 
 interface WildcardOrigin {
@@ -98,6 +98,6 @@ function parseWildcard(value: string): WildcardOrigin | undefined {
 function isDomainName(hostname: string): boolean {
   const labels = hostname.split('.')
   return labels.length >= 2
-    && labels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))
+    && labels.every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))
     && getDomain(hostname, { allowPrivateDomains: true }) !== null
 }

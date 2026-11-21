@@ -18,8 +18,8 @@ describe('runBatch', () => {
       { tool: 'browser_wait' },
     ]), runOne, new AbortController().signal)
     expect(answer.ok).toBe(true)
-    expect(seen.map((one) => one.id)).toEqual(['b1:1', 'b1:2', 'b1:3'])
-    expect(seen.map((one) => one.sessionId)).toEqual(['s1', 's1', 's1'])
+    expect(seen.map(one => one.id)).toEqual(['b1:1', 'b1:2', 'b1:3'])
+    expect(seen.map(one => one.sessionId)).toEqual(['s1', 's1', 's1'])
     expect(seen[2]?.args).toEqual({})
     const text = (answer.result as { text: string }).text
     expect(text).toContain('Batch of 3 step(s) completed.')

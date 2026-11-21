@@ -149,7 +149,7 @@ export function listen(server: Server, host: string, port: number): Promise<{ ho
 export function close(server: Server): Promise<void> {
   return new Promise((resolve, reject) => {
     server.closeAllConnections()
-    server.close(error => { if (error === undefined) resolve(); else reject(error) })
+    server.close((error) => { if (error === undefined) resolve(); else reject(error) })
   })
 }
 

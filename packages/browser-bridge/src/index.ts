@@ -175,7 +175,7 @@ function mountBridge(
     withSessionWorkspace(
       hostApi,
       resolved.sessionWorkspacePath,
-      message => { ctx.logger.warn(message) },
+      (message) => { ctx.logger.warn(message) },
     ),
     resolved.deferSessionCreate,
     ctx.get('attachments')?.imageLimits,
@@ -231,7 +231,7 @@ function mountBridge(
   const purgeSession = async (sessionId: string): Promise<SessionDeleteOutcome> => deleteSession({
     purge: await purgeDeps(),
     store: pendingPurges,
-    isLive: (id) => ctx.agents.get(id as Parameters<typeof ctx.agents.get>[0]) !== undefined,
+    isLive: id => ctx.agents.get(id as Parameters<typeof ctx.agents.get>[0]) !== undefined,
   }, sessionId)
   // Queued ids are purged at start; a failure defers the purge to the next start.
   void pendingPurges.load()

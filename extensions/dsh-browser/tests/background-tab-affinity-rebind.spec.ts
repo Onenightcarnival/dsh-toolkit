@@ -129,8 +129,8 @@ describe('background tab-affinity rebind protocol', () => {
       expect(postMessage).toHaveBeenCalledWith({ type: 'tab-affinity.rebind.result', id: 'rebind-1', ok: true })
     })
     const messages = postMessage.mock.calls.map(([message]) => message as { type?: string; state?: unknown })
-    const resultIndex = messages.findIndex((message) => message.type === 'tab-affinity.rebind.result')
-    const affinityIndex = messages.map((message) => message.type).lastIndexOf('tab-affinity', resultIndex)
+    const resultIndex = messages.findIndex(message => message.type === 'tab-affinity.rebind.result')
+    const affinityIndex = messages.map(message => message.type).lastIndexOf('tab-affinity', resultIndex)
     expect(affinityIndex).toBeGreaterThanOrEqual(0)
     expect(resultIndex).toBeGreaterThan(affinityIndex)
     expect(messages[affinityIndex]?.state).toMatchObject({

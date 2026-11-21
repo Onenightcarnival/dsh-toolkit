@@ -3,27 +3,27 @@
  * host typert manifest validates incoming args and outgoing results, and the
  * client contribution validates the same envelope on the browser side.
  */
-import { z } from "zod";
+import { z } from 'zod'
 
 export const otelErrorSchema = z.object({
   code: z.string(),
-  message: z.string()
-});
+  message: z.string(),
+})
 
 export function okSchema(value) {
-  return z.object({ ok: z.literal(true), value });
+  return z.object({ ok: z.literal(true), value })
 }
 
 export function resultSchema(value) {
   return z.union([
     okSchema(value),
-    z.object({ ok: z.literal(false), error: otelErrorSchema })
-  ]);
+    z.object({ ok: z.literal(false), error: otelErrorSchema }),
+  ])
 }
 
 // ── status ──────────────────────────────────────────────────────────────────
 
-export const statusRequestSchema = z.object({});
+export const statusRequestSchema = z.object({})
 
 export const statusValueSchema = z.object({
   /** A configuration record has been saved at least once. */
@@ -58,10 +58,10 @@ export const statusValueSchema = z.object({
   lastExportAt: z.string().optional(),
   /** Whether the most recent export attempt succeeded. */
   lastExportOk: z.boolean().optional(),
-  version: z.string()
-});
+  version: z.string(),
+})
 
-export const statusResultSchema = resultSchema(statusValueSchema);
+export const statusResultSchema = resultSchema(statusValueSchema)
 
 // ── save ────────────────────────────────────────────────────────────────────
 
@@ -77,10 +77,10 @@ export const saveRequestSchema = z.object({
   /** Absent = collector default (128000). */
   contentMaxChars: z.number().int().min(100).max(10_000_000).optional(),
   /** Absent = collector default (512). */
-  maxExportBatchSize: z.number().int().min(1).max(4096).optional()
-});
+  maxExportBatchSize: z.number().int().min(1).max(4096).optional(),
+})
 
-export const saveResultSchema = resultSchema(statusValueSchema);
+export const saveResultSchema = resultSchema(statusValueSchema)
 
 // ── test ────────────────────────────────────────────────────────────────────
 
@@ -90,23 +90,23 @@ export const testRequestSchema = z.object({
   /** Absent = use the stored secret key. */
   secretKey: z.string().optional(),
   /** Absent = use the stored gzip setting. */
-  gzip: z.boolean().optional()
-});
+  gzip: z.boolean().optional(),
+})
 
 export const testResultSchema = resultSchema(
   z.object({
     message: z.string(),
-    traceEndpoint: z.string()
-  })
-);
+    traceEndpoint: z.string(),
+  }),
+)
 
 // ── verifyRecent ────────────────────────────────────────────────────────────
 
-export const verifyRecentRequestSchema = z.object({});
+export const verifyRecentRequestSchema = z.object({})
 
 export const verifyRecentResultSchema = resultSchema(
   z.object({
     message: z.string(),
-    allFound: z.boolean()
-  })
-);
+    allFound: z.boolean(),
+  }),
+)

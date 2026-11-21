@@ -27,7 +27,7 @@ function versionOf(dir, name) {
 /** @param {{ dir: string, entry: string, outfile?: string, inlined?: string[], external?: string[], plugins?: import('esbuild').Plugin[] }} options */
 export async function buildHost({ dir, entry, outfile = 'lib/index.js', inlined = [], external = [], plugins = [] }) {
   const pkg = manifest(dir)
-  const inlinedText = inlined.map((name) => `${name} ${versionOf(dir, name)}`).join(', ')
+  const inlinedText = inlined.map(name => `${name} ${versionOf(dir, name)}`).join(', ')
   mkdirSync(join(dir, 'lib'), { recursive: true })
   await build({
     absWorkingDir: dir,

@@ -69,7 +69,7 @@ test('Grok image generation maps size and quality and edits through the xAI edit
   const tool = createImageGenerateTool({
     grok: { tokens: { list: async () => [{ key: 'grok@example.test', session }], session: async () => session } },
     imagesDir: directory,
-    providerEnabled: provider => { assert.equal(provider, 'grok'); return enabled },
+    providerEnabled: (provider) => { assert.equal(provider, 'grok'); return enabled },
     resolveAttachments: () => ({ imageLimits: { maxImagesPerMessage: 5, maxImageBytes: 100, maxMessageImageBytes: 500 }, readImage: async () => ({ ref, data }) }),
     fetchFn: async (url, init) => {
       requests.push({ url, headers: init.headers, body: JSON.parse(init.body) })
@@ -127,7 +127,7 @@ test('native image paths use scoped tool policy; recent images use only the curr
   const tool = createImageGenerateTool({
     codexTokens: { list: async () => [{ key: 'fixture', session }], session: async () => session },
     imagesDir: directory, providerEnabled: () => enabled,
-    resolveAttachments: () => ({ imageLimits: { maxImagesPerMessage: 5, maxImageBytes: 100, maxMessageImageBytes: 500 }, readImage: async ref => {
+    resolveAttachments: () => ({ imageLimits: { maxImagesPerMessage: 5, maxImageBytes: 100, maxMessageImageBytes: 500 }, readImage: async (ref) => {
       imageReads.push(ref.attachmentId)
       return { ref, data }
     } }),
@@ -139,14 +139,14 @@ test('native image paths use scoped tool policy; recent images use only the curr
   const exec = {
     signal: new AbortController().signal, callId: 'image-call', token: Symbol('image-call'), rootCallId: 'root-call',
     agent: { session: { id: 'chat-a', header: {}, requestHeader: () => undefined }, options: {}, ctx: {
-      tools: { execute: async batch => {
+      tools: { execute: async (batch) => {
         reads.push(batch)
         const result = denied
           ? { isError: true, content: [{ type: 'text', text: 'permission denied' }] }
           : { isError: false, content: [{ type: 'image', attachment: refs[0] }] }
         return { results: batch.calls.map(call => ({ callId: call.id, result })), additionalContexts: [], concluded: false }
       } },
-      get: name => name === 'sessionQuery' ? { readSurface: async id => {
+      get: name => name === 'sessionQuery' ? { readSurface: async (id) => {
         queriedSessions.push(id)
         return { events: [
           { type: 'user/message', data: { content: [{ type: 'image', attachment: refs[0] }] } },
@@ -177,7 +177,7 @@ test('native image paths use scoped tool policy; recent images use only the curr
     assert.deepEqual(queriedSessions, ['chat-a'])
     assert.equal(requests[1].body.images.length, 2)
     for (const args of [
-      { referenced_image_paths: [], },
+      { referenced_image_paths: [] },
       { referenced_image_paths: ['relative.png'] },
       { referenced_image_paths: [path], num_last_images_to_include: 1 },
       { referenced_image_paths: [path], referenceImages: [refs[0]] },

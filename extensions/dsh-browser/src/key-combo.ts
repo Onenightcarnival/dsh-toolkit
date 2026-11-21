@@ -21,7 +21,7 @@ export interface KeyCombo {
 export function parseKeyCombo(combo: string): KeyCombo {
   const flags = { ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }
   if (combo.trim() === '+') return { key: '+', ...flags }
-  const parts = combo.split('+').map((part) => part.trim()).filter((part) => part !== '')
+  const parts = combo.split('+').map(part => part.trim()).filter(part => part !== '')
   let key = ''
   for (const part of parts) {
     const lower = part.toLowerCase()

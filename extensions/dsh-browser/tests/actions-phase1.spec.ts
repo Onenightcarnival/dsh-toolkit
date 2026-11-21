@@ -29,13 +29,13 @@ describe('shadow DOM piercing', () => {
       el.scrollIntoView = vi.fn()
     }
 
-    const names = collectInteractive(document).map((el) => el.textContent)
+    const names = collectInteractive(document).map(el => el.textContent)
     expect(names).toEqual(['Light', 'Deep button', 'Inner link'])
-    expect(deepQuerySelectorAll(document, 'a[href]').map((el) => el.textContent)).toEqual(['Inner link'])
+    expect(deepQuerySelectorAll(document, 'a[href]').map(el => el.textContent)).toEqual(['Inner link'])
 
     const ids = new ElementIds()
     const view = buildSnapshot(ids, { budget }, null)
-    expect(view.items.map((item) => item.name)).toEqual(['Light', 'Deep button', 'Inner link'])
+    expect(view.items.map(item => item.name)).toEqual(['Light', 'Deep button', 'Inner link'])
   })
 })
 
@@ -47,10 +47,10 @@ describe('snapshot enrichment', () => {
     `)
     const ids = new ElementIds()
     const view = buildSnapshot(ids, { budget }, null)
-    const select = view.items.find((item) => item.role === 'select')!
+    const select = view.items.find(item => item.role === 'select')!
     expect(select.options).toEqual(['Alpha', 'Beta ✓'])
     expect(select.rect).toEqual({ x: 0, y: 0, width: 200, height: 40 })
-    const menu = view.items.find((item) => item.name === 'Menu')!
+    const menu = view.items.find(item => item.name === 'Menu')!
     expect(menu.expanded).toBe(false)
     const text = renderSnapshot(view, false)
     expect(text).toContain('options: "Alpha", "Beta ✓"')
@@ -127,7 +127,7 @@ describe('browser_form_input', () => {
 
     expect((document.getElementById('name') as HTMLInputElement).value).toBe('Patricia')
     expect((document.getElementById('country') as HTMLSelectElement).value).toBe('sg')
-    expect([...(document.getElementById('tags') as HTMLSelectElement).selectedOptions].map((o) => o.value)).toEqual(['a', 'c'])
+    expect([...(document.getElementById('tags') as HTMLSelectElement).selectedOptions].map(o => o.value)).toEqual(['a', 'c'])
     expect((document.getElementById('agree') as HTMLInputElement).checked).toBe(true)
     expect((document.getElementById('notes') as HTMLTextAreaElement).value).toBe('multi\nline')
     expect(changes).toEqual(['name', 'country', 'tags', 'agree', 'notes'])
@@ -153,7 +153,7 @@ describe('browser_press combos and browser_hover', () => {
     const field = document.getElementById('field') as HTMLInputElement
     field.focus()
     const seen: KeyboardEvent[] = []
-    field.addEventListener('keydown', (event) => seen.push(event))
+    field.addEventListener('keydown', event => seen.push(event))
     const ids = new ElementIds()
     buildSnapshot(ids, { budget }, null)
     await runAction('browser_press', { key: 'Ctrl+a' }, { ids, budget })

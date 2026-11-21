@@ -81,8 +81,8 @@ async function waitFor(check, label, timeout = 60_000) {
 async function command(args) {
   const child = spawn(process.execPath, [cli, ...args], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
-  child.stdout.on('data', data => { output += data })
-  child.stderr.on('data', data => { output += data })
+  child.stdout.on('data', (data) => { output += data })
+  child.stderr.on('data', (data) => { output += data })
   const timeout = setTimeout(() => child.kill('SIGKILL'), 120_000)
   try {
     const [code] = await once(child, 'exit')
@@ -114,10 +114,10 @@ async function start(reopen) {
   host = spawn(process.execPath, [cli, 'web', '--patch', patch, '--no-open', '--port', '0'], {
     cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'],
   })
-  host.stdout.on('data', data => { hostLog += data })
-  host.stderr.on('data', data => { hostLog += data })
+  host.stdout.on('data', (data) => { hostLog += data })
+  host.stderr.on('data', (data) => { hostLog += data })
   let spawnError
-  host.on('error', error => { spawnError = error })
+  host.on('error', (error) => { spawnError = error })
   const base = await waitFor(() => {
     if (spawnError) throw spawnError
     return hostLog.match(/dsh web: (http:\/\/127\.0\.0\.1:\d+)/)?.[1]
@@ -150,8 +150,8 @@ async function start(reopen) {
   socket = new WebSocket(config.wsUrl, { origin: 'moz-extension://runtime-smoke', handshakeTimeout: 10_000 })
   const frames = []
   let socketError
-  socket.on('error', error => { socketError = error })
-  socket.on('message', data => { frames.push(JSON.parse(data.toString())) })
+  socket.on('error', (error) => { socketError = error })
+  socket.on('message', (data) => { frames.push(JSON.parse(data.toString())) })
   await once(socket, 'open')
   async function frame(predicate) {
     return waitFor(() => {

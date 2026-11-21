@@ -141,8 +141,8 @@ function anthropicUsage(usage: TokenUsage | undefined): Record<string, unknown> 
 export function anthropicErrorBody(code: string, message: string): Record<string, unknown> {
   const type = code === 'invalid_request_error' || code === 'unsupported_parameter' ? 'invalid_request_error'
     : code === 'authentication_error' ? 'authentication_error'
-    : code === 'permission_error' ? 'permission_error'
-    : code === 'not_found_error' || code === 'model_not_found' ? 'not_found_error' : 'api_error'
+      : code === 'permission_error' ? 'permission_error'
+        : code === 'not_found_error' || code === 'model_not_found' ? 'not_found_error' : 'api_error'
   return { type: 'error', error: { type, message } }
 }
 

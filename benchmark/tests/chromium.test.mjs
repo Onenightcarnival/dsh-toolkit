@@ -35,5 +35,5 @@ test('extension browser fallback excludes branded Chrome Stable', () => {
 
   assert.deepEqual(extensionCandidates, ['/Applications/Chromium.app/Contents/MacOS/Chromium'])
   assert.ok(baselineCandidates.includes('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'))
-  assert.ok(!extensionCandidates.some((candidate) => candidate.includes('Google Chrome.app')))
+  assert.ok(!extensionCandidates.some(candidate => candidate.includes('Google Chrome.app')))
 })

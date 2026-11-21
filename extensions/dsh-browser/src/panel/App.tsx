@@ -138,14 +138,14 @@ function relayTokenRef(routeKey: string): string {
 }
 
 function parseRelayModels(text: string): Array<{ id: string; contextWindow?: number }> {
-  return text.split('\n').map((line) => line.trim()).filter((line) => line !== '').map((line) => {
-    const [id, contextWindow] = line.split(',').map((part) => part.trim())
+  return text.split('\n').map(line => line.trim()).filter(line => line !== '').map((line) => {
+    const [id, contextWindow] = line.split(',').map(part => part.trim())
     const parsed = contextWindow === undefined || contextWindow === '' ? undefined : Number(contextWindow)
     return {
       id,
       ...(parsed !== undefined && Number.isFinite(parsed) && parsed > 0 ? { contextWindow: parsed } : {}),
     }
-  }).filter((model) => model.id !== '')
+  }).filter(model => model.id !== '')
 }
 
 /** Error text for a relay failure, including gateway details when present. */
@@ -474,7 +474,7 @@ function ApprovalDialog({
           <span>{copy.approval.origins}</span>
           {request.origins.length === 0
             ? <code className="unknown">{copy.approval.unknownOrigin}</code>
-            : request.origins.map((origin) => <code key={origin}>{origin}</code>)}
+            : request.origins.map(origin => <code key={origin}>{origin}</code>)}
         </div>
         <div className="approval-actions">
           <button className="deny" autoFocus onClick={() => onDecision('deny')}>{copy.approval.deny}</button>
@@ -635,7 +635,7 @@ const ToolGroup = memo(function ToolGroup({ rows, open, onToggle, copy }: {
       </button>
       {expanded && (
         <div className="tool-group-body">
-          {rows.map((row) => <ToolActivity key={row.seq} row={row} copy={copy} />)}
+          {rows.map(row => <ToolActivity key={row.seq} row={row} copy={copy} />)}
         </div>
       )}
     </div>
@@ -829,7 +829,7 @@ export function App(): React.JSX.Element {
         streamRefreshRef.current.clear()
         setStreamRow(null)
         setRows([])
-        setDraft((current) => ({ ...current, images: [] }))
+        setDraft(current => ({ ...current, images: [] }))
         setImageLimits(null)
         imageProjectionRef.current = { sessionId: null, seq: Number.NEGATIVE_INFINITY, limits: null }
         setSessionTitle(null)
@@ -839,15 +839,15 @@ export function App(): React.JSX.Element {
         setShowSessionPicker(false)
         stoppingRef.current = false
         clearQuestions()
-        setSessionEpoch((epoch) => epoch + 1)
+        setSessionEpoch(epoch => epoch + 1)
       }
     })
     const offEvent = api.onEvent((frame) => { void onFrame(frame) })
     const offApproval = api.onApprovalRequest((request) => {
-      updateApprovalQueue((current) => current.some((entry) => entry.id === request.id) ? current : [...current, request])
+      updateApprovalQueue(current => current.some(entry => entry.id === request.id) ? current : [...current, request])
     })
     const offApprovalResolved = api.onApprovalResolved((id) => {
-      updateApprovalQueue((current) => current.filter((request) => request.id !== id))
+      updateApprovalQueue(current => current.filter(request => request.id !== id))
     })
     const offTabAffinity = api.onTabAffinity(setTabAffinity)
     const offSelection = api.onSelection(setSelection)
@@ -1011,18 +1011,18 @@ export function App(): React.JSX.Element {
     if (payload.sessionId !== sessionRef.current) return
     const row = rowFromEvent(payload.event)
     if (row !== null) {
-      setRows((prev) => appendLiveRow(prev, row.kind, row.text, nextSeq(), row.images))
+      setRows(prev => appendLiveRow(prev, row.kind, row.text, nextSeq(), row.images))
       return
     }
     if (payload.event.type === 'tool/call') {
       setWorking(true)
       const summary = toolSummary(payload.event.data?.name ?? 'tool', payload.event.data?.arguments, locale)
-      setRows((prev) => appendLiveRow(prev, 'tool', summary, nextSeq()))
+      setRows(prev => appendLiveRow(prev, 'tool', summary, nextSeq()))
       return
     }
     if (payload.event.type === 'tool/result') {
       // Mark the last tool row complete.
-      setRows((prev) => completeLastTool(prev, nextSeq()))
+      setRows(prev => completeLastTool(prev, nextSeq()))
       return
     }
   }
@@ -1094,7 +1094,7 @@ export function App(): React.JSX.Element {
   function applyModelSelectionProjection(value: unknown): void {
     const projection = parseModelSelectionProjection(value)
     const next = effectiveSelection(projection, modelCatalogRef.current?.default ?? null)
-    setModelSelection((current) => sameSelection(current, next) ? current : next)
+    setModelSelection(current => sameSelection(current, next) ? current : next)
   }
 
   /** Load (or reload) the provider/model catalog dsh currently offers. */
@@ -1106,7 +1106,7 @@ export function App(): React.JSX.Element {
       modelCatalogRef.current = catalog
       setModelCatalog(catalog)
       setModelCatalogError(null)
-      setModelSelection((current) => current ?? catalog.default)
+      setModelSelection(current => current ?? catalog.default)
     } catch (cause) {
       setModelCatalogError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -1159,7 +1159,7 @@ export function App(): React.JSX.Element {
       }
       return
     }
-    const events = history.events.map((entry) => entry.event)
+    const events = history.events.map(entry => entry.event)
     if (history.snapshotId !== undefined && followed?.id === history.snapshotId) {
       if (followed.overflow) {
         void rebaselineStream(id)
@@ -1225,7 +1225,7 @@ export function App(): React.JSX.Element {
   /** Filter the raw catalog for the manual history picker. */
   async function loadVisibleSessions(): Promise<SessionPickerEntry[]> {
     const { items, archived } = await loadSessionCatalog()
-    return resumableSessions(items).filter((entry) => !archived.has(entry.sessionId))
+    return resumableSessions(items).filter(entry => !archived.has(entry.sessionId))
   }
 
   /** Restore only the exact current-page conversation, otherwise create a chat. */
@@ -1241,7 +1241,7 @@ export function App(): React.JSX.Element {
           // Blank sessions are hidden from the manual picker only; a hint may resume one.
           const entry = archived.has(hinted)
             ? undefined
-            : items.find((candidate) => candidate.sessionId === hinted && candidate.origin !== 'subagent')
+            : items.find(candidate => candidate.sessionId === hinted && candidate.origin !== 'subagent')
           if (entry !== undefined) {
             const history = await readHistory(hinted)
             if (sessionTransitionRef.current !== transition) return
@@ -1281,7 +1281,7 @@ export function App(): React.JSX.Element {
     setLoadingSessions(true)
     try {
       const items = await loadVisibleSessions()
-      const current = items.find((entry) => entry.sessionId === sessionRef.current)
+      const current = items.find(entry => entry.sessionId === sessionRef.current)
       const currentTitle = current === undefined ? undefined : projectedSessionTitle(current)
       if (currentTitle !== undefined) setSessionTitle(currentTitle)
       setSessionList(items)
@@ -1320,7 +1320,7 @@ export function App(): React.JSX.Element {
     if (!window.confirm(copy.app.deleteSessionConfirm(title))) return
     try {
       const result = await api.rpc<{ purged?: boolean; deferred?: boolean }>(BRIDGE_SESSION_PURGE_METHOD, { sessionId: entry.sessionId })
-      setSessionList((prev) => prev.filter((item) => item.sessionId !== entry.sessionId))
+      setSessionList(prev => prev.filter(item => item.sessionId !== entry.sessionId))
       // `deferred`: archived now, files purged on the next bridge start.
       setSessionNotice(result.deferred === true ? copy.app.deleteSessionDeferred : null)
       if (sessionRef.current === entry.sessionId) {
@@ -1346,7 +1346,7 @@ export function App(): React.JSX.Element {
         historyError = cause
       }
       if (sessionTransitionRef.current !== transition
-        || !approvalQueueRef.current.some((entry) => entry.id === request.id)) return
+        || !approvalQueueRef.current.some(entry => entry.id === request.id)) return
       const runtime = sessionRuntimeRef.current.snapshot(sessionId)
       prepareSessionSwitch(runtime.running, runtime.questions)
       sessionRef.current = sessionId
@@ -1434,7 +1434,7 @@ export function App(): React.JSX.Element {
     try {
       const prepared = await prepareImageFiles(files, existing, limits)
       if (sessionRef.current === sessionId) {
-        setDraft((current) => ({ ...current, images: [...current.images, ...prepared] }))
+        setDraft(current => ({ ...current, images: [...current.images, ...prepared] }))
       }
     } catch (cause) {
       if (sessionRef.current === sessionId) setError(imageErrorMessage(cause, copy, limits))
@@ -1476,7 +1476,7 @@ export function App(): React.JSX.Element {
       if (submittedSelection !== null) {
         // Conditional clearing leaves a newer highlight in place; the broadcast updates every panel.
         void api.clearSelection(submittedSelection).then(() => {
-          setSelection((current) => current?.capturedAt === submittedSelection.capturedAt ? null : current)
+          setSelection(current => current?.capturedAt === submittedSelection.capturedAt ? null : current)
         }).catch(() => {})
       }
     } catch (cause) {
@@ -1484,7 +1484,7 @@ export function App(): React.JSX.Element {
         setError(imageErrorMessage(cause, copy, imageLimits ?? undefined))
         setWorking(false)
         if (textOverride === undefined) {
-          setDraft((current) => restoreSubmittedDraft(current, submittedDraft))
+          setDraft(current => restoreSubmittedDraft(current, submittedDraft))
         }
       }
     } finally {
@@ -1529,7 +1529,7 @@ export function App(): React.JSX.Element {
 
   /** Trusted input uses the manifest's `debugger` permission; the toggle changes the setting only. */
   function toggleTrustedInput(enabled: boolean): void {
-    setSettings((current) => current === null ? current : { ...current, trustedInput: enabled })
+    setSettings(current => current === null ? current : { ...current, trustedInput: enabled })
   }
 
   /** Load relay profiles from the llm-pi-ai settings namespace once per settings visit. */
@@ -1541,7 +1541,7 @@ export function App(): React.JSX.Element {
         const described = await api.rpc<{
           namespaces?: Array<{ ns: string; value?: Record<string, unknown> }>
         }>('settings.describe', {})
-        const ns = described.namespaces?.find((candidate) => candidate.ns === 'llm-pi-ai')
+        const ns = described.namespaces?.find(candidate => candidate.ns === 'llm-pi-ai')
         const providers = (ns?.value?.providers ?? {}) as Record<string, {
           displayName?: string
           api?: string
@@ -1550,12 +1550,12 @@ export function App(): React.JSX.Element {
           models?: Array<{ id: string; contextWindow?: number }>
           defaultInput?: string[]
         }>
-        const defaults = (described.namespaces?.find((candidate) => candidate.ns === 'agent-default-model')
+        const defaults = (described.namespaces?.find(candidate => candidate.ns === 'agent-default-model')
           ?.value ?? {}) as { provider?: unknown }
         const refs = Object.entries(providers)
           .filter(([key]) => key.startsWith(RELAY_ROUTE_PREFIX))
           .map(([, route]) => typeof route.apiKeyEnv === 'string' ? route.apiKeyEnv : '')
-          .filter((ref) => ref !== '')
+          .filter(ref => ref !== '')
         let configuredRefs = new Set<string>()
         if (refs.length > 0) {
           try {
@@ -1583,10 +1583,10 @@ export function App(): React.JSX.Element {
             baseUrl: typeof route.baseURL === 'string' ? route.baseURL : '',
             token: '',
             tokenConfigured: route.apiKeyEnv !== undefined && configuredRefs.has(route.apiKeyEnv),
-            modelsText: (route.models ?? []).map((model) => [
+            modelsText: (route.models ?? []).map(model => [
               model.id,
               model.contextWindow === undefined ? '' : String(model.contextWindow),
-            ].filter((part) => part !== '').join(', ')).join('\n'),
+            ].filter(part => part !== '').join(', ')).join('\n'),
             imageInput: Array.isArray(route.defaultInput) && route.defaultInput.includes('image'),
             setDefault: defaults.provider === key,
           }))
@@ -1600,12 +1600,12 @@ export function App(): React.JSX.Element {
   }, [api, showSettings, relayLoaded])
 
   function updateRelayProfile(index: number, patch: Partial<RelayProfileDraft>): void {
-    setRelayProfiles((current) => current.map((profile, at) => at === index ? { ...profile, ...patch } : profile))
+    setRelayProfiles(current => current.map((profile, at) => at === index ? { ...profile, ...patch } : profile))
   }
 
   function addRelayProfile(): void {
     setRelayNotice(null)
-    setRelayProfiles((current) => [...current, {
+    setRelayProfiles(current => [...current, {
       key: '',
       name: '',
       protocol: 'openai-completions',
@@ -1620,7 +1620,7 @@ export function App(): React.JSX.Element {
 
   async function removeRelayProfile(index: number): Promise<void> {
     const profile = relayProfiles[index]
-    setRelayProfiles((current) => current.filter((_, at) => at !== index))
+    setRelayProfiles(current => current.filter((_, at) => at !== index))
     setRelayNotice(null)
     if (profile === undefined || profile.key === '') return
     try {
@@ -1645,7 +1645,7 @@ export function App(): React.JSX.Element {
     setRelayNotice(copy.settings.relayTesting)
     try {
       const { models, viaOpenaiListing } = await discoverWithFallback(api, profile)
-      const ids = models.map((model) => model.id)
+      const ids = models.map(model => model.id)
       if (ids.length === 0) {
         setRelayNotice(copy.settings.relayTestManualOnly)
         return
@@ -1679,10 +1679,10 @@ export function App(): React.JSX.Element {
         return
       }
       updateRelayProfile(index, {
-        modelsText: models.map((model) => [
+        modelsText: models.map(model => [
           model.id,
           model.contextWindow === undefined ? '' : String(model.contextWindow),
-        ].filter((part) => part !== '').join(', ')).join('\n'),
+        ].filter(part => part !== '').join(', ')).join('\n'),
       })
       setRelayNotice(copy.settings.relayFetchOk(models.length)
         + (viaOpenaiListing ? copy.settings.relayOpenaiListingNote : ''))
@@ -1771,9 +1771,9 @@ export function App(): React.JSX.Element {
     try {
       await api.respondToApproval(request.id, decision)
       if (decision === 'always-allow-reads') {
-        setSettings((current) => current === null ? current : { ...current, sharePageContent: 'auto' })
+        setSettings(current => current === null ? current : { ...current, sharePageContent: 'auto' })
       }
-      updateApprovalQueue((current) => current.filter((entry) => entry.id !== request.id))
+      updateApprovalQueue(current => current.filter(entry => entry.id !== request.id))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     }
@@ -1791,16 +1791,16 @@ export function App(): React.JSX.Element {
   function addTrustedOrigin(): void {
     const origin = normalizeWebOrigin(trustedOriginInput)
     if (origin === null) return
-    setSettings((current) => current === null
+    setSettings(current => current === null
       ? current
       : { ...current, trustedActionOrigins: [...new Set([...current.trustedActionOrigins, origin])].sort() })
     setTrustedOriginInput('')
   }
 
   function removeTrustedOrigin(origin: string): void {
-    setSettings((current) => current === null
+    setSettings(current => current === null
       ? current
-      : { ...current, trustedActionOrigins: current.trustedActionOrigins.filter((candidate) => candidate !== origin) })
+      : { ...current, trustedActionOrigins: current.trustedActionOrigins.filter(candidate => candidate !== origin) })
   }
 
   // The status bar shows connection state only.
@@ -1827,7 +1827,7 @@ export function App(): React.JSX.Element {
             <small>{copy.settings.bridgeHelp}</small>
             <input
               value={settings?.bridgeUrl ?? ''}
-              onChange={(e) => setSettings((prev) => prev === null ? prev : { ...prev, bridgeUrl: e.target.value })}
+              onChange={e => setSettings(prev => prev === null ? prev : { ...prev, bridgeUrl: e.target.value })}
               placeholder={copy.settings.bridgePlaceholder}
             />
           </label>
@@ -1837,7 +1837,7 @@ export function App(): React.JSX.Element {
             <input
               type="password"
               value={settings?.token ?? ''}
-              onChange={(e) => setSettings((prev) => prev === null ? prev : { ...prev, token: e.target.value })}
+              onChange={e => setSettings(prev => prev === null ? prev : { ...prev, token: e.target.value })}
               placeholder={copy.settings.tokenPlaceholder}
             />
           </label>
@@ -1847,7 +1847,7 @@ export function App(): React.JSX.Element {
             <select
               value={settings?.sharePageContent ?? 'auto'}
               disabled={settings?.unrestrictedBrowserAccess ?? false}
-              onChange={(e) => setSettings((prev) => prev === null ? prev : { ...prev, sharePageContent: e.target.value as PanelSettings['sharePageContent'] })}
+              onChange={e => setSettings(prev => prev === null ? prev : { ...prev, sharePageContent: e.target.value as PanelSettings['sharePageContent'] })}
             >
               <option value="auto">{copy.settings.sharingAuto}</option>
               <option value="ask">{copy.settings.sharingAsk}</option>
@@ -1865,7 +1865,7 @@ export function App(): React.JSX.Element {
               className="setting-toggle-input"
               type="checkbox"
               checked={settings?.unrestrictedBrowserAccess ?? false}
-              onChange={(event) => setSettings((current) => current === null
+              onChange={event => setSettings(current => current === null
                 ? current
                 : { ...current, unrestrictedBrowserAccess: event.target.checked })}
             />
@@ -1880,7 +1880,7 @@ export function App(): React.JSX.Element {
               className="setting-toggle-input"
               type="checkbox"
               checked={settings?.approvalNotifications ?? true}
-              onChange={(event) => setSettings((current) => current === null
+              onChange={event => setSettings(current => current === null
                 ? current
                 : { ...current, approvalNotifications: event.target.checked })}
             />
@@ -1895,7 +1895,7 @@ export function App(): React.JSX.Element {
               className="setting-toggle-input"
               type="checkbox"
               checked={settings?.autoResumeSession ?? true}
-              onChange={(event) => setSettings((current) => current === null
+              onChange={event => setSettings(current => current === null
                 ? current
                 : { ...current, autoResumeSession: event.target.checked })}
             />
@@ -1910,7 +1910,7 @@ export function App(): React.JSX.Element {
               className="setting-toggle-input"
               type="checkbox"
               checked={settings?.allowScreenshots ?? true}
-              onChange={(event) => setSettings((current) => current === null
+              onChange={event => setSettings(current => current === null
                 ? current
                 : { ...current, allowScreenshots: event.target.checked })}
             />
@@ -1945,7 +1945,7 @@ export function App(): React.JSX.Element {
                 <span>{copy.settings.relayName}</span>
                 <input
                   value={profile.name}
-                  onChange={(event) => updateRelayProfile(index, { name: event.target.value })}
+                  onChange={event => updateRelayProfile(index, { name: event.target.value })}
                   placeholder={copy.settings.relayNamePlaceholder}
                 />
               </label>
@@ -1953,7 +1953,7 @@ export function App(): React.JSX.Element {
                 <span>{copy.settings.relayProtocol}</span>
                 <select
                   value={profile.protocol}
-                  onChange={(event) => updateRelayProfile(index, {
+                  onChange={event => updateRelayProfile(index, {
                     protocol: event.target.value as RelayProfileDraft['protocol'],
                   })}
                 >
@@ -1966,7 +1966,7 @@ export function App(): React.JSX.Element {
                 <span>{copy.settings.relayBaseUrl}</span>
                 <input
                   value={profile.baseUrl}
-                  onChange={(event) => updateRelayProfile(index, { baseUrl: event.target.value })}
+                  onChange={event => updateRelayProfile(index, { baseUrl: event.target.value })}
                   placeholder="https://api.example.com/v1"
                 />
               </label>
@@ -1975,7 +1975,7 @@ export function App(): React.JSX.Element {
                 <input
                   type="password"
                   value={profile.token}
-                  onChange={(event) => updateRelayProfile(index, { token: event.target.value })}
+                  onChange={event => updateRelayProfile(index, { token: event.target.value })}
                   placeholder={copy.settings.relayTokenPlaceholder(profile.tokenConfigured)}
                 />
               </label>
@@ -1992,7 +1992,7 @@ export function App(): React.JSX.Element {
                   rows={3}
                   aria-label={copy.settings.relayModels}
                   value={profile.modelsText}
-                  onChange={(event) => updateRelayProfile(index, { modelsText: event.target.value })}
+                  onChange={event => updateRelayProfile(index, { modelsText: event.target.value })}
                   placeholder={copy.settings.relayModelsPlaceholder}
                 />
               </div>
@@ -2005,7 +2005,7 @@ export function App(): React.JSX.Element {
                   className="setting-toggle-input"
                   type="checkbox"
                   checked={profile.imageInput}
-                  onChange={(event) => updateRelayProfile(index, { imageInput: event.target.checked })}
+                  onChange={event => updateRelayProfile(index, { imageInput: event.target.checked })}
                 />
                 <span className="setting-toggle-control" aria-hidden="true"><span /></span>
               </label>
@@ -2018,7 +2018,7 @@ export function App(): React.JSX.Element {
                   className="setting-toggle-input"
                   type="checkbox"
                   checked={profile.setDefault}
-                  onChange={(event) => setRelayProfiles((current) => current.map((candidate, at) => at === index
+                  onChange={event => setRelayProfiles(current => current.map((candidate, at) => at === index
                     ? { ...candidate, setDefault: event.target.checked }
                     : candidate))}
                 />
@@ -2048,7 +2048,7 @@ export function App(): React.JSX.Element {
             <input
               aria-label={copy.settings.trustedOriginInput}
               value={trustedOriginInput}
-              onChange={(event) => setTrustedOriginInput(event.target.value)}
+              onChange={event => setTrustedOriginInput(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter') addTrustedOrigin() }}
               placeholder="https://example.com / https://*.example.com"
             />
@@ -2058,7 +2058,7 @@ export function App(): React.JSX.Element {
             <p className="origin-error">{copy.settings.invalidOrigin}</p>
           )}
           {settings?.trustedActionOrigins.length === 0 && <p>{copy.settings.noTrustedOrigins}</p>}
-          {settings?.trustedActionOrigins.map((origin) => (
+          {settings?.trustedActionOrigins.map(origin => (
             <div className="trusted-origin" key={origin}>
               <code>{origin}</code>
               <button onClick={() => removeTrustedOrigin(origin)} aria-label={copy.settings.removeOrigin(origin)}>{copy.settings.remove}</button>
@@ -2093,7 +2093,7 @@ export function App(): React.JSX.Element {
             aria-label={copy.app.newSession} title={copy.app.newSession}>
             <PlusIcon />
           </button>
-          <button className="icon-button text-size-trigger" onClick={() => setShowTextSize((open) => !open)}
+          <button className="icon-button text-size-trigger" onClick={() => setShowTextSize(open => !open)}
             aria-expanded={showTextSize} aria-label={copy.textSize.open} title={copy.textSize.open}>
             <TextSizeIcon />
           </button>
@@ -2103,7 +2103,7 @@ export function App(): React.JSX.Element {
       </header>
       {showTextSize && (
         <TextSizePanel scale={uiScale} copy={copy}
-          onStep={(direction) => changeUiScale(stepUiScale(uiScaleRef.current, direction))}
+          onStep={direction => changeUiScale(stepUiScale(uiScaleRef.current, direction))}
           onReset={() => changeUiScale(DEFAULT_UI_SCALE)} />
       )}
       <TabAffinityBanner state={tabAffinity} copy={copy} onDecision={decideTabAffinity} />
@@ -2164,7 +2164,7 @@ export function App(): React.JSX.Element {
             </button>
           </div>
         )}
-        {transcript.map((item) => item.type === 'tools'
+        {transcript.map(item => item.type === 'tools'
           ? (
             <div key={`tools-${item.key}`} className="row tool">
               <ToolGroup
@@ -2233,9 +2233,9 @@ export function App(): React.JSX.Element {
                       disabled={busy || addingImages}
                       aria-label={copy.app.removeImage(name)}
                       title={copy.app.removeImage(name)}
-                      onClick={() => setDraft((current) => ({
+                      onClick={() => setDraft(current => ({
                         ...current,
-                        images: current.images.filter((item) => item.id !== image.id),
+                        images: current.images.filter(item => item.id !== image.id),
                       }))}
                     >×</button>
                   </span>
@@ -2261,7 +2261,7 @@ export function App(): React.JSX.Element {
           <textarea
             value={input}
             onChange={(e) => {
-              if (!sendingRef.current) setDraft((current) => ({ ...current, text: e.target.value }))
+              if (!sendingRef.current) setDraft(current => ({ ...current, text: e.target.value }))
             }}
             onKeyDown={(e) => {
               // Enter during IME composition does not send.
@@ -2273,8 +2273,8 @@ export function App(): React.JSX.Element {
             onPaste={(e) => {
               // Clipboard images (screenshots, copied pictures) attach like picked files; text pastes as usual.
               const files = Array.from(e.clipboardData.items)
-                .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
-                .map((item) => item.getAsFile())
+                .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+                .map(item => item.getAsFile())
                 .filter((file): file is File => file !== null)
               if (files.length === 0) return
               e.preventDefault()

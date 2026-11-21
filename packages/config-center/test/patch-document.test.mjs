@@ -64,7 +64,7 @@ test('a non-sequence patch is refused', () => {
 })
 
 test('adding the first server to an empty flow list yields a block list', () => {
-  const out = edit('# header\n[]\n', document => {
+  const out = edit('# header\n[]\n', (document) => {
     assert.equal(upsertMcp(document, { serverName: 'fs', enabled: true, transport: 'stdio', command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'] }), 'mcp-fs')
   })
   assert.match(out, /^# header\n- insert:\n/)
@@ -75,7 +75,7 @@ test('adding the first server to an empty flow list yields a block list', () => 
 })
 
 test('a new server joins the existing MCP insert list and leaves other rows as written', () => {
-  const out = edit(DESKTOP, document => {
+  const out = edit(DESKTOP, (document) => {
     upsertMcp(document, { serverName: 'gh', enabled: true, transport: 'stdio', command: 'npx', env: { GITHUB_TOKEN: '!!js process.env.GITHUB_TOKEN' } })
   })
   assert.deepEqual(listMcp(parsePatch(out)).map(entry => entry.id), ['mcp-time', 'mcp-web', 'mcp-gh'])
@@ -86,7 +86,7 @@ test('a new server joins the existing MCP insert list and leaves other rows as w
 })
 
 test('updating keeps fields outside the form and expressions', () => {
-  const out = edit(DESKTOP, document => {
+  const out = edit(DESKTOP, (document) => {
     const web = listMcp(document)[1]
     assert.equal(upsertMcp(document, { ...web.server, url: 'http://127.0.0.1:9090/mcp' }, web.id), 'mcp-web')
   })
@@ -96,7 +96,7 @@ test('updating keeps fields outside the form and expressions', () => {
 })
 
 test('switching transport drops the other transport\'s fields', () => {
-  const out = edit(DESKTOP, document => {
+  const out = edit(DESKTOP, (document) => {
     upsertMcp(document, { serverName: 'time', enabled: true, transport: 'streamable-http', url: 'https://example.com/mcp' }, 'mcp-time')
   })
   const [time] = listMcp(parsePatch(out))
@@ -107,7 +107,7 @@ test('switching transport drops the other transport\'s fields', () => {
 test('renaming re-addresses a derived id and drops overrides of the old id', () => {
   const source = `${DESKTOP}- id: mcp-time\n  disabled: false\n`
   assert.equal(listMcp(parsePatch(source))[0].server.enabled, true)
-  const out = edit(source, document => {
+  const out = edit(source, (document) => {
     assert.equal(upsertMcp(document, { serverName: 'clock', enabled: false, transport: 'stdio', command: 'uvx', args: ['mcp-server-time'] }, 'mcp-time'), 'mcp-clock')
   })
   assert.doesNotMatch(out, /mcp-time/)
@@ -115,8 +115,8 @@ test('renaming re-addresses a derived id and drops overrides of the old id', () 
 })
 
 test('a hand-chosen id survives a rename', () => {
-  const source = `- insert:\n    - id: clock\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: time\n        transport: stdio\n        command: uvx\n`
-  const out = edit(source, document => {
+  const source = '- insert:\n    - id: clock\n      name: \'@deepseek-ai/dsh-mcp-client\'\n      config:\n        serverName: time\n        transport: stdio\n        command: uvx\n'
+  const out = edit(source, (document) => {
     assert.equal(upsertMcp(document, { serverName: 'time2', enabled: true, transport: 'stdio', command: 'uvx' }, 'clock'), 'clock')
   })
   assert.equal(listMcp(parsePatch(out))[0].server.serverName, 'time2')
@@ -125,7 +125,7 @@ test('a hand-chosen id survives a rename', () => {
 test('enablement set in the form replaces override rows', () => {
   const source = `${DESKTOP}- id: mcp-web\n  disabled: true\n`
   assert.equal(listMcp(parsePatch(source))[1].server.enabled, false)
-  const out = edit(source, document => {
+  const out = edit(source, (document) => {
     const web = listMcp(document)[1]
     upsertMcp(document, { ...web.server, enabled: true }, web.id)
   })
@@ -145,12 +145,12 @@ test('duplicate names, duplicate ids and unknown ids are refused', () => {
   assert.equal(issue(document => upsertMcp(document, { serverName: 'web', enabled: true, transport: 'stdio', command: 'x' }, 'mcp-time')), 'duplicate-name')
   assert.equal(issue(document => upsertMcp(document, { serverName: 'x', enabled: true, transport: 'stdio', command: 'x' }, 'mcp-none')), 'missing')
   assert.equal(issue(document => removeMcp(document, 'ui-theme')), 'missing')
-  const taken = `- insert:\n    - id: mcp-x\n      name: other-plugin\n`
+  const taken = '- insert:\n    - id: mcp-x\n      name: other-plugin\n'
   assert.throws(() => upsertMcp(parsePatch(taken), { serverName: 'x', enabled: true, transport: 'stdio', command: 'x' }), error => error.issue === 'duplicate-id')
 })
 
 test('removing servers keeps foreign rows; the emptied insert list goes', () => {
-  const out = edit(DESKTOP, document => {
+  const out = edit(DESKTOP, (document) => {
     removeMcp(document, 'mcp-time')
     removeMcp(document, 'mcp-web')
   })
@@ -161,20 +161,20 @@ test('removing servers keeps foreign rows; the emptied insert list goes', () => 
 })
 
 test('removing the last row of a patch leaves the empty list', () => {
-  const source = `- insert:\n    - id: mcp-a\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: a\n        transport: stdio\n        command: x\n`
+  const source = '- insert:\n    - id: mcp-a\n      name: \'@deepseek-ai/dsh-mcp-client\'\n      config:\n        serverName: a\n        transport: stdio\n        command: x\n'
   const out = edit(source, document => removeMcp(document, 'mcp-a'))
   assert.equal(out.trim(), '[]')
 })
 
 test('an insert list shared with other plugins keeps them', () => {
-  const source = `- insert:\n    - id: other\n      name: other-plugin\n    - id: mcp-a\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: a\n        transport: stdio\n        command: x\n`
+  const source = '- insert:\n    - id: other\n      name: other-plugin\n    - id: mcp-a\n      name: \'@deepseek-ai/dsh-mcp-client\'\n      config:\n        serverName: a\n        transport: stdio\n        command: x\n'
   const out = edit(source, document => removeMcp(document, 'mcp-a'))
   assert.match(out, /- id: other\n {6}name: other-plugin/)
 })
 
 test('reads setting overrides; later rows win; invalid values are ignored', () => {
   assert.deepEqual(readSettings(parsePatch(DESKTOP)), { goalMaxRounds: 5120, compactionEnabled: true })
-  const source = `- id: goal\n  config:\n    defaultMaxGoalRounds: 10\n- id: goal\n  config:\n    defaultMaxGoalRounds: 20\n- id: compaction-basic\n  config:\n    thresholdRatio: 7\n`
+  const source = '- id: goal\n  config:\n    defaultMaxGoalRounds: 10\n- id: goal\n  config:\n    defaultMaxGoalRounds: 20\n- id: compaction-basic\n  config:\n    thresholdRatio: 7\n'
   assert.deepEqual(readSettings(parsePatch(source)), { goalMaxRounds: 20 })
 })
 
@@ -188,7 +188,7 @@ test('writes settings onto existing rows and creates missing ones', () => {
 })
 
 test('null removes an override, keeps sibling keys and prunes emptied rows', () => {
-  const source = `- id: goal\n  config:\n    defaultMaxGoalRounds: 10\n    other: 1\n- id: compaction-basic\n  disabled: false\n  config:\n    thresholdRatio: 0.5\n`
+  const source = '- id: goal\n  config:\n    defaultMaxGoalRounds: 10\n    other: 1\n- id: compaction-basic\n  disabled: false\n  config:\n    thresholdRatio: 0.5\n'
   const out = edit(source, document => writeSettings(document, { goalMaxRounds: null, compactionEnabled: null, compactionThreshold: null }))
   assert.equal(out, '- id: goal\n  config:\n    other: 1\n')
   assert.deepEqual(readSettings(parsePatch(out)), {})

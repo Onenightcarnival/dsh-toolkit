@@ -204,17 +204,17 @@ const DEFAULT_MODELS: Record<ProviderId, ModelEntry[]> = {
 
 /** Validate and detach the model catalog for every provider. */
 function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry[]> {  const resolve = (provider: ProviderId): ModelEntry[] => {
-    // Empty and absent lists both select the built-in catalog (schemastery injects `[]` for omitted arrays).
-    const configured = models?.[provider]
-    const entries = configured !== undefined && configured.length > 0 ? configured : DEFAULT_MODELS[provider]
-    return validateModels(entries, `${name}: models.${provider}`)
-  }
-  return {
-    chatgpt: resolve('chatgpt'),
-    codex: resolve('codex'),
-    antigravity: resolve('antigravity'),
-    grok: resolve('grok'),
-  }
+  // Empty and absent lists both select the built-in catalog (schemastery injects `[]` for omitted arrays).
+  const configured = models?.[provider]
+  const entries = configured !== undefined && configured.length > 0 ? configured : DEFAULT_MODELS[provider]
+  return validateModels(entries, `${name}: models.${provider}`)
+}
+return {
+  chatgpt: resolve('chatgpt'),
+  codex: resolve('codex'),
+  antigravity: resolve('antigravity'),
+  grok: resolve('grok'),
+}
 }
 
 /** The display account of a stored session, for the status endpoint. */
@@ -496,7 +496,7 @@ export function presentedVersion(
     let timer: ReturnType<typeof setTimeout> | undefined
     await Promise.race([
       cache.resolve(),
-      new Promise<void>(resolve => { timer = setTimeout(resolve, waitMs) }),
+      new Promise<void>((resolve) => { timer = setTimeout(resolve, waitMs) }),
     ]).finally(() => { clearTimeout(timer) })
     return cache.current()
   }
@@ -627,7 +627,7 @@ export function apply(ctx: Context, config: Config): void {
             refresh: refreshCodex,
             isPermanent: isCodexPermanentRefreshError,
           }),
-          onAccountRemoved: account => { authChanged('codex', account) },
+          onAccountRemoved: (account) => { authChanged('codex', account) },
         })
         codexTokens = tokens
         accountTokens.set('codex', tokens as AccountTokenManager<StoredSession>)
@@ -718,7 +718,7 @@ export function apply(ctx: Context, config: Config): void {
           try {
             const accounts = (await accountTokens.get(provider)?.list() ?? []).map(entry => entry.key)
             if (accounts.length === 0) return
-            const catalogs = (await Promise.all(accounts.map(async account => {
+            const catalogs = (await Promise.all(accounts.map(async (account) => {
               const models = await withTimeout(
                 signal => adapter.listOwnModels(provider, account, signal),
                 POOL_USAGE_TIMEOUT_MS,
@@ -889,7 +889,7 @@ export function apply(ctx: Context, config: Config): void {
         models: await withTimeout(signal => adapter.listOwnModels(provider, account.key, signal), DISCOVERY_TIMEOUT_MS).catch(() => undefined),
       })))
       const tierIds = new Set((await poolAdapter?.modelsForProvider(provider).catch(() => []) ?? []).map(model => model.id))
-      const rows = await Promise.all(models.map(async model => {
+      const rows = await Promise.all(models.map(async (model) => {
         const contexts: { default: number; max?: number }[] = []
         const contextAdapter = provider === 'codex' ? codexAdapter : provider === 'chatgpt' ? chatgptAdapter : provider === 'grok' ? grokAdapter : antigravityAdapter
         if (contextAdapter) {
@@ -935,7 +935,7 @@ export function apply(ctx: Context, config: Config): void {
     },
   })
 
-  ctx.inject(['tools'], toolsCtx => {
+  ctx.inject(['tools'], (toolsCtx) => {
     const search = codexTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createCodexWebSearchTool(new CodexWebSearchProvider({
       tokens: codexTokens,
       enabled: () => preferences.toolEnabled('codex', 'web_search'),

@@ -17,7 +17,7 @@ export interface SessionPickerEntry {
 
 /** Only ordinary, started conversations can be resumed through session.prompt. */
 export function resumableSessions(items: readonly SessionPickerEntry[]): SessionPickerEntry[] {
-  return items.filter((entry) => !entry.blank && entry.origin !== 'subagent')
+  return items.filter(entry => !entry.blank && entry.origin !== 'subagent')
 }
 
 /** Match dsh's display-title fallback without loading a session's history. */

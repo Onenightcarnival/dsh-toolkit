@@ -28,7 +28,7 @@ describe('allocateFrameBudgets', () => {
     const allocated = allocateFrameBudgets(frames(6), { maxItems: 1, maxChars: 3 })
 
     expect(allocated.get(0)).toEqual({ maxItems: 1, maxChars: 2 })
-    expect([...allocated.values()].slice(1).map((entry) => entry.maxItems)).toEqual([0, 0, 0, 0, 0])
+    expect([...allocated.values()].slice(1).map(entry => entry.maxItems)).toEqual([0, 0, 0, 0, 0])
     expect([...allocated.values()].reduce((sum, entry) => sum + entry.maxItems, 0)).toBe(1)
     expect([...allocated.values()].reduce((sum, entry) => sum + entry.maxChars, 0)).toBe(3)
   })
@@ -54,7 +54,7 @@ describe('sortTabFrames', () => {
       { frameId: 2, parentFrameId: 0, url: 'https://sibling.example/' },
     ]
 
-    expect(sortTabFrames(input).map((frame) => frame.frameId)).toEqual([0, 2, 4, 9])
-    expect(input.map((frame) => frame.frameId)).toEqual([9, 4, 0, 2])
+    expect(sortTabFrames(input).map(frame => frame.frameId)).toEqual([0, 2, 4, 9])
+    expect(input.map(frame => frame.frameId)).toEqual([9, 4, 0, 2])
   })
 })

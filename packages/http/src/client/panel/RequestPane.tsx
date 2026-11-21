@@ -336,7 +336,7 @@ export function RequestPane(props: RequestPaneProps): JSX.Element {
       </form>
 
       <div className="dsh-http-tabs" data-scroll role="tablist" ref={tabsRef}>
-        {REQUEST_TABS.map(value => {
+        {REQUEST_TABS.map((value) => {
           const label = badge(value)
           return (
             <button key={value} type="button" role="tab" aria-selected={tab === value} className="dsh-http-tab" {...(tab === value ? { 'data-active': '' } : {})} onClick={() => { props.onTab(value) }}>

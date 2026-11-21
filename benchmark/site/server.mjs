@@ -4,7 +4,7 @@ import { makeTaskInstance, TASK_IDS } from '../lib/tasks.mjs'
 function readJson(request) {
   return new Promise((resolve, reject) => {
     const chunks = []
-    request.on('data', (chunk) => chunks.push(chunk))
+    request.on('data', chunk => chunks.push(chunk))
     request.on('end', () => {
       try {
         resolve(chunks.length === 0 ? {} : JSON.parse(Buffer.concat(chunks).toString('utf8')))
@@ -88,7 +88,7 @@ function layout(instance, body, script = '') {
 function renderTask(instance) {
   const { id, page } = instance
   if (id === 'order_lookup') {
-    const rows = page.orders.map((order) => `<tr><td>${htmlEscape(order.id)}</td><td>${htmlEscape(order.customer)}</td><td>¥${(order.cents / 100).toFixed(2)}</td></tr>`).join('')
+    const rows = page.orders.map(order => `<tr><td>${htmlEscape(order.id)}</td><td>${htmlEscape(order.customer)}</td><td>¥${(order.cents / 100).toFixed(2)}</td></tr>`).join('')
     return layout(instance, `<h1>订单中心</h1><p>最近订单如下。</p><table><thead><tr><th>订单号</th><th>客户</th><th>总金额</th></tr></thead><tbody>${rows}</tbody></table>`)
   }
   if (id === 'notification_toggle') {
@@ -100,7 +100,7 @@ function renderTask(instance) {
       });`)
   }
   if (id === 'contact_form') {
-    return layout(instance, `<h1>联系信息</h1><form id="contact-form"><label for="name">姓名</label><input id="name" name="name" autocomplete="off"><label for="email">邮箱</label><input id="email" name="email" type="email" autocomplete="off"><label for="city">城市</label><input id="city" name="city" autocomplete="off"><button type="submit">提交联系信息</button></form><p id="submitted" class="notice" hidden>联系信息已提交</p>`, `
+    return layout(instance, '<h1>联系信息</h1><form id="contact-form"><label for="name">姓名</label><input id="name" name="name" autocomplete="off"><label for="email">邮箱</label><input id="email" name="email" type="email" autocomplete="off"><label for="city">城市</label><input id="city" name="city" autocomplete="off"><button type="submit">提交联系信息</button></form><p id="submitted" class="notice" hidden>联系信息已提交</p>', `
       document.querySelector('#contact-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
@@ -109,7 +109,7 @@ function renderTask(instance) {
       });`)
   }
   if (id === 'inventory_filter') {
-    return layout(instance, `<h1>库存查询</h1><form id="filter-form"><label for="sku">SKU 包含</label><input id="sku" name="sku" autocomplete="off"><label for="maximum">最高价格（元）</label><input id="maximum" name="maximum" inputmode="decimal" autocomplete="off"><button type="submit">应用筛选</button></form><section id="results" aria-live="polite"><p>请先应用筛选。</p></section>`, `
+    return layout(instance, '<h1>库存查询</h1><form id="filter-form"><label for="sku">SKU 包含</label><input id="sku" name="sku" autocomplete="off"><label for="maximum">最高价格（元）</label><input id="maximum" name="maximum" inputmode="decimal" autocomplete="off"><button type="submit">应用筛选</button></form><section id="results" aria-live="polite"><p>请先应用筛选。</p></section>', `
       const products = window.__BENCHMARK__.page.products;
       document.querySelector('#filter-form').addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -123,7 +123,7 @@ function renderTask(instance) {
       });`)
   }
   if (id === 'cart_checkout') {
-    const products = page.products.map((product) => `<article class="product"><strong>${htmlEscape(product.name)}</strong><span> · ¥${(product.cents / 100).toFixed(2)}</span><button type="button" data-product-id="${htmlEscape(product.id)}">加入购物车</button></article>`).join('')
+    const products = page.products.map(product => `<article class="product"><strong>${htmlEscape(product.name)}</strong><span> · ¥${(product.cents / 100).toFixed(2)}</span><button type="button" data-product-id="${htmlEscape(product.id)}">加入购物车</button></article>`).join('')
     return layout(instance, `<h1>商品目录</h1><section id="catalog">${products}</section><section id="cart" hidden><h2>购物车</h2><p id="cart-name"></p><label for="quantity">数量</label><input id="quantity" type="number" min="1" value="1"><button id="checkout" type="button">完成结算</button></section><p id="complete" class="notice" hidden>结算完成</p>`, `
       const products = window.__BENCHMARK__.page.products;
       let selected = null;
@@ -238,7 +238,7 @@ export async function startBenchmarkSite({ host = '127.0.0.1', port = 4173 } = {
   const actualPort = typeof address === 'object' && address !== null ? address.port : port
   return {
     origin: `http://${host}:${actualPort}`,
-    close: () => new Promise((resolve, reject) => server.close((error) => error === undefined ? resolve() : reject(error))),
+    close: () => new Promise((resolve, reject) => server.close(error => error === undefined ? resolve() : reject(error))),
   }
 }
 

@@ -2,88 +2,88 @@
  * Build the four published bundles into lib/.
  * Externals: the DSH runtime's host packages, and react on the client; everything else is bundled.
  */
-import { build } from "esbuild";
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { build } from 'esbuild'
+import { mkdir, readFile, rm } from 'node:fs/promises'
 
-import { keepAliveShimPlugin } from "./keepalive-shim.mjs";
+import { keepAliveShimPlugin } from './keepalive-shim.mjs'
 
-const PKG = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).name;
+const PKG = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).name
 
 /** Provided by the DSH runtime closure at load time — never bundled. */
 const HOST_EXTERNALS = [
-  "node:*",
-  "@deepseek-ai/cordis",
-  "@deepseek-ai/dsh-typert-protocol",
-  "@deepseek-ai/dsh-storage-domain"
-];
+  'node:*',
+  '@deepseek-ai/cordis',
+  '@deepseek-ai/dsh-typert-protocol',
+  '@deepseek-ai/dsh-storage-domain',
+]
 
-const banner = `/* ${PKG} — MIT; bundles @loongsuite/dsh-plugin and OpenTelemetry JS (Apache-2.0), zod and schemastery (MIT); see THIRD-PARTY-NOTICES. */`;
+const banner = `/* ${PKG} — MIT; bundles @loongsuite/dsh-plugin and OpenTelemetry JS (Apache-2.0), zod and schemastery (MIT); see THIRD-PARTY-NOTICES. */`
 
 // `require` for bundled CJS dependencies (@opentelemetry/*, protobufjs) that load Node builtins by bare name.
 const hostBanner = `${banner}
 import { createRequire as __dshOtelCreateRequire } from "node:module";
-const require = __dshOtelCreateRequire(import.meta.url);`;
+const require = __dshOtelCreateRequire(import.meta.url);`
 
-await rm("lib", { recursive: true, force: true });
-await mkdir("lib", { recursive: true });
+await rm('lib', { recursive: true, force: true })
+await mkdir('lib', { recursive: true })
 
 // Host half: the cordis service plus the embedded collector pipeline.
 await build({
-  entryPoints: ["src/index.js"],
+  entryPoints: ['src/index.js'],
   bundle: true,
-  format: "esm",
-  platform: "node",
-  target: "node22",
-  outfile: "lib/index.js",
+  format: 'esm',
+  platform: 'node',
+  target: 'node22',
+  outfile: 'lib/index.js',
   external: HOST_EXTERNALS,
   banner: { js: hostBanner },
   plugins: [keepAliveShimPlugin],
-  logLevel: "info"
-});
+  logLevel: 'info',
+})
 
 // Host typert manifest (strict dispatch codecs; zod bundled).
 await build({
-  entryPoints: ["src/typert.js"],
+  entryPoints: ['src/typert.js'],
   bundle: true,
-  format: "esm",
-  platform: "node",
-  target: "node22",
-  outfile: "lib/typert.js",
+  format: 'esm',
+  platform: 'node',
+  target: 'node22',
+  outfile: 'lib/typert.js',
   external: HOST_EXTERNALS,
   banner: { js: hostBanner },
-  logLevel: "info"
-});
+  logLevel: 'info',
+})
 
 // Client remote contribution as a standalone export (also bundled into client.js).
 await build({
-  entryPoints: ["src/remote.js"],
+  entryPoints: ['src/remote.js'],
   bundle: true,
-  format: "esm",
-  platform: "browser",
-  target: "es2020",
-  outfile: "lib/remote.js",
+  format: 'esm',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: 'lib/remote.js',
   banner: { js: banner },
-  logLevel: "info"
-});
+  logLevel: 'info',
+})
 
 // Client half: wrapped for the DSH web module loader. The loader provides
 // `require` inside the factory; only react stays external.
 await build({
-  entryPoints: ["src/client/index.jsx"],
+  entryPoints: ['src/client/index.jsx'],
   bundle: true,
-  format: "cjs",
-  platform: "browser",
-  target: "es2020",
-  outfile: "lib/client.js",
-  external: ["react"],
-  jsx: "transform",
+  format: 'cjs',
+  platform: 'browser',
+  target: 'es2020',
+  outfile: 'lib/client.js',
+  external: ['react'],
+  jsx: 'transform',
   banner: {
-    js: `window.__ModuleLoader__.load({\n\tid: ${JSON.stringify(PKG)},\n\tfactory: (require) => {\n\t\tvar module = { exports: {} };\n\t\tvar exports = module.exports;`
+    js: `window.__ModuleLoader__.load({\n\tid: ${JSON.stringify(PKG)},\n\tfactory: (require) => {\n\t\tvar module = { exports: {} };\n\t\tvar exports = module.exports;`,
   },
   footer: {
-    js: `\n\t\treturn module.exports;\n\t}\n});`
+    js: '\n\t\treturn module.exports;\n\t}\n});',
   },
-  logLevel: "info"
-});
+  logLevel: 'info',
+})
 
-console.log("build complete");
+console.log('build complete')

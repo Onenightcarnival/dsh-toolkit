@@ -88,7 +88,7 @@ export function parseModelCatalog(value: unknown): ModelCatalog | null {
       if (!isRecord(model) || typeof model.id !== 'string') continue
       const reasoning = isRecord(model.reasoning) && Array.isArray(model.reasoning.efforts)
         ? {
-          efforts: model.reasoning.efforts.flatMap((effort) => isRecord(effort) && typeof effort.id === 'string'
+          efforts: model.reasoning.efforts.flatMap(effort => isRecord(effort) && typeof effort.id === 'string'
             ? [{
               id: effort.id,
               name: typeof effort.name === 'string' && effort.name !== '' ? effort.name : effort.id,
@@ -111,10 +111,10 @@ export function parseModelCatalog(value: unknown): ModelCatalog | null {
     default: fallback,
     routableProviders: Array.isArray(value.routableProviders)
       ? value.routableProviders.filter((id): id is string => typeof id === 'string')
-      : groups.map((group) => group.id),
+      : groups.map(group => group.id),
     groups,
     failures: Array.isArray(value.failures)
-      ? value.failures.flatMap((failure) => isRecord(failure) && typeof failure.id === 'string'
+      ? value.failures.flatMap(failure => isRecord(failure) && typeof failure.id === 'string'
         ? [{
           id: failure.id,
           name: typeof failure.name === 'string' ? failure.name : failure.id,
@@ -149,8 +149,8 @@ export function findCatalogModel(
   selection: ModelSelection | null,
 ): { group: ModelProviderGroup; model: ModelCatalogModel } | null {
   if (catalog === null || selection === null) return null
-  const group = catalog.groups.find((candidate) => candidate.id === selection.provider)
-  const model = group?.models.find((candidate) => candidate.id === selection.model)
+  const group = catalog.groups.find(candidate => candidate.id === selection.provider)
+  const model = group?.models.find(candidate => candidate.id === selection.model)
   return group === undefined || model === undefined ? null : { group, model }
 }
 
@@ -160,7 +160,7 @@ export function selectionLabel(catalog: ModelCatalog | null, selection: ModelSel
   const found = findCatalogModel(catalog, selection)
   const name = found?.model.name ?? selection.model
   if (selection.reasoningEffort === undefined) return name
-  const effort = found?.model.reasoning?.efforts.find((candidate) => candidate.id === selection.reasoningEffort)
+  const effort = found?.model.reasoning?.efforts.find(candidate => candidate.id === selection.reasoningEffort)
   return `${name} · ${effort?.name ?? selection.reasoningEffort}`
 }
 
@@ -182,7 +182,7 @@ export function selectionForModel(
   let reasoningEffort: string | undefined
   if (efforts.length > 0) {
     const keep = current !== null && current.provider === group.id && current.model === model.id
-      && efforts.some((effort) => effort.id === current.reasoningEffort)
+      && efforts.some(effort => effort.id === current.reasoningEffort)
     reasoningEffort = keep ? current.reasoningEffort : model.reasoning?.defaultEffort ?? efforts[0]?.id
   }
   return { provider: group.id, model: model.id, ...(reasoningEffort === undefined ? {} : { reasoningEffort }) }

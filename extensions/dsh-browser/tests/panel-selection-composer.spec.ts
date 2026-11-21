@@ -10,7 +10,7 @@ import type { PageSelection } from '../src/selection.ts'
 let panelApi: PanelApi
 
 // Keep the real module's exports: the panel's error mapping uses PanelRpcError.
-vi.mock('../src/panel/api.ts', async (importOriginal) => ({
+vi.mock('../src/panel/api.ts', async importOriginal => ({
   ...await importOriginal<typeof import('../src/panel/api.ts')>(),
   connectPanel: (): PanelApi => panelApi,
 }))

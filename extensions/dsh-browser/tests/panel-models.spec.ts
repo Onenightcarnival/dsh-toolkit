@@ -40,7 +40,7 @@ describe('parseModelCatalog', () => {
   it('normalizes names, efforts and failures, and drops malformed groups', () => {
     const catalog = parseModelCatalog(wireCatalog)
     expect(catalog).not.toBeNull()
-    expect(catalog?.groups.map((group) => group.id)).toEqual(['deepseek', 'relay'])
+    expect(catalog?.groups.map(group => group.id)).toEqual(['deepseek', 'relay'])
     expect(catalog?.groups[1]?.models[0]).toEqual({ id: 'gpt-x', name: 'gpt-x' })
     expect(catalog?.groups[0]?.models[1]?.reasoning).toEqual({
       efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }],

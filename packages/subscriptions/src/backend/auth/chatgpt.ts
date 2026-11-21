@@ -146,13 +146,13 @@ export async function exchangeChatGptCode(code: string, attempt: OAuthAttempt, r
   const clientId = attempt.callbackParams.get('client_id') ?? registration.clientId
   if (!validClientId(clientId) || (registration.clientId !== 'dynamic_agent_client' && registration.clientId !== clientId)) throw new Error('Invalid ChatGPT registration callback')
   const issued = { ...registration, clientId }
-  await updateRegistry(data => { data.accounts[clientId] = issued })
+  await updateRegistry((data) => { data.accounts[clientId] = issued })
   const body = await tokenRequest({ grant_type: 'authorization_code', client_id: clientId, code, code_verifier: attempt.pkce.verifier, redirect_uri: attempt.redirectUri }, fetchFn)
   if (!body.id_token) throw new Error('ChatGPT did not return an ID token')
   const identity = await validateChatGptIdentity(body.id_token, clientId, attempt.nonce, fetchFn)
   if (registration.subject && registration.subject !== identity.subject) throw new Error('ChatGPT identity changed during reauthorization')
   const scopes = typeof body.scope === 'string' ? body.scope.split(/\s+/).filter(Boolean) : []
-  await updateRegistry(data => { data.accounts[clientId] = { ...issued, ...identity, planEnabled: scopes.includes(DIRECT_SCOPE) } })
+  await updateRegistry((data) => { data.accounts[clientId] = { ...issued, ...identity, planEnabled: scopes.includes(DIRECT_SCOPE) } })
   // Identity-only grants retain their verified registration for explicit reauthorization.
   if (!scopes.includes(DIRECT_SCOPE)) throw new ChatGptPlanNotEnabledError(clientId)
   if (!body.refresh_token) throw new Error('ChatGPT did not grant offline access. Sign in again.')

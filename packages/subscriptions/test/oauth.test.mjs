@@ -19,7 +19,7 @@ const spec = {
 const callback = (attempt, state = attempt.state) => `${attempt.redirectUri}?code=fixture-code&state=${state}`
 
 for (const errorCode of ['EACCES', 'EPERM', 'EADDRINUSE']) {
-  test(`${errorCode} on callback ports falls back to a state-validated manual login`, async t => {
+  test(`${errorCode} on callback ports falls back to a state-validated manual login`, async (t) => {
     const ports = []
     t.mock.method(Server.prototype, 'listen', function (port) {
       ports.push(port)
@@ -78,7 +78,7 @@ test('normal callback validates state, completes login and closes its listener',
   } finally { attempt.cancel(); await code.catch(() => {}) }
 })
 
-test('manual fallback still times out and releases the attempt', async t => {
+test('manual fallback still times out and releases the attempt', async (t) => {
   t.mock.method(Server.prototype, 'listen', function () {
     queueMicrotask(() => this.emit('error', Object.assign(new Error('blocked'), { code: 'EACCES' })))
     return this
@@ -89,7 +89,7 @@ test('manual fallback still times out and releases the attempt', async t => {
   assert.equal(manager.isBusy('codex'), false)
 })
 
-test('unexpected listener errors are not hidden by manual fallback', async t => {
+test('unexpected listener errors are not hidden by manual fallback', async (t) => {
   t.mock.method(Server.prototype, 'listen', function () {
     queueMicrotask(() => this.emit('error', Object.assign(new Error('resource limit'), { code: 'EMFILE' })))
     return this

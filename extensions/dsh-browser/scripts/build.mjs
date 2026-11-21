@@ -24,7 +24,7 @@ const configs = [
 
 if (watch) {
   // Watchers run in parallel.
-  const children = configs.map((config) => spawn('vite', ['build', '--config', config, '--watch'], {
+  const children = configs.map(config => spawn('vite', ['build', '--config', config, '--watch'], {
     cwd: root,
     stdio: 'inherit',
     shell: process.platform === 'win32',

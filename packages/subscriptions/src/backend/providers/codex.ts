@@ -840,7 +840,7 @@ export class CodexAdapter extends LlmAdapter {
     const accounts = account === undefined
       ? (await this.options.tokens.list()).map(entry => entry.key)
       : [account]
-    return discoverAcrossAccounts(accounts, async account => {
+    return discoverAcrossAccounts(accounts, async (account) => {
       const catalog = await this.catalogFor(account)
       const models = await catalog.resolve(() => this.fetchCatalog(account))
       return models?.find(entry => entry.id === model)

@@ -74,7 +74,7 @@ export async function annotateScreenshot(
   viewport: AnnotationViewport,
 ): Promise<{ image: ScreenshotImage; labels: number }> {
   const { base64, mediaType } = splitDataUrl(dataUrl)
-  const source = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))
+  const source = Uint8Array.from(atob(base64), char => char.charCodeAt(0))
   const bitmap = await createImageBitmap(new Blob([source], { type: mediaType }))
   try {
     const scale = Math.min(1, MAX_SCREENSHOT_EDGE / Math.max(bitmap.width, bitmap.height))

@@ -8,7 +8,7 @@ import { SkillStore } from '../src/skills.ts'
 
 const zip = entries => zipSync(Object.fromEntries(Object.entries(entries).map(([name, text]) => [name, strToU8(text)])))
 const skill = '---\nname: sample\ndescription: Test skill\nmetadata:\n  version: "1.0"\n---\n# Sample\n'
-const withStore = run => {
+const withStore = (run) => {
   const home = fs.mkdtempSync(join(tmpdir(), 'dsh-skills-'))
   try { run(new SkillStore(home, []), home) } finally { fs.rmSync(home, { recursive: true, force: true }) }
 }
@@ -51,7 +51,7 @@ test('skill installation, conflicts, enable state, previews and legacy storage',
 })
 
 test('ZIP installation extracts every entry unchanged', () => {
-  withStore(store => {
+  withStore((store) => {
     const archive = zipSync({
       'skill_a/SKILL.MD': strToU8(skill), 'skill_a/reference/guide.md': strToU8('# Guide'), 'skill_a/.DS_Store': strToU8('x'), 'skill_a/empty/': new Uint8Array(),
       'skill_a/scripts/run.sh': [strToU8('echo 1\n'), { os: 3, attrs: 0o100755 << 16 }], 'skill_a/scripts/lib.sh': [strToU8('#!/bin/sh\n'), { os: 3, attrs: 0o100644 << 16 }],
@@ -70,12 +70,12 @@ test('ZIP installation extracts every entry unchanged', () => {
     assert.deepEqual(store.install(archive, 'replace').installed, ['skill_a', 'Skill B', 'flat', 'LICENSE'])
     assert.deepEqual(fs.readdirSync(store.disabled), [])
   })
-  withStore(store => {
+  withStore((store) => {
     // A root-level SKILL.md and its siblings land in the skills directory as they are.
     store.install(zip({ 'SKILL.md': skill, 'reference/guide.md': 'x' }))
     assert.deepEqual(tree(store.root), ['SKILL.md', 'reference', 'reference/guide.md'])
   })
-  withStore(store => {
+  withStore((store) => {
     // Backslash separators, and a UTF-8 entry name stored without the ZIP UTF-8 flag (macOS Archive Utility).
     const archive = Buffer.from(zip({ 'sample\\SKILL.md': skill, 'sample\\ref\\XXXXXX.md': 'x' }))
     const source = Buffer.from('XXXXXX'), target = Buffer.from('说明')
@@ -83,7 +83,7 @@ test('ZIP installation extracts every entry unchanged', () => {
     assert.deepEqual(store.install(archive).installed, ['sample'])
     assert.deepEqual(tree(store.root), ['sample', 'sample/SKILL.md', 'sample/ref', 'sample/ref/说明.md'])
   })
-  withStore(store => {
+  withStore((store) => {
     assert.throws(() => store.install(zip({ '__MACOSX/._x': 'x' })), /没有可解压的文件/)
     assert.throws(() => store.install(zip({ 'sample/SKILL.md': skill, 'sample.md': skill })), /重复技能名：sample/)
     assert.equal(fs.existsSync(store.root), false)
@@ -91,7 +91,7 @@ test('ZIP installation extracts every entry unchanged', () => {
 })
 
 test('skills with any folder name are listed and managed', () => {
-  withStore(store => {
+  withStore((store) => {
     store.install(zip({ 'skill_a/SKILL.md': skill, 'Skill B/SKILL.md': '# No frontmatter', 'docs/guide.md': 'x', '.hidden/SKILL.md': skill }))
     assert.deepEqual(store.list().skills.map(item => item.name), ['Skill B', 'skill_a'])
     assert.equal(store.read('Skill B', 'SKILL.md').text, '# No frontmatter')

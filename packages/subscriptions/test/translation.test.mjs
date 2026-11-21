@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: `export { CodexAdapter, projectCodexMessages } from './providers/codex.ts'; export { resolveImages } from './translate/resolved.ts'; export { toResponsesInput } from './translate/responses.ts';`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: 'export { CodexAdapter, projectCodexMessages } from \'./providers/codex.ts\'; export { resolveImages } from \'./translate/resolved.ts\'; export { toResponsesInput } from \'./translate/responses.ts\';', resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|undici$)/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }))

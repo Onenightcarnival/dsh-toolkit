@@ -18,7 +18,7 @@ describe('transcript tool groups', () => {
       row(4, 'assistant'),
       row(5, 'tool', 'running'),
     ])
-    expect(items.map((item) => item.type)).toEqual(['row', 'tools', 'row', 'tools'])
+    expect(items.map(item => item.type)).toEqual(['row', 'tools', 'row', 'tools'])
     expect(items[1]).toEqual({ type: 'tools', key: 2, rows: [row(2, 'tool', 'complete'), row(3, 'tool', 'complete')] })
     expect(items[3]).toEqual({ type: 'tools', key: 5, rows: [row(5, 'tool', 'running')] })
   })

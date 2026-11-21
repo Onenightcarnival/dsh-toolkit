@@ -205,13 +205,13 @@ export function parseBridgeFrame(text: string): BridgeFrame | undefined {
         && typeof frame.args === 'object' && frame.args !== null && !Array.isArray(frame.args)
         && typeof frame.expiresAt === 'number' && Number.isFinite(frame.expiresAt) && frame.expiresAt > 0
         ? {
-            t: 'tool.call',
-            id: frame.id,
-            name: frame.name,
-            args: frame.args as Record<string, unknown>,
-            expiresAt: frame.expiresAt,
-            ...(typeof frame.sessionId === 'string' ? { sessionId: frame.sessionId } : {}),
-          }
+          t: 'tool.call',
+          id: frame.id,
+          name: frame.name,
+          args: frame.args as Record<string, unknown>,
+          expiresAt: frame.expiresAt,
+          ...(typeof frame.sessionId === 'string' ? { sessionId: frame.sessionId } : {}),
+        }
         : undefined
     case 'tool.cancel':
       return typeof frame.id === 'string' ? { t: 'tool.cancel', id: frame.id } : undefined

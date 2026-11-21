@@ -279,7 +279,7 @@ export class S3Engine {
       queueSize: 3,
       leavePartsOnError: false,
     })
-    if (onProgress !== undefined) upload.on('httpUploadProgress', p => { if (typeof p.loaded === 'number') onProgress(p.loaded) })
+    if (onProgress !== undefined) upload.on('httpUploadProgress', (p) => { if (typeof p.loaded === 'number') onProgress(p.loaded) })
     await upload.done()
   }
 

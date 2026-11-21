@@ -320,7 +320,7 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
         + 'Returns the saved file paths; on image-capable models the image itself is attached. '
         + 'For edits, pass complete referenceImages from read_image or prior image tool results; omit them only for a new image. '
         + 'Never omit failed edit references to substitute a new generation. size maps onto the aspect ratio and quality onto low/medium.'
-      : 'Generate or edit images with the ChatGPT subscription (gpt-image-2) and save them locally. '
+        : 'Generate or edit images with the ChatGPT subscription (gpt-image-2) and save them locally. '
       + 'Image requests use available ChatGPT accounts; quota or authentication rejection can switch accounts. '
       + 'Returns the saved file paths; on image-capable models the image itself is attached. '
       + 'For edits, use referenced_image_paths for absolute local paths, or num_last_images_to_include for the smallest recent conversation image window (1–5) containing the intended images. '
@@ -396,7 +396,7 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
       },
       render: (_args, value) => imageGenerateContent(value, toolName),
     },
-    presentCall: args => {
+    presentCall: (args) => {
       const input: ImageGenerateArgs = args
       const count = input.referenceImages?.length ?? input.referenced_image_paths?.length ?? input.num_last_images_to_include
       return { card: 'generic', title: `${toolName}${count == null ? '' : ` (edit, ${count} images)`}: ${truncate(args.prompt)}` }

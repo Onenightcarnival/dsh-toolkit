@@ -24,7 +24,7 @@ function fixture(t: { after(fn: () => void): void }) {
   return { store, tools, run, save, seed }
 }
 
-test('typed batch creates server ids, resolves forward references, and stores one version with provenance', async t => {
+test('typed batch creates server ids, resolves forward references, and stores one version with provenance', async (t) => {
   const { store, seed, run } = fixture(t)
   const result = await seed()
   assert.equal(result.ok, true); assert.equal(result.version, 1); assert.equal(result.stateToken, 'r:1')
@@ -46,7 +46,7 @@ test('typed batch creates server ids, resolves forward references, and stores on
   assert.equal(root.children.items[0].childCount, 1)
 })
 
-test('root and child pages are bounded; node reads preserve full text', async t => {
+test('root and child pages are bounded; node reads preserve full text', async (t) => {
   const { run, save, seed } = fixture(t)
   const result = await seed()
   await save([{ kind: 'work', id: result.refs.work, fields: { highlights: 'x'.repeat(700) + 'special bridge lesson' } },
@@ -70,7 +70,7 @@ test('root and child pages are bounded; node reads preserve full text', async t 
   assert.equal((await run('memory_get', { id: 'nope' })).error.code, 'missing')
 })
 
-test('global access permits Agent updates and removals of human-edited records', async t => {
+test('global access permits Agent updates and removals of human-edited records', async (t) => {
   const { store, seed, save, run } = fixture(t), result = await seed()
   store.commit({ baseRevision: 1, summary: 'Human correction', changes: [{ id: result.refs.project, kind: 'project', fields: { title: 'Confirmed' } }] }, 'human')
   const saved = await save([{ kind: 'work', id: result.refs.work, fields: { jobTitle: 'Lead' } }, { kind: 'project', id: result.refs.project, fields: { title: 'Updated' } }])
@@ -86,7 +86,7 @@ test('global access permits Agent updates and removals of human-edited records',
   assert.equal(removed.ok, true)
 })
 
-test('per-kind schema rejects misplaced fields; missing ids and references never create records', async t => {
+test('per-kind schema rejects misplaced fields; missing ids and references never create records', async (t) => {
   const { store, save } = fixture(t)
   await assert.rejects(() => save([{ kind: 'work', fields: { title: 'Not a work field' } }]))
   await assert.rejects(() => save([{ kind: 'lesson', fields: { parentId: 'x', title: 'Not a lesson field' } }]))
@@ -96,7 +96,7 @@ test('per-kind schema rejects misplaced fields; missing ids and references never
   assert.equal(store.read().revision, 0)
 })
 
-test('clearing resets the visible version while tokens still reject stale writes', async t => {
+test('clearing resets the visible version while tokens still reject stale writes', async (t) => {
   const { store, run, save, seed } = fixture(t), prior = await seed()
   store.clear(store.read().revision)
   const empty = await run('memory_get')
@@ -107,7 +107,7 @@ test('clearing resets the visible version while tokens still reject stale writes
   assert.equal((await run('memory_get', { id: prior.refs.project })).error.code, 'missing')
 })
 
-test('no-op saves do not add versions; removal preserves reference constraints', async t => {
+test('no-op saves do not add versions; removal preserves reference constraints', async (t) => {
   const { store, save, seed } = fixture(t), result = await seed()
   const unchanged = await save([{ kind: 'project', id: result.refs.project, fields: { title: 'Bridge project' } }])
   assert.equal(unchanged.changed, false); assert.equal(unchanged.version, 1)
@@ -116,7 +116,7 @@ test('no-op saves do not add versions; removal preserves reference constraints',
   assert.equal(removed.ok, true); assert.equal(removed.version, 2); assert.equal(store.read().entries.length, 1)
 })
 
-test('new lessons require text and a project parent; all validation failures are atomic', async t => {
+test('new lessons require text and a project parent; all validation failures are atomic', async (t) => {
   const { store, save } = fixture(t)
   const empty = await save([{ kind: 'project', ref: 'p', fields: { title: 'Project' } }, { kind: 'lesson', fields: { parentId: '@p', lesson: ' ' } }])
   assert.equal(empty.error.code, 'content')
@@ -128,7 +128,7 @@ test('new lessons require text and a project parent; all validation failures are
 
 test('English and Chinese dictionaries contain the same keys', () => assert.deepEqual(Object.keys(en).sort(), Object.keys(zh).sort()))
 
-test('child pages use project highlights and structured experience dates', async t => {
+test('child pages use project highlights and structured experience dates', async (t) => {
   const { save, run } = fixture(t)
   const created = await save([
     { kind: 'project', ref: 'recent', fields: { title: 'Project recent', startDate: '2026-03-01', highlights: 'Delivered' } },

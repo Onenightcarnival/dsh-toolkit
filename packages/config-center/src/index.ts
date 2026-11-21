@@ -176,7 +176,7 @@ function applyImpl(ctx: Context, config?: Config): void {
     environment: () => environment.status(),
     installEnvironment: () => environment.install(async () => {
       // Existing uv / uvx MCP entries are rewritten to managed absolute paths.
-      await mutate(document => {
+      await mutate((document) => {
         for (const { id, server } of listMcp(document)) {
           if (server.transport === 'stdio' && environment.tool(server.command)) upsertMcp(document, environment.invocation(server), id)
         }
@@ -214,7 +214,7 @@ function applyImpl(ctx: Context, config?: Config): void {
       const { application } = await mutate(document => writeSettings(document, values), () => enabling)
       return { ...await settings(), application }
     },
-    rejection: req => {
+    rejection: (req) => {
       const connection = optional.get('connection')
       return connection?.requestRejection ? connection.requestRejection(req) : 503
     },

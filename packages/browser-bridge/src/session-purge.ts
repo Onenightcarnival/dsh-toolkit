@@ -77,7 +77,7 @@ export async function purgeSessionFiles(deps: SessionPurgeDeps, sessionId: strin
   let workspaces: string[]
   try {
     workspaces = await readdir(deps.sessionsRoot, { withFileTypes: true })
-      .then((entries) => entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name))
+      .then(entries => entries.filter(entry => entry.isDirectory()).map(entry => entry.name))
   } catch (error: unknown) {
     throw new SessionPurgeError('internal', `could not read the sessions root "${deps.sessionsRoot}": ${String(error)}`)
   }

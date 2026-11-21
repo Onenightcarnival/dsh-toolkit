@@ -21,8 +21,8 @@ export class SubscriptionsApi {
     const valid = this.provider === 'codex'
       ? url.origin === 'https://auth.openai.com' && url.pathname === '/oauth/authorize'
       : this.provider === 'chatgpt' ? url.origin === 'https://auth.openai.com' && url.pathname === '/api/accounts/authorize'
-      : this.provider === 'grok' ? url.protocol === 'https:' && (url.hostname === 'x.ai' || url.hostname.endsWith('.x.ai'))
-      : url.origin === 'https://accounts.google.com' && url.pathname === '/o/oauth2/v2/auth'
+        : this.provider === 'grok' ? url.protocol === 'https:' && (url.hostname === 'x.ai' || url.hostname.endsWith('.x.ai'))
+          : url.origin === 'https://accounts.google.com' && url.pathname === '/o/oauth2/v2/auth'
     if (!valid || url.username || url.password) throw new Error(`Invalid ${AUTHORIZATION_LABEL[this.provider]} authorization URL`)
     return { authorizeUrl: url.href, manualOnly: value.manualOnly === true }
   }

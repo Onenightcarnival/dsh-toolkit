@@ -38,7 +38,7 @@ function assertTopFrame(args) {
 }
 
 async function settle(page, policy = ACTION_SETTLE, extraMs = 0) {
-  await page.evaluate((settlePolicy) => new Promise((resolve) => {
+  await page.evaluate(settlePolicy => new Promise((resolve) => {
     const startedAt = performance.now()
     let readyAt = document.readyState === 'complete' ? startedAt : undefined
     let lastMutationAt = startedAt
@@ -319,7 +319,7 @@ export async function apply(ctx, config = {}) {
       if (toolName === 'browser_snapshot') result = await snapshot(page, args, limits)
       else if (toolName === 'browser_click') {
         const locator = await elementFor(page, args)
-        const isLink = await locator.evaluate((element) => element instanceof HTMLAnchorElement)
+        const isLink = await locator.evaluate(element => element instanceof HTMLAnchorElement)
         await locator.click()
         await settle(page, ACTION_SETTLE)
         result = { text: isLink
@@ -419,7 +419,7 @@ export async function apply(ctx, config = {}) {
     }
   }
 
-  const disposers = defineTools(run).map((tool) => ctx.tools.register(tool))
+  const disposers = defineTools(run).map(tool => ctx.tools.register(tool))
   ctx.effect(() => () => { for (const dispose of disposers) dispose() }, 'benchmark-playwright: browser tools')
   ctx.effect(() => () => browser.close(), 'benchmark-playwright: browser')
 

@@ -86,7 +86,7 @@ describe('debugger sessions', () => {
   it('dispatches mouse press/release pairs, drags with intermediate moves, and key chords', async () => {
     const mod = await load()
     await mod.debuggerClick(1, { x: 10, y: 20, clickCount: 2 })
-    const clickTypes = sent.map((entry) => `${entry.params?.type}:${entry.params?.clickCount ?? ''}`)
+    const clickTypes = sent.map(entry => `${entry.params?.type}:${entry.params?.clickCount ?? ''}`)
     expect(clickTypes).toEqual(['mouseMoved:', 'mousePressed:1', 'mouseReleased:1', 'mousePressed:2', 'mouseReleased:2'])
 
     sent.length = 0
@@ -94,11 +94,11 @@ describe('debugger sessions', () => {
     expect(sent[0]?.params?.type).toBe('mouseMoved')
     expect(sent[1]?.params?.type).toBe('mousePressed')
     expect(sent.at(-1)?.params).toMatchObject({ type: 'mouseReleased', x: 100, y: 50 })
-    expect(sent.filter((entry) => entry.params?.type === 'mouseMoved' && entry.params.buttons === 1)).toHaveLength(10)
+    expect(sent.filter(entry => entry.params?.type === 'mouseMoved' && entry.params.buttons === 1)).toHaveLength(10)
 
     sent.length = 0
     await mod.debuggerPress(1, { key: 'a', ctrlKey: true, shiftKey: false, altKey: false, metaKey: false })
-    expect(sent.map((entry) => entry.params?.type)).toEqual(['rawKeyDown', 'keyUp'])
+    expect(sent.map(entry => entry.params?.type)).toEqual(['rawKeyDown', 'keyUp'])
     expect(sent[0]?.params).toMatchObject({ key: 'a', code: 'KeyA', modifiers: 2 })
     expect(sent[0]?.params?.text).toBeUndefined()
 

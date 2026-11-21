@@ -86,7 +86,7 @@ export class AntigravityToolClient {
     const payload = await this.generate(ANTIGRAVITY_IMAGE_MODEL, {
       contents: [{ role: 'user', parts: [
         { text: args.prompt.trim() },
-        ...(references ?? []).map(url => {
+        ...(references ?? []).map((url) => {
           const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/.exec(url)
           if (!match) throw new Error('Invalid Antigravity reference image')
           return { inlineData: { mimeType: match[1], data: match[2] } }

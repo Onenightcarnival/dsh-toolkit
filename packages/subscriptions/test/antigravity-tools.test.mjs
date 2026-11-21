@@ -9,7 +9,7 @@ import { build } from 'esbuild'
 
 const require = createRequire(import.meta.url)
 const compiled = await build({
-  stdin: { contents: `export * from './providers/antigravity-tools.ts'; export * from './tools/image-generate.ts'; export * from './tools/web-search.ts'`, resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
+  stdin: { contents: 'export * from \'./providers/antigravity-tools.ts\'; export * from \'./tools/image-generate.ts\'; export * from \'./tools/web-search.ts\'', resolveDir: fileURLToPath(new URL('../src/backend', import.meta.url)), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'host-imports', setup(build) {
     build.onResolve({ filter: /^(@deepseek-ai\/|@cortexkit\/|undici$)/ }, args => ({ path: args.path.startsWith('@cortexkit/') ? import.meta.resolve(args.path) : pathToFileURL(require.resolve(args.path)).href, external: true }))
@@ -62,7 +62,7 @@ test('Google tool requests refresh one account once and fall back between origin
   // A generic 429 or 5xx on the default origin moves to the fallback origin; the second answer is final.
   for (const status of [429, 500, 503]) {
     const urls = []
-    const recovered = new AntigravityToolClient({ tokens, fetchFn: async url => {
+    const recovered = new AntigravityToolClient({ tokens, fetchFn: async (url) => {
       urls.push(url)
       return urls.length === 1 ? new Response('{"error":{"status":"RESOURCE_EXHAUSTED"}}', { status }) : Response.json(imagePayload)
     } })
@@ -81,7 +81,7 @@ test('Google tool requests refresh one account once and fall back between origin
   assert.equal(quotaCalls, 1)
   // A configured base URL never falls back.
   let pinnedCalls = 0
-  const pinned = new AntigravityToolClient({ tokens, runtime: { baseURL: 'https://pinned.test' }, fetchFn: async url => { pinnedCalls++; assert.match(url, /^https:\/\/pinned\.test\//); return new Response('', { status: 429 }) } })
+  const pinned = new AntigravityToolClient({ tokens, runtime: { baseURL: 'https://pinned.test' }, fetchFn: async (url) => { pinnedCalls++; assert.match(url, /^https:\/\/pinned\.test\//); return new Response('', { status: 429 }) } })
   await assert.rejects(pinned.images({ prompt: 'fixture' }, undefined, signal), /HTTP 429/)
   assert.equal(pinnedCalls, 1)
   let sent = false
@@ -101,7 +101,7 @@ test('Google image tool saves and attaches images, validates references and resp
   let enabled = true
   const tool = createImageGenerateTool({
     antigravity: { generate: (args, refs, signal) => client.images(args, refs, signal) }, imagesDir: directory,
-    providerEnabled: provider => { assert.equal(provider, 'antigravity'); return enabled },
+    providerEnabled: (provider) => { assert.equal(provider, 'antigravity'); return enabled },
     resolveAttachments: () => ({ imageLimits: { maxImagesPerMessage: 5, maxImageBytes: 1000, maxMessageImageBytes: 5000 }, readImage: async () => ({ ref, data: png }), saveImage: async () => ref }),
     resolveLlm: () => ({ resolveModelInfo: async () => ({ inputModalities: ['text', 'image'] }) }),
   })

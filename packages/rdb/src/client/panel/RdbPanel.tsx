@@ -72,10 +72,10 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     setSchemas([]); setSel(undefined); setTables(undefined); setInfo(undefined); setTreeFilter('')
     if (activeId === undefined) return
     let cancelled = false
-    api.schemas(activeId).then(res => {
+    api.schemas(activeId).then((res) => {
       if (cancelled) return
       setSchemas(res.schemas); setSel({ id: activeId, schema: res.defaultSchema })
-    }, err => { if (!cancelled) setBanner({ kind: 'error', text: errorMessage(err) }) })
+    }, (err) => { if (!cancelled) setBanner({ kind: 'error', text: errorMessage(err) }) })
     return () => { cancelled = true }
   }, [api, activeId])
 
@@ -83,7 +83,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     if (activeId === undefined || schema === '') return
     let cancelled = false
     setTables(undefined)
-    api.tables(activeId, schema).then(list => { if (!cancelled) setTables(list) }, err => { if (!cancelled) { setTables([]); setBanner({ kind: 'error', text: errorMessage(err) }) } })
+    api.tables(activeId, schema).then((list) => { if (!cancelled) setTables(list) }, (err) => { if (!cancelled) { setTables([]); setBanner({ kind: 'error', text: errorMessage(err) }) } })
     return () => { cancelled = true }
   }, [api, activeId, schema])
 
@@ -92,7 +92,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     setInfo(undefined)
     if (activeId === undefined || table === undefined) return
     let cancelled = false
-    api.tableInfo(activeId, table).then(res => { if (!cancelled) setInfo(res) }, err => { if (!cancelled) setBanner({ kind: 'error', text: errorMessage(err) }) })
+    api.tableInfo(activeId, table).then((res) => { if (!cancelled) setInfo(res) }, (err) => { if (!cancelled) setBanner({ kind: 'error', text: errorMessage(err) }) })
     return () => { cancelled = true }
   }, [api, activeId, table])
 

@@ -60,7 +60,7 @@ const MessageImage = memo(function MessageImage({
 
   if (failed) {
     return (
-      <button type="button" className="message-image-error" onClick={() => setAttempt((value) => value + 1)}>
+      <button type="button" className="message-image-error" onClick={() => setAttempt(value => value + 1)}>
         {copy.app.imageLoadFailed}
       </button>
     )
@@ -85,7 +85,7 @@ const MessageImage = memo(function MessageImage({
         <div className="image-lightbox" role="dialog" aria-modal="true" aria-label={copy.app.imagePreview}
           onClick={() => setOpen(false)}>
           <button type="button" aria-label={copy.app.closeImage} onClick={() => setOpen(false)}>×</button>
-          <img src={src} alt={label} onClick={(event) => event.stopPropagation()} />
+          <img src={src} alt={label} onClick={event => event.stopPropagation()} />
         </div>
       )}
     </>

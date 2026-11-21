@@ -51,7 +51,7 @@ export async function resolveNativeImageReferences(args: NativeImageReferences, 
     for (const event of surface.events) {
       const content = event.type === 'user/message' ? event.data.content
         : event.type === 'assistant/message' ? event.data.message.content
-        : event.type === 'tool/result' && !event.data.message.isError ? event.data.message.content : []
+          : event.type === 'tool/result' && !event.data.message.isError ? event.data.message.content : []
       for (const block of content) if (block.type === 'image') {
         const previous = refs.findIndex(ref => ref.attachmentId === block.attachment.attachmentId)
         if (previous !== -1) refs.splice(previous, 1)

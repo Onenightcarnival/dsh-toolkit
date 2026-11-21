@@ -38,7 +38,7 @@ function tab(id: number, url: string, windowId = 1): chrome.tabs.Tab {
 }
 
 function mockChrome(initialTabs: chrome.tabs.Tab[], storedContext?: unknown) {
-  const tabs = new Map(initialTabs.map((entry) => [entry.id!, entry]))
+  const tabs = new Map(initialTabs.map(entry => [entry.id!, entry]))
   const onConnect = chromeEvent<[chrome.runtime.Port]>()
   const onRemoved = chromeEvent<[number]>()
   const onReplaced = chromeEvent<[number, number]>()
@@ -47,8 +47,8 @@ function mockChrome(initialTabs: chrome.tabs.Tab[], storedContext?: unknown) {
     : { [PAGE_SESSION_CONTEXT_STORAGE_KEY]: storedContext }
   const sessionSet = vi.fn(async (items: Record<string, unknown>) => { Object.assign(sessionData, items) })
   const query = vi.fn(async (queryInfo: chrome.tabs.QueryInfo) => {
-    const candidates = [...tabs.values()].filter((entry) => queryInfo.windowId === undefined || entry.windowId === queryInfo.windowId)
-    return candidates.filter((entry) => queryInfo.active !== true || entry.active)
+    const candidates = [...tabs.values()].filter(entry => queryInfo.windowId === undefined || entry.windowId === queryInfo.windowId)
+    return candidates.filter(entry => queryInfo.active !== true || entry.active)
   })
   vi.stubGlobal('chrome', {
     alarms: { create: vi.fn(), clear: vi.fn(async () => true), onAlarm: chromeEvent<[chrome.alarms.Alarm]>() },
@@ -98,8 +98,8 @@ function mockChrome(initialTabs: chrome.tabs.Tab[], storedContext?: unknown) {
 function resumeHints(postMessage: ReturnType<typeof vi.fn>): Array<string | null> {
   return postMessage.mock.calls
     .map(([message]) => message as { type?: string; sessionId?: string | null })
-    .filter((message) => message.type === 'session.resume-hint')
-    .map((message) => message.sessionId ?? null)
+    .filter(message => message.type === 'session.resume-hint')
+    .map(message => message.sessionId ?? null)
 }
 
 async function loadBackground(chromeMock: ReturnType<typeof mockChrome>) {

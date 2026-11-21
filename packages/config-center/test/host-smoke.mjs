@@ -23,7 +23,7 @@ const nodeEnv = process.versions.electron === undefined ? undefined : { ELECTRON
 /** Streamable HTTP MCP fixture: JSON replies, one session id. */
 const remote = createServer((req, res) => {
   let body = ''
-  req.on('data', chunk => { body += chunk })
+  req.on('data', (chunk) => { body += chunk })
   req.on('end', () => {
     // The client also opens a GET stream and closes its session with DELETE.
     if (req.method !== 'POST') {
@@ -57,8 +57,8 @@ const shell = process.platform === 'win32'
 async function run(command, args, options) {
   const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], ...options })
   let output = ''
-  child.stdout.on('data', data => { output += data })
-  child.stderr.on('data', data => { output += data })
+  child.stdout.on('data', (data) => { output += data })
+  child.stderr.on('data', (data) => { output += data })
   const [code] = await once(child, 'exit')
   assert.equal(code, 0, `${command} ${args.join(' ')}\n${output}`)
 }
@@ -79,8 +79,8 @@ async function boot(mode, { dir, entry, config }) {
   await writeFile(overlay, config === undefined ? '[]\n' : `- id: ${entry}\n  config: ${JSON.stringify(config)}\n`)
   const child = spawn(process.execPath, [cli, 'web', '--patch', overlay, '--no-open', '--port', '0'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
   log = ''
-  child.stdout.on('data', data => { log += data })
-  child.stderr.on('data', data => { log += data })
+  child.stdout.on('data', (data) => { log += data })
+  child.stderr.on('data', (data) => { log += data })
   const stop = async () => {
     child.kill('SIGTERM')
     await Promise.race([once(child, 'exit'), delay(5000)])
@@ -186,7 +186,7 @@ try {
   assert.match(await patchText(), /- id: goal\n {2}config:\n {4}defaultMaxGoalRounds: 64\n- id: compaction-basic\n {2}disabled: false\n {2}config:\n {4}thresholdRatio: 0\.7\n/)
   const dump = spawn(process.execPath, [cli, 'web', '--dump-config'], { cwd: root, env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
   let composed = ''
-  dump.stdout.on('data', data => { composed += data })
+  dump.stdout.on('data', (data) => { composed += data })
   await once(dump, 'exit')
   assert.match(composed, /defaultMaxGoalRounds: 64/)
   assert.match(composed, /thresholdRatio: 0\.7/)

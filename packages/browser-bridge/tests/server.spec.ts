@@ -124,8 +124,8 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
-    expect(frames.find((f) => f.t === 'hello.ok')).toEqual({ t: 'hello.ok', caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
+    expect(frames.find(f => f.t === 'hello.ok')).toEqual({ t: 'hello.ok', caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
     ws.close()
   })
 
@@ -134,8 +134,8 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url, EXT_ORIGIN)
     send(ws, { t: 'hello', token: '', caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
-    expect(frames.find((f) => f.t === 'hello.ok')).toBeDefined()
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
+    expect(frames.find(f => f.t === 'hello.ok')).toBeDefined()
     ws.close()
   })
 
@@ -153,8 +153,8 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url, FIREFOX_EXT_ORIGIN)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
-    expect(frames.find((f) => f.t === 'hello.ok')).toBeDefined()
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
+    expect(frames.find(f => f.t === 'hello.ok')).toBeDefined()
     ws.close()
   })
 
@@ -207,10 +207,10 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     send(ws, { t: 'rpc', id: 'rpc-1', method: 'session.list', payload: {} })
-    await waitFor(() => frames.some((f) => f.t === 'rpc.result'))
-    const result = frames.find((f) => f.t === 'rpc.result')
+    await waitFor(() => frames.some(f => f.t === 'rpc.result'))
+    const result = frames.find(f => f.t === 'rpc.result')
     expect(result).toMatchObject({ t: 'rpc.result', id: 'rpc-1', ok: true })
     expect(result).toMatchObject({
       result: { type: 'server-response', rpcId: 'rpc-1', result: { ok: true, value: 'ok' } },
@@ -226,10 +226,10 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     send(ws, { t: 'rpc', id: 'rpc-2', method: 'session.list', payload: {} })
-    await waitFor(() => frames.some((f) => f.t === 'rpc.result' && f.id === 'rpc-2'))
-    expect(frames.find((f) => f.t === 'rpc.result' && f.id === 'rpc-2'))
+    await waitFor(() => frames.some(f => f.t === 'rpc.result' && f.id === 'rpc-2'))
+    expect(frames.find(f => f.t === 'rpc.result' && f.id === 'rpc-2'))
       .toMatchObject({ t: 'rpc.result', id: 'rpc-2', ok: false, error: { code: 'internal', message: 'Error: boom' } })
     ws.close()
   })
@@ -240,7 +240,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((frame) => frame.t === 'hello.ok'))
+    await waitFor(() => frames.some(frame => frame.t === 'hello.ok'))
 
     send(ws, {
       t: 'rpc',
@@ -248,7 +248,7 @@ describe('BridgeServer', () => {
       method: BRIDGE_INJECT_BROWSER_SNAPSHOT_METHOD,
       payload: { sessionId: 'session-1', snapshot: 'Page: Other target' },
     })
-    await waitFor(() => frames.some((frame) => frame.t === 'rpc.result' && frame.id === 'snapshot-1'))
+    await waitFor(() => frames.some(frame => frame.t === 'rpc.result' && frame.id === 'snapshot-1'))
 
     expect(injectBrowserSnapshot).toHaveBeenCalledWith('session-1', 'Page: Other target')
     expect(h.callMock).not.toHaveBeenCalled()
@@ -262,7 +262,7 @@ describe('BridgeServer', () => {
       method: BRIDGE_INJECT_BROWSER_SNAPSHOT_METHOD,
       payload: { sessionId: '', snapshot: '' },
     })
-    await waitFor(() => frames.some((frame) => frame.t === 'rpc.result' && frame.id === 'snapshot-invalid'))
+    await waitFor(() => frames.some(frame => frame.t === 'rpc.result' && frame.id === 'snapshot-invalid'))
     expect(frames).toContainEqual(expect.objectContaining({
       t: 'rpc.result', id: 'snapshot-invalid', ok: false, error: expect.objectContaining({ code: 'bad-request' }),
     }))
@@ -276,7 +276,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((frame) => frame.t === 'hello.ok'))
+    await waitFor(() => frames.some(frame => frame.t === 'hello.ok'))
 
     send(ws, {
       t: 'rpc',
@@ -284,7 +284,7 @@ describe('BridgeServer', () => {
       method: BRIDGE_SESSION_PURGE_METHOD,
       payload: { sessionId: 'session-82222a77-aab5-4c0b-b33e-6376973ec93d' },
     })
-    await waitFor(() => frames.some((frame) => frame.t === 'rpc.result' && frame.id === 'purge-1'))
+    await waitFor(() => frames.some(frame => frame.t === 'rpc.result' && frame.id === 'purge-1'))
 
     expect(purgeSession).toHaveBeenCalledWith('session-82222a77-aab5-4c0b-b33e-6376973ec93d')
     expect(h.callMock).not.toHaveBeenCalled()
@@ -299,7 +299,7 @@ describe('BridgeServer', () => {
       method: BRIDGE_SESSION_PURGE_METHOD,
       payload: { sessionId: 'session-92bad0de-136e-4d1f-a308-d1f5388d608f' },
     })
-    await waitFor(() => frames.some((frame) => frame.t === 'rpc.result' && frame.id === 'purge-deferred'))
+    await waitFor(() => frames.some(frame => frame.t === 'rpc.result' && frame.id === 'purge-deferred'))
     expect(frames).toContainEqual({
       t: 'rpc.result', id: 'purge-deferred', ok: true, result: { purged: false, deferred: true },
     })
@@ -310,7 +310,7 @@ describe('BridgeServer', () => {
       method: BRIDGE_SESSION_PURGE_METHOD,
       payload: { sessionId: '' },
     })
-    await waitFor(() => frames.some((frame) => frame.t === 'rpc.result' && frame.id === 'purge-invalid'))
+    await waitFor(() => frames.some(frame => frame.t === 'rpc.result' && frame.id === 'purge-invalid'))
     expect(frames).toContainEqual(expect.objectContaining({
       t: 'rpc.result', id: 'purge-invalid', ok: false, error: expect.objectContaining({ code: 'bad-request' }),
     }))
@@ -320,14 +320,14 @@ describe('BridgeServer', () => {
     harnesses.push(failureBridge)
     const failure = await connect(failureBridge.url)
     send(failure.ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => failure.frames.some((frame) => frame.t === 'hello.ok'))
+    await waitFor(() => failure.frames.some(frame => frame.t === 'hello.ok'))
     send(failure.ws, {
       t: 'rpc',
       id: 'purge-running',
       method: BRIDGE_SESSION_PURGE_METHOD,
       payload: { sessionId: 'session-82222a77-aab5-4c0b-b33e-6376973ec93d' },
     })
-    await waitFor(() => failure.frames.some((frame) => frame.t === 'rpc.result' && frame.id === 'purge-running'))
+    await waitFor(() => failure.frames.some(frame => frame.t === 'rpc.result' && frame.id === 'purge-running'))
     expect(failure.frames).toContainEqual(expect.objectContaining({
       t: 'rpc.result', id: 'purge-running', ok: false, error: { code: 'running', message: 'cancel it first' },
     }))
@@ -343,7 +343,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((frame) => frame.t === 'hello.ok'))
+    await waitFor(() => frames.some(frame => frame.t === 'hello.ok'))
 
     send(ws, {
       t: 'rpc', id: 'snapshot', method: BRIDGE_INJECT_BROWSER_SNAPSHOT_METHOD,
@@ -358,8 +358,8 @@ describe('BridgeServer', () => {
     expect(h.callMock).not.toHaveBeenCalled()
     releaseInjection()
     await waitFor(() => h.callMock.mock.calls.length === 1)
-    await waitFor(() => frames.some((frame) => frame.t === 'rpc.result' && frame.id === 'prompt-after-snapshot'))
-    expect(frames.filter((frame) => frame.t === 'rpc.result').map((frame) => frame.id)).toEqual([
+    await waitFor(() => frames.some(frame => frame.t === 'rpc.result' && frame.id === 'prompt-after-snapshot'))
+    expect(frames.filter(frame => frame.t === 'rpc.result').map(frame => frame.id)).toEqual([
       'snapshot',
       'prompt-after-snapshot',
     ])
@@ -380,7 +380,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((frame) => frame.t === 'hello.ok'))
+    await waitFor(() => frames.some(frame => frame.t === 'hello.ok'))
 
     send(ws, {
       t: 'rpc', id: 'prompt', method: 'session.prompt',
@@ -389,18 +389,18 @@ describe('BridgeServer', () => {
     send(ws, { t: 'rpc', id: 'cancel', method: 'session.cancel', payload: { sessionId: 'provisional' } })
     send(ws, { t: 'rpc', id: 'other-cancel', method: 'session.cancel', payload: { sessionId: 'other' } })
 
-    await waitFor(() => calls.some((call) => call.sessionId === 'other'))
+    await waitFor(() => calls.some(call => call.sessionId === 'other'))
     expect(calls).toContainEqual({ method: 'session.prompt', sessionId: 'provisional' })
     expect(calls).toContainEqual({ method: 'session.cancel', sessionId: 'other' })
     expect(calls).not.toContainEqual({ method: 'session.cancel', sessionId: 'provisional' })
 
     releasePrompt()
-    await waitFor(() => calls.some((call) => call.method === 'session.cancel' && call.sessionId === 'provisional'))
-    expect(calls.filter((call) => call.sessionId === 'provisional')).toEqual([
+    await waitFor(() => calls.some(call => call.method === 'session.cancel' && call.sessionId === 'provisional'))
+    expect(calls.filter(call => call.sessionId === 'provisional')).toEqual([
       { method: 'session.prompt', sessionId: 'provisional' },
       { method: 'session.cancel', sessionId: 'provisional' },
     ])
-    await waitFor(() => frames.filter((frame) => frame.t === 'rpc.result').length === 3)
+    await waitFor(() => frames.filter(frame => frame.t === 'rpc.result').length === 3)
     ws.close()
   })
 
@@ -409,14 +409,14 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((frame) => frame.t === 'hello.ok'))
+    await waitFor(() => frames.some(frame => frame.t === 'hello.ok'))
     send(ws, {
       t: 'respond',
       id: 'response-1',
       rpcId: 'question-1',
       result: { ok: true, value: { sessionId: 'session-1', answer: { answers: [{ id: 'db', selected: ['SQLite'] }] } } },
     })
-    await waitFor(() => frames.some((frame) => frame.t === 'respond.result'))
+    await waitFor(() => frames.some(frame => frame.t === 'respond.result'))
 
     expect(frames).toContainEqual(expect.objectContaining({
       t: 'respond.result', id: 'response-1', ok: true,
@@ -434,12 +434,12 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((frame) => frame.t === 'hello.ok'))
+    await waitFor(() => frames.some(frame => frame.t === 'hello.ok'))
     send(ws, {
       t: 'respond', id: 'response-2', rpcId: 'question-2',
       result: { ok: false, error: { code: 'cancelled', message: 'user dismissed the question', details: {} } },
     })
-    await waitFor(() => frames.some((frame) => frame.t === 'respond.result' && frame.id === 'response-2'))
+    await waitFor(() => frames.some(frame => frame.t === 'respond.result' && frame.id === 'response-2'))
     expect(frames).toContainEqual({
       t: 'respond.result', id: 'response-2', ok: false,
       error: { code: 'internal', message: 'Error: response rejected' },
@@ -460,10 +460,10 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     const result = h.bridge.requestTool('browser_click', { index: 1 }, new AbortController().signal)
-    await waitFor(() => frames.some((f) => f.t === 'tool.call'))
-    const call = frames.find((f) => f.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
+    await waitFor(() => frames.some(f => f.t === 'tool.call'))
+    const call = frames.find(f => f.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
     expect(call.name).toBe('browser_click')
     expect(call.args).toEqual({ index: 1 })
     send(ws, { t: 'tool.result', id: call.id, ok: true, result: { text: 'clicked' } })
@@ -476,14 +476,14 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url, EXT_ORIGIN)
     send(ws, { t: 'hello', token: '', caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     const abort = new AbortController()
     abort.abort()
     expect(() => h.bridge.requestTool('browser_click', {}, abort.signal))
       .toThrowError(expect.objectContaining({ code: 'bridge-closed' }))
     // No tool.call is emitted.
     await new Promise((resolve) => { setTimeout(resolve, 50) })
-    expect(frames.some((f) => f.t === 'tool.call')).toBe(false)
+    expect(frames.some(f => f.t === 'tool.call')).toBe(false)
     ws.close()
   })
 
@@ -499,11 +499,11 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     await expect(h.bridge.requestTool('browser_wait', {}, new AbortController().signal, 30))
       .rejects.toMatchObject({ code: 'timeout' })
-    await waitFor(() => frames.some((frame) => frame.t === 'tool.cancel'))
-    const call = frames.find((frame) => frame.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
+    await waitFor(() => frames.some(frame => frame.t === 'tool.cancel'))
+    const call = frames.find(frame => frame.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
     expect(frames).toContainEqual({ t: 'tool.cancel', id: call.id })
     ws.close()
   })
@@ -513,10 +513,10 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     const result = h.bridge.requestTool('browser_navigate', { url: 'https://x' }, new AbortController().signal)
-    await waitFor(() => frames.some((f) => f.t === 'tool.call'))
-    const call = frames.find((f) => f.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
+    await waitFor(() => frames.some(f => f.t === 'tool.call'))
+    const call = frames.find(f => f.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
     send(ws, { t: 'tool.result', id: call.id, ok: false, error: { code: 'action-failed', message: 'blocked' } })
     await expect(result).rejects.toBeInstanceOf(BridgeToolError)
     await expect(result).rejects.toMatchObject({ code: 'action-failed', message: 'blocked' })
@@ -528,15 +528,15 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const first = await connect(h.url)
     send(first.ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => first.frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => first.frames.some(f => f.t === 'hello.ok'))
     const pending = h.bridge.requestTool('browser_click', {}, new AbortController().signal)
     // Attach the assertion eagerly: the replacement below settles it before the final await.
     const pendingAssertion = expect(pending).rejects.toMatchObject({ code: 'bridge-closed' })
-    await waitFor(() => first.frames.some((f) => f.t === 'tool.call'))
+    await waitFor(() => first.frames.some(f => f.t === 'tool.call'))
 
     const second = await connect(h.url)
     send(second.ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => second.frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => second.frames.some(f => f.t === 'hello.ok'))
 
     await pendingAssertion
     first.ws.close()
@@ -548,14 +548,14 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     const abort = new AbortController()
     const pending = h.bridge.requestTool('browser_click', {}, abort.signal)
-    await waitFor(() => frames.some((f) => f.t === 'tool.call'))
-    const call = frames.find((frame) => frame.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
+    await waitFor(() => frames.some(f => f.t === 'tool.call'))
+    const call = frames.find(frame => frame.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
     abort.abort()
     await expect(pending).rejects.toMatchObject({ code: 'bridge-closed' })
-    await waitFor(() => frames.some((frame) => frame.t === 'tool.cancel'))
+    await waitFor(() => frames.some(frame => frame.t === 'tool.cancel'))
     expect(frames).toContainEqual({ t: 'tool.cancel', id: call.id })
     ws.close()
   })
@@ -565,7 +565,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     const pending = h.bridge.requestTool(
       'browser_click',
       {},
@@ -573,8 +573,8 @@ describe('BridgeServer', () => {
       1_000,
       'session-browser',
     )
-    await waitFor(() => frames.some((f) => f.t === 'tool.call'))
-    const call = frames.find((frame) => frame.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
+    await waitFor(() => frames.some(f => f.t === 'tool.call'))
+    const call = frames.find(frame => frame.t === 'tool.call') as Extract<BridgeFrame, { t: 'tool.call' }>
     expect(call.sessionId).toBe('session-browser')
     send(ws, { t: 'tool.result', id: call.id, ok: true, result: { text: 'done' } })
     await expect(pending).resolves.toEqual({ text: 'done' })
@@ -586,9 +586,9 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: { textOnly: true, snapshotMaxChars: 12000, maxInteractiveItems: 60 } })
-    await waitFor(() => frames.filter((f) => f.t === 'event').length >= 2)
-    const events = frames.filter((f) => f.t === 'event') as Extract<BridgeFrame, { t: 'event' }>[]
-    expect(events.map((e) => e.frame.method)).toEqual(['session/subscribed', 'session/queue'])
+    await waitFor(() => frames.filter(f => f.t === 'event').length >= 2)
+    const events = frames.filter(f => f.t === 'event') as Extract<BridgeFrame, { t: 'event' }>[]
+    expect(events.map(e => e.frame.method)).toEqual(['session/subscribed', 'session/queue'])
     ws.close()
   })
 
@@ -597,7 +597,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     const pending = h.bridge.requestTool('browser_click', {}, new AbortController().signal)
     // Tear the socket down immediately: the in-flight send reports a write
     // failure (or the close path wins — either settles as bridge-closed).
@@ -618,7 +618,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'ping'))
+    await waitFor(() => frames.some(f => f.t === 'ping'))
     send(ws, { t: 'pong' })
     ws.close()
   })
@@ -635,19 +635,19 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames, done } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     ws.close()
     await done
     // The pump fails after the close: the abort flag suppresses the error frame.
     await new Promise((resolve) => { setTimeout(resolve, 200) })
-    expect(frames.some((f) => f.t === 'error')).toBe(false)
+    expect(frames.some(f => f.t === 'error')).toBe(false)
   })
 
   it('closes cleanly and rejects pending work', async () => {
     const h = await startBridge()
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     const pending = h.bridge.requestTool('browser_click', {}, new AbortController().signal)
     // Attach the assertion eagerly: close() settles it before the final await.
     const pendingAssertion = expect(pending).rejects.toMatchObject({ code: 'bridge-closed' })
@@ -664,7 +664,7 @@ describe('BridgeServer', () => {
     expect(h.bridge.hasConnection()).toBe(false)
     const { ws, frames, done } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     expect(h.bridge.hasConnection()).toBe(true)
     ws.close()
     await done
@@ -677,7 +677,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames, done } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     // Client-only shapes after ready are ignored (no error frame, no close).
     send(ws, { t: 'pong' })
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
@@ -699,10 +699,10 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     send(ws, { t: 'rpc', id: 'rpc-3', method: 'session.list', payload: {} })
-    await waitFor(() => frames.some((f) => f.t === 'rpc.result' && f.id === 'rpc-3'))
-    const businessFailure = frames.find((f) => f.t === 'rpc.result' && f.id === 'rpc-3')!
+    await waitFor(() => frames.some(f => f.t === 'rpc.result' && f.id === 'rpc-3'))
+    const businessFailure = frames.find(f => f.t === 'rpc.result' && f.id === 'rpc-3')!
     expect(businessFailure).toMatchObject({
       t: 'rpc.result', id: 'rpc-3', ok: true,
       result: { type: 'server-response', result: { ok: false, error: { code: 'session-not-found' } } },
@@ -715,10 +715,10 @@ describe('BridgeServer', () => {
     harnesses.push(throwing)
     const second = await connect(throwing.url)
     send(second.ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => second.frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => second.frames.some(f => f.t === 'hello.ok'))
     send(second.ws, { t: 'rpc', id: 'rpc-4', method: 'session.list', payload: {} })
-    await waitFor(() => second.frames.some((f) => f.t === 'rpc.result' && f.id === 'rpc-4'))
-    expect(second.frames.find((f) => f.t === 'rpc.result' && f.id === 'rpc-4'))
+    await waitFor(() => second.frames.some(f => f.t === 'rpc.result' && f.id === 'rpc-4'))
+    expect(second.frames.find(f => f.t === 'rpc.result' && f.id === 'rpc-4'))
       .toMatchObject({ t: 'rpc.result', id: 'rpc-4', ok: false, error: { code: 'internal', message: 'Error: boom' } })
     second.ws.close()
   })
@@ -728,7 +728,7 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     // Unknown id: ignored, connection stays healthy.
     send(ws, { t: 'tool.result', id: 'nope', ok: true, result: {} })
     await new Promise((resolve) => { setTimeout(resolve, 50) })
@@ -742,14 +742,14 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'hello.ok'))
+    await waitFor(() => frames.some(f => f.t === 'hello.ok'))
     send(ws, { t: 'rpc', id: 'priv-1', method: 'settings.describe', payload: {} })
-    await waitFor(() => frames.some((f) => f.t === 'rpc.result' && f.id === 'priv-1'))
-    expect(frames.find((f) => f.t === 'rpc.result' && f.id === 'priv-1'))
+    await waitFor(() => frames.some(f => f.t === 'rpc.result' && f.id === 'priv-1'))
+    expect(frames.find(f => f.t === 'rpc.result' && f.id === 'priv-1'))
       .toMatchObject({ t: 'rpc.result', id: 'priv-1', ok: false, error: { code: 'forbidden' } })
     // Non-privileged methods still pass for the same remote.
     send(ws, { t: 'rpc', id: 'priv-2', method: 'session.list', payload: {} })
-    await waitFor(() => frames.some((f) => f.t === 'rpc.result' && f.id === 'priv-2'))
+    await waitFor(() => frames.some(f => f.t === 'rpc.result' && f.id === 'priv-2'))
     const allowed = frames.find((f): f is Extract<BridgeFrame, { t: 'rpc.result' }> => f.t === 'rpc.result' && f.id === 'priv-2')!
     expect(allowed.ok).toBe(true)
     ws.close()
@@ -766,8 +766,8 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames, done } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.some((f) => f.t === 'error' && f.code === 'stream-failed'))
-    expect(frames.find((f) => f.t === 'error')).toMatchObject({ t: 'error', code: 'stream-failed' })
+    await waitFor(() => frames.some(f => f.t === 'error' && f.code === 'stream-failed'))
+    expect(frames.find(f => f.t === 'error')).toMatchObject({ t: 'error', code: 'stream-failed' })
     await done
     expect(ws.readyState).toBe(WebSocket.CLOSED)
   })
@@ -785,12 +785,12 @@ describe('BridgeServer', () => {
     harnesses.push(h)
     const { ws, frames, done } = await connect(h.url)
     send(ws, { t: 'hello', token: TOKEN, caps: CAPS })
-    await waitFor(() => frames.filter((f) => f.t === 'event').length >= 2)
+    await waitFor(() => frames.filter(f => f.t === 'event').length >= 2)
     ws.close()
     await done
     // The pump must stop sending after close instead of writing to a dead socket.
-    const countBefore = frames.filter((f) => f.t === 'event').length
+    const countBefore = frames.filter(f => f.t === 'event').length
     await new Promise((resolve) => { setTimeout(resolve, 80) })
-    expect(frames.filter((f) => f.t === 'event').length).toBe(countBefore)
+    expect(frames.filter(f => f.t === 'event').length).toBe(countBefore)
   })
 })

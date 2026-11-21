@@ -109,10 +109,10 @@ describe('appendLiveRow / completeLastTool', () => {
     rows = appendLiveRow(rows, 'tool', '点击元素 #7', 3)
     rows = appendLiveRow(rows, 'tool', '填写内容 #9', 4)
     rows = completeLastTool(rows, 5)
-    expect(rows.map((r) => r.kind)).toEqual(['user', 'tool'])
+    expect(rows.map(r => r.kind)).toEqual(['user', 'tool'])
     expect(rows[1]).toMatchObject({ text: '读取页面 → 点击元素 #7 → 填写内容 #9', status: 'complete' })
     rows = appendLiveRow(rows, 'assistant', '完成', 6)
-    expect(rows.map((r) => r.kind)).toEqual(['user', 'tool', 'assistant'])
+    expect(rows.map(r => r.kind)).toEqual(['user', 'tool', 'assistant'])
   })
 })
 
@@ -133,7 +133,7 @@ describe('mergeHistoryRows', () => {
       ev('turn/end', {}),
     ]
     const rows = mergeHistoryRows(events, nextSeq, 'zh')
-    expect(rows.map((r) => r.kind)).toEqual(['user', 'tool', 'assistant'])
+    expect(rows.map(r => r.kind)).toEqual(['user', 'tool', 'assistant'])
     expect(rows[0]!.text).toBe('操作页面')
     expect(rows[2]!.text).toBe('已点击')
     // Consecutive tool calls merge into one row.
