@@ -213,7 +213,7 @@
         "**/*.{ts,tsx}"
       ],
       "rules": {
-        "no-restricted-properties": "off", // Official entry: crypto.randomUUID.
+        "no-restricted-properties": "off", // Official entry: crypto.randomUUID; enforced for web panels below.
         "typescript/no-base-to-string": "off",
         "typescript/no-confusing-void-expression": "off",
         "typescript/no-deprecated": "off",
@@ -239,6 +239,22 @@
       "jsPlugins": [
         "@stylistic/eslint-plugin"
       ]
+    },
+    {
+      // Web panels: the page may be served over plain HTTP.
+      "files": [
+        "packages/*/src/client/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "crypto",
+            "property": "randomUUID",
+            "message": "browsers withhold crypto.randomUUID outside secure contexts (plain-HTTP LAN pages); mint through @deepseek-ai/dsh-util-crypto instead"
+          }
+        ]
+      }
     },
     {
       // Syntax rules of the shared set for JavaScript sources and scripts.

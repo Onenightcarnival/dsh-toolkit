@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
 import { API, FIELDS, SCHEMA_VERSION, sortEntries, type Commit, type Diff, type Entry, type Kind, type Snapshot, type State } from '../model.ts'
 import { DirectoryView, ResumeView, entryName } from './views.tsx'
 import { t, zh, type Key } from './locales.ts'
@@ -82,7 +83,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
     finally { setBusy(false) }
   }
   function edit(entry: Entry): void { setError(''); setEditor({ entry: structuredClone(entry), base: state!.revision }) }
-  function add(kind: Kind, parentId?: string): void { edit({ id: crypto.randomUUID(), kind, fields: parentId ? { [kind === 'project' ? 'workId' : 'parentId']: parentId } : {} }) }
+  function add(kind: Kind, parentId?: string): void { edit({ id: randomUUID(), kind, fields: parentId ? { [kind === 'project' ? 'workId' : 'parentId']: parentId } : {} }) }
   function remove(entry: Entry): void { setConfirm({ title: 'removeTitle', hint: 'removeHint', input: { baseRevision: state!.revision, summary: t('deleteSummary'), changes: [{ id: entry.id, kind: entry.kind, remove: true }] } }) }
   const entries = sortEntries(state?.entries ?? [], order)
   const open = (id: string) => { setSelected(id); setView('directory'); setHistory(false) }

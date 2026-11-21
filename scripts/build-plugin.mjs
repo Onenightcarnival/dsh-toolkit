@@ -3,6 +3,7 @@
  *
  * Host: Node ESM; DSH runtime packages remain external.
  * Client: browser bundle in the DSH module loader; module ID = package name.
+ *   DSH client modules remain external; CLIENT_INLINED libraries compile into the bundle.
  */
 import { build } from 'esbuild'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -11,6 +12,19 @@ import { createRequire } from 'node:module'
 
 const HOST_EXTERNAL = ['@deepseek-ai/*', 'bufferutil', 'utf-8-validate']
 const CLIENT_EXTERNAL = ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client', '@deepseek-ai/*']
+/** DSH libraries outside the web module loader; each importing package lists them in devDependencies. */
+const CLIENT_INLINED = ['@deepseek-ai/dsh-util-crypto']
+
+/** Resolves CLIENT_INLINED imports to their files ahead of the `@deepseek-ai/*` external pattern. */
+const inlineClientLibraries = {
+  name: 'inline-client-libraries',
+  setup(build) {
+    build.onResolve({ filter: /^@deepseek-ai\// }, (args) => {
+      if (!CLIENT_INLINED.includes(args.path)) return undefined
+      return { path: createRequire(join(args.resolveDir, 'package.json')).resolve(args.path) }
+    })
+  },
+}
 
 function manifest(dir) {
   return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
@@ -61,6 +75,7 @@ export async function buildClient({ dir, entry, outfile = 'lib/client.js', id })
     target: 'es2022',
     jsx: 'automatic',
     external: CLIENT_EXTERNAL,
+    plugins: [inlineClientLibraries],
     loader: { '.css': 'text' },
     legalComments: 'none',
     logLevel: 'info',

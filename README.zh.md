@@ -120,6 +120,7 @@ pnpm --filter dsh-browser-extension run build:firefox
 | 项目 | 约定 |
 |---|---|
 | 宿主依赖 | `@deepseek-ai/*` 由 dsh 提供；其余依赖按各包构建配置内联 |
+| 客户端内联库 | `@deepseek-ai/dsh-util-crypto` 编译进客户端产物；引用它的包在 devDependencies 中声明 |
 | 订阅认证依赖 | `@cortexkit/antigravity-auth-core` 为 subscriptions 与 toolkit 的运行时依赖 |
 | 集成包 | 直接编译九个子包的源码；类型检查覆盖同一组源码 |
 | 运行时版本 | `pnpm-workspace.yaml` 的 overrides 统一锁定 |
