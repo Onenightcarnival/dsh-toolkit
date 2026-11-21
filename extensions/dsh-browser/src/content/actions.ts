@@ -11,7 +11,7 @@ import { buildSnapshot, renderSnapshot } from './snapshot.ts'
 import { isSensitiveField } from './privacy.ts'
 import { parseKeyCombo } from '../key-combo.ts'
 import { toMarkdown } from './markdown.ts'
-import { safeTextPrefix } from '../text.ts'
+import { safeTextPrefix, textOf } from '../text.ts'
 
 /** A settled action result. */
 export interface ActionResult {
@@ -399,8 +399,10 @@ function typeIntoContentEditable(el: HTMLElement, text: string, replace: boolean
     selection.addRange(range)
   }
   const doc = host.ownerDocument
+  // oxlint-disable-next-line typescript/no-deprecated -- insertText through execCommand keeps the page's undo stack and input events.
   if (typeof doc.execCommand === 'function') {
     try {
+      // oxlint-disable-next-line typescript/no-deprecated -- Same call as the guard above.
       if (doc.execCommand('insertText', false, text)) return
     } catch {
       // Fall through to the direct-write path below.
@@ -708,13 +710,13 @@ function setFieldValue(el: Element, index: number, value: unknown): string {
   }
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     if (el.disabled || el.readOnly) throw new ActionError('action-failed', `[${index}] is ${el.disabled ? 'disabled' : 'read-only'}.`)
-    const text = value === null || value === undefined ? '' : String(value)
+    const text = textOf(value)
     el.focus()
     setNativeValue(el, text)
     return `[${index}] set (${text.length} characters).`
   }
   if (isEditable(el)) {
-    typeIntoContentEditable(el, value === null || value === undefined ? '' : String(value), true)
+    typeIntoContentEditable(el, textOf(value), true)
     return `[${index}] replaced editable content.`
   }
   throw new ActionError('action-failed', `[${index}] is not a form field (${el.tagName.toLowerCase()}).`)

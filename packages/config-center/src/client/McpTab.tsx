@@ -2,7 +2,7 @@
  * Main sidebar → MCP: server list with live state, and one
  * form for the selected server (save, enable, test, delete).
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type JSX } from 'react'
 import { Button, Input, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { McpServerView, McpStatus } from '../protocol.ts'
 import { DEFAULT_STDIO_TIMEOUT_SECONDS, MAX_STDIO_TIMEOUT_SECONDS } from '../protocol.ts'

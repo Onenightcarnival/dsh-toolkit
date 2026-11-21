@@ -86,7 +86,7 @@ describe('debugger sessions', () => {
   it('dispatches mouse press/release pairs, drags with intermediate moves, and key chords', async () => {
     const mod = await load()
     await mod.debuggerClick(1, { x: 10, y: 20, clickCount: 2 })
-    const clickTypes = sent.map(entry => `${entry.params?.type}:${entry.params?.clickCount ?? ''}`)
+    const clickTypes = sent.map(entry => `${entry.params?.type}:${(entry.params?.clickCount as number | undefined) ?? ''}`)
     expect(clickTypes).toEqual(['mouseMoved:', 'mousePressed:1', 'mouseReleased:1', 'mousePressed:2', 'mouseReleased:2'])
 
     sent.length = 0

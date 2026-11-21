@@ -1,5 +1,5 @@
 import { localizeError } from './error-locales.ts'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type JSX } from 'react'
 import type { EnvironmentStatus } from '../protocol.ts'
 import type { ConfigCenterApi } from './api.ts'
 import { tt } from './locales.ts'

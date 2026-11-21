@@ -12,6 +12,7 @@
 import { Scalar, YAMLMap, YAMLSeq, isMap, isScalar, isSeq, parseDocument, type Document } from 'yaml'
 import { JS_PREFIX } from './mcp.ts'
 import type { McpServer, SettingValue } from './protocol.ts'
+import { textOf } from './text.ts'
 import { SETTINGS, settingValueValid, type SettingOption, type SettingValues } from './settings.ts'
 
 export const MCP_CLIENT = '@deepseek-ai/dsh-mcp-client'
@@ -66,7 +67,7 @@ function topRows(document: PatchDocument): YAMLSeq {
 /** Form text of a scalar; loader expressions carry the `!!js ` prefix. */
 function plain(node: unknown): string | undefined {
   if (!isScalar(node) || node.value === null || node.value === undefined) return undefined
-  return node.tag === JS_TAG ? JS_PREFIX + String(node.value) : String(node.value)
+  return node.tag === JS_TAG ? JS_PREFIX + textOf(node.value) : textOf(node.value)
 }
 
 function plainList(node: unknown): string[] {

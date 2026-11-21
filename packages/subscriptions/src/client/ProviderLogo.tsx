@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import type { ProviderId } from '../protocol.ts'
 
 export function ProviderLogo({ provider }: { provider: ProviderId }): JSX.Element {

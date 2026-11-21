@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type JSX } from 'react'
 import { HTTP_CAPTURE_REFRESH, HTTP_CAPTURE_SOURCES, MAX_CAPTURE_RULES, blankCapture, type HttpCapture, type HttpCaptureRefresh, type HttpCaptureSource, type HttpCapturedValue } from '../../protocol.ts'
 import { lifetimeText, parseLifetime } from '../lifetime.ts'
 import { tt } from '../locales.ts'

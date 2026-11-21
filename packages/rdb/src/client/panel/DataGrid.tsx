@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react'
 import type { RdbApi } from '../api.ts'
 import { quoteIdentifier, type ChangesResult, type DbKind, type RowChange, type RowFilter, type RowsPage, type TableInfo, type TableRef } from '../../protocol.ts'
 import { tt } from '../locales.ts'
@@ -17,9 +17,10 @@ export interface DataGridProps {
 
 /** Cell text for display; objects/arrays are shown as JSON. */
 export function cellText(v: unknown): string {
-  if (v === null || v === undefined) return ''
-  if (typeof v === 'object') return JSON.stringify(v)
-  return String(v)
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'bigint' || typeof v === 'boolean') return String(v)
+  if (typeof v !== 'object' || v === null) return ''
+  return JSON.stringify(v)
 }
 
 interface EditState { row: number; col: number; value: string }

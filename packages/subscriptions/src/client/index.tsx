@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Rpc } from '../protocol.ts'
 import { SubscriptionsApi } from './api.ts'

@@ -10,7 +10,7 @@
  * target carries a full URL; a target adds a base URL, host-kept credentials
  * and agent access, and can be created from such a request.
  */
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type JSX } from 'react'
 import type { HttpApi } from '../api.ts'
 import { DEFAULT_TIMEOUT_MS, DIRECT_TARGET_ID, joinUrl, type HttpCapturedValue, type HttpExchange, type HttpImportConflict, type HttpSavedRequest, type HttpSavedRequestPayload, type HttpTargetPayload, type HttpTargetSummary } from '../../protocol.ts'
 import { tt } from '../locales.ts'

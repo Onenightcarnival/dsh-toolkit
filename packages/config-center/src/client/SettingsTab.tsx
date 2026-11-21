@@ -2,7 +2,7 @@
  * Settings → Plugins → Common settings: one card per composition entry, one
  * field per registry option. A blank field keeps the upstream default.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type JSX } from 'react'
 import type { SettingGroupView, SettingOptionView, SettingValue } from '../protocol.ts'
 import type { ConfigCenterApi } from './api.ts'
 import { tt, ttOr } from './locales.ts'

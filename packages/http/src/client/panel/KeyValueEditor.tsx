@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type JSX } from 'react'
 import type { HttpPairs } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 

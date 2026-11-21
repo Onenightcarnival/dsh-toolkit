@@ -285,11 +285,19 @@ export class RdbEngine {
   }
 }
 
+/** Text of a result cell: strings as is, numbers, bigints and booleans through String, objects and arrays as JSON; anything else is empty. */
+export function cellText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean') return String(value)
+  if (typeof value !== 'object' || value === null) return ''
+  return JSON.stringify(value)
+}
+
 /** CSV encoding for exports. */
 export function toCsv(columns: { name: string }[], rows: unknown[][]): string {
   const cell = (v: unknown): string => {
     if (v === null || v === undefined) return ''
-    const s = typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v) : String(v)
+    const s = cellText(v)
     return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
   }
   return [columns.map(c => cell(c.name)).join(','), ...rows.map(r => r.map(cell).join(','))].join('\r\n') + '\r\n'

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type JSX } from 'react'
 import type { S3Api } from '../api.ts'
 import type { S3ProfilePayload, S3ProfileSummary } from '../../protocol.ts'
 import { tt } from '../locales.ts'

@@ -484,8 +484,8 @@ export function parseCodexModels(entries: CodexWireModel[]): DiscoveredModel[] {
       ...typeof entry.context_window === 'number' && entry.context_window > 0
         ? { contextWindow: entry.context_window }
         : {},
-      ...Number.isSafeInteger(entry.max_context_window) && entry.max_context_window! > 0
-        ? { maxContextWindow: entry.max_context_window! }
+      ...typeof entry.max_context_window === 'number' && Number.isSafeInteger(entry.max_context_window) && entry.max_context_window > 0
+        ? { maxContextWindow: entry.max_context_window }
         : {},
       ...typeof entry.priority === 'number' ? { priority: entry.priority } : {},
       ...efforts.length > 0

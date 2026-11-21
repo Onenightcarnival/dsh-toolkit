@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useState, type JSX } from 'react'
 import type { Model } from '../protocol.ts'
 import { formatCapacity, parseCapacity } from './capacity.ts'
 import { tt } from './locales.ts'

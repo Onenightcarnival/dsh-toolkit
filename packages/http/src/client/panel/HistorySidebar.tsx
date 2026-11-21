@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import type { HttpExchange } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 import { shortTime, statusKind } from './common.tsx'

@@ -4,7 +4,7 @@
  */
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import { errorText, type RdbEngine } from './engine.ts'
+import { cellText, errorText, type RdbEngine } from './engine.ts'
 import { hostEntries, type DbProfileSummary, type QueryResult, type TableInfo, type TableRef } from './protocol.ts'
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
@@ -18,7 +18,7 @@ const TOOL_MAX_ROWS = 500
 /** Fixed-width text table for model-facing renders. */
 export function renderTable(result: QueryResult): string {
   if (result.columns.length === 0) return `${result.command}: ${result.rowCount} row(s) affected (${result.durationMs} ms)`
-  const cell = (v: unknown): string => v === null || v === undefined ? 'NULL' : typeof v === 'object' ? JSON.stringify(v) : String(v)
+  const cell = (v: unknown): string => v === null || v === undefined ? 'NULL' : cellText(v)
   const rows = result.rows.map(r => r.map(cell).map(s => s.length > 80 ? s.slice(0, 77) + '…' : s))
   const widths = result.columns.map((c, i) => Math.max(c.name.length, ...rows.map(r => r[i]?.length ?? 0)))
   const line = (cells: string[]) => cells.map((s, i) => s.padEnd(widths[i])).join(' | ')
@@ -190,7 +190,7 @@ export function dbExplainTool(engine: RdbEngine) {
         const profile = engine.profile(args.connection)
         const prefix = profile.kind === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN '
         const result = await engine.query(args.connection, prefix + args.sql.replace(/^\s*explain(\s+query\s+plan)?\s+/i, ''), { allowWrite: false, maxRows: TOOL_MAX_ROWS })
-        return { ok: true, plan: result.rows.map(r => r.map(v => v === null ? '' : String(v)).join(' | ')).join('\n') }
+        return { ok: true, plan: result.rows.map(r => r.map(v => cellText(v)).join(' | ')).join('\n') }
       } catch (error) { return { ok: false, error: errorText(error) } }
     },
   })

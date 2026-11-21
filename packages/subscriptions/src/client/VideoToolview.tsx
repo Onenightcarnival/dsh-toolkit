@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type JSX } from 'react'
 import type { SubscriptionsApi } from './api.ts'
 import { tt } from './locales.ts'
 

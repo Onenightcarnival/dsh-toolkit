@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type JSX } from 'react'
 import {
   DIRECT_TARGET_ID, HTTP_AUTH_TYPES, HTTP_BODY_MODES, HTTP_METHODS, joinUrl, requestInputOf, substitute,
   type HttpAuth, type HttpAuthType, type HttpBodyMode, type HttpCapture, type HttpCapturedValue, type HttpExchange, type HttpKeyValue, type HttpMethod, type HttpPairs, type HttpRequestInput,

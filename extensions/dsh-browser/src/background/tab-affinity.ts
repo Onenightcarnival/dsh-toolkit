@@ -404,7 +404,7 @@ export class TabAffinityController {
       case 'handoff': return { kind: 'handoff' }
       case 'following':
       case 'background':
-        return { kind: 'target', tab: { ...this.controlled! } }
+        return this.controlled === null ? { kind: 'lost' } : { kind: 'target', tab: { ...this.controlled } }
     }
   }
 

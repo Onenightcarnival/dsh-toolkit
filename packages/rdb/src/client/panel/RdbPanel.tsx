@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type JSX } from 'react'
 import type { RdbApi } from '../api.ts'
 import { hostEntries, quoteIdentifier, type DbProfilePayload, type DbProfileSummary, type TableInfo, type TableRef } from '../../protocol.ts'
 import { tt } from '../locales.ts'

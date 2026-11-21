@@ -67,7 +67,7 @@ function connect(url: string, origin?: string): Promise<{ ws: WebSocket; frames:
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url, origin !== undefined ? { headers: { origin } } : undefined)
     const frames: BridgeFrame[] = []
-    ws.on('message', (data) => { frames.push(JSON.parse(data.toString()) as BridgeFrame) })
+    ws.on('message', (data) => { frames.push(JSON.parse((data as Buffer).toString()) as BridgeFrame) })
     ws.on('error', reject)
     ws.on('open', () => {
       resolve({
@@ -480,7 +480,7 @@ describe('BridgeServer', () => {
     const abort = new AbortController()
     abort.abort()
     expect(() => h.bridge.requestTool('browser_click', {}, abort.signal))
-      .toThrowError(expect.objectContaining({ code: 'bridge-closed' }))
+      .toThrow(expect.objectContaining({ code: 'bridge-closed' }))
     // No tool.call is emitted.
     await new Promise((resolve) => { setTimeout(resolve, 50) })
     expect(frames.some(f => f.t === 'tool.call')).toBe(false)
@@ -491,7 +491,7 @@ describe('BridgeServer', () => {
     const h = await startBridge()
     harnesses.push(h)
     expect(() => h.bridge.requestTool('browser_click', {}, new AbortController().signal))
-      .toThrowError(expect.objectContaining({ code: 'bridge-closed' }))
+      .toThrow(expect.objectContaining({ code: 'bridge-closed' }))
   })
 
   it('times out tool calls that never settle', async () => {
@@ -654,7 +654,7 @@ describe('BridgeServer', () => {
     await h.bridge.close()
     await pendingAssertion
     expect(() => h.bridge.requestTool('browser_click', {}, new AbortController().signal))
-      .toThrowError(expect.objectContaining({ code: 'bridge-closed' }))
+      .toThrow(expect.objectContaining({ code: 'bridge-closed' }))
     ws.close()
   })
 

@@ -10,6 +10,7 @@
 
 import { lstat, readdir, rm } from 'node:fs/promises'
 import path from 'node:path'
+import { textOf } from './text.ts'
 
 /** Stable failure codes surfaced to the panel. Open set: callers must tolerate growth. */
 export type SessionPurgeErrorCode = 'not-found' | 'running' | 'invalid-id' | 'internal'
@@ -137,7 +138,7 @@ export async function purgeSessionFiles(deps: SessionPurgeDeps, sessionId: strin
     } catch (error: unknown) {
       failure = failure === undefined
         ? new SessionPurgeError('internal', `session was archived and cleared, but ownership release failed: ${String(error)}`, { cause: error })
-        : new SessionPurgeError('internal', `${String(failure)}; ownership release also failed: ${String(error)}`, {
+        : new SessionPurgeError('internal', `${textOf(failure)}; ownership release also failed: ${String(error)}`, {
           cause: new AggregateError([failure, error], 'session purge and ownership release failed'),
         })
     }

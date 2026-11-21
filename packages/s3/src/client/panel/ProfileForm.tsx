@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type JSX } from 'react'
 import type { S3ProfilePayload, S3ProfileSummary } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 import { Modal, errorMessage } from './common.tsx'

@@ -61,6 +61,7 @@ function browserTab(url: string): chrome.tabs.Tab {
     highlighted: true,
     active: true,
     incognito: false,
+    // oxlint-disable-next-line typescript/no-deprecated -- chrome.tabs.Tab declares the field as required.
     selected: true,
     discarded: false,
     autoDiscardable: true,

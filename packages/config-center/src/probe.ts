@@ -12,6 +12,7 @@ import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import { JS_PREFIX } from './mcp.ts'
 import type { McpServer, McpTestResult } from './protocol.ts'
 import { DEFAULT_STDIO_TIMEOUT_SECONDS } from './protocol.ts'
+import { textOf } from './text.ts'
 
 const PROTOCOL_VERSION = '2025-03-26'
 const CLIENT_INFO = { name: 'dsh-config-center', version: '1' }
@@ -39,7 +40,7 @@ function resolve(value: string): string {
   if (!value.startsWith(JS_PREFIX)) return value
   // oxlint-disable-next-line typescript/no-implied-eval, typescript/no-unsafe-call -- A `!!js` form value is an expression the user wrote for this probe.
   const result: unknown = new Function('process', `return (${value.slice(JS_PREFIX.length)})`)(process)
-  return result === undefined || result === null ? '' : String(result)
+  return textOf(result)
 }
 
 function resolveDict(values: Record<string, string> | undefined): Record<string, string> {
@@ -121,7 +122,7 @@ function testStdio(server: McpServer, timeoutMs: number): Promise<McpTestResult>
           send({ jsonrpc: '2.0', method: 'notifications/initialized' })
           send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} })
         } else if (message.id === 1 && message.error !== undefined) {
-          finish({ ok: false, code: 'rejected', detail: String(message.error.message ?? JSON.stringify(message.error)) })
+          finish({ ok: false, code: 'rejected', detail: textOf(message.error.message ?? message.error) })
         } else if (message.id === 2) {
           finish({ ok: true, code: 'handshake', detail: '', server: label, tools: toolCount(message) })
         }
@@ -194,7 +195,7 @@ async function testHttp(server: McpServer, timeoutMs: number): Promise<McpTestRe
   } catch (error) {
     return { ok: false, code: 'network', detail: errorText(error) }
   }
-  if (initialized?.error !== undefined) return { ok: false, code: 'rejected', detail: String(initialized.error.message ?? JSON.stringify(initialized.error)) }
+  if (initialized?.error !== undefined) return { ok: false, code: 'rejected', detail: textOf(initialized.error.message ?? initialized.error) }
   if (initialized?.result === undefined) return { ok: true, code: 'reachable', detail: '' }
   const label = serverLabel(initialized)
   try {

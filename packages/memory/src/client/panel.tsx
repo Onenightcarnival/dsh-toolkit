@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type JSX } from 'react'
 import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
 import { API, FIELDS, SCHEMA_VERSION, sortEntries, type Commit, type Diff, type Entry, type Kind, type Snapshot, type State } from '../model.ts'
 import { DirectoryView, ResumeView, entryName } from './views.tsx'
@@ -82,12 +82,13 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
     } catch (e) { setError(message(e)) }
     finally { setBusy(false) }
   }
-  function edit(entry: Entry): void { setError(''); setEditor({ entry: structuredClone(entry), base: state!.revision }) }
+  function edit(entry: Entry): void { if (!state) return; setError(''); setEditor({ entry: structuredClone(entry), base: state.revision }) }
   function add(kind: Kind, parentId?: string): void { edit({ id: randomUUID(), kind, fields: parentId ? { [kind === 'project' ? 'workId' : 'parentId']: parentId } : {} }) }
-  function remove(entry: Entry): void { setConfirm({ title: 'removeTitle', hint: 'removeHint', input: { baseRevision: state!.revision, summary: t('deleteSummary'), changes: [{ id: entry.id, kind: entry.kind, remove: true }] } }) }
+  function remove(entry: Entry): void { if (!state) return; setConfirm({ title: 'removeTitle', hint: 'removeHint', input: { baseRevision: state.revision, summary: t('deleteSummary'), changes: [{ id: entry.id, kind: entry.kind, remove: true }] } }) }
   const entries = sortEntries(state?.entries ?? [], order)
   const open = (id: string) => { setSelected(id); setView('directory'); setHistory(false) }
-  const selectedRevision = state?.history.find(h => h.revision === revision) ?? state?.history.at(-1)
+  const lastRevision = state?.history.at(-1)
+  const selectedRevision = state?.history.find(h => h.revision === revision) ?? lastRevision
   const selectedDiff = selectedRevision && diffs[selectedRevision.revision]
   useEffect(() => {
     const target = history ? selectedRevision?.revision : undefined
@@ -100,7 +101,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
 
   return <div className="mem-app">
     <header className="mem-top"><h1>{t('entry')}</h1>
-      <nav><button aria-pressed={history} onClick={() => setHistory(!history)}>{t(history ? 'back' : 'history')}</button><button onClick={() => state && download(state)} disabled={!state}>{t('export')}</button><button onClick={() => importer.current?.click()}>{t('import')}</button><button onClick={() => void refresh()}>{t('refresh')}</button><button className="mem-danger" disabled={!state || busy} onClick={() => setConfirm({ title: 'clearTitle', hint: 'clearHint', input: { clear: true, baseRevision: state!.revision } })}>{t('clear')}</button><button aria-label={t('close')} onClick={close}>×</button></nav>
+      <nav><button aria-pressed={history} onClick={() => setHistory(!history)}>{t(history ? 'back' : 'history')}</button><button onClick={() => state && download(state)} disabled={!state}>{t('export')}</button><button onClick={() => importer.current?.click()}>{t('import')}</button><button onClick={() => void refresh()}>{t('refresh')}</button><button className="mem-danger" disabled={!state || busy} onClick={() => { if (state) setConfirm({ title: 'clearTitle', hint: 'clearHint', input: { clear: true, baseRevision: state.revision } }) }}>{t('clear')}</button><button aria-label={t('close')} onClick={close}>×</button></nav>
     </header>
     {/* oxlint-disable-next-line typescript/no-misused-promises -- The handler catches its own failures. */}
     <input ref={importer} type="file" accept="application/json,.json" hidden onChange={async (event) => {
@@ -114,7 +115,7 @@ export function MemoryPanel({ close }: { close: () => void }): JSX.Element {
     }}/>
     {error && !editor && !confirm && <p className="mem-error" role="alert">{error}</p>}
     {!state ? <p className="mem-loading">{t('loading')}</p> : <>
-      <div className="mem-status"><span>{t('revision')} {state.history.length} <span className="mem-dot">·</span> {state.history.at(-1) ? new Date(state.history.at(-1)!.time).toLocaleString() : '—'}</span><label className="mem-toggle"><input type="checkbox" checked={state.agentTools} disabled={busy} onChange={e => void setTools(e.target.checked)}/><span className="mem-switch" aria-hidden="true"/>{t('agentTools')}</label></div>
+      <div className="mem-status"><span>{t('revision')} {state.history.length} <span className="mem-dot">·</span> {lastRevision ? new Date(lastRevision.time).toLocaleString() : '—'}</span><label className="mem-toggle"><input type="checkbox" checked={state.agentTools} disabled={busy} onChange={e => void setTools(e.target.checked)}/><span className="mem-switch" aria-hidden="true"/>{t('agentTools')}</label></div>
       {!history && <div className="mem-viewbar"><div className="mem-segments" role="group" aria-label={t('view')}>{(['resume', 'directory'] as const).map(mode => <button key={mode} aria-pressed={view === mode} onClick={() => setView(mode)}>{t(mode === 'resume' ? 'resumeView' : 'directory')}</button>)}</div><label className="mem-sort">{t('experienceTime')}<select aria-label={t('sort')} value={order} onChange={e => setOrder(e.target.value as typeof order)}><option value="newest">{t('newest')}</option><option value="oldest">{t('oldest')}</option></select></label></div>}
       <main className={`mem-scroll${!history && view === 'directory' ? ' mem-scroll-directory' : ''}`}>
         {history ? <div className="mem-history"><aside><h2>{t('history')}</h2>{!state.history.length && <p className="mem-muted">{t('emptyHistory')}</p>}{[...state.history].reverse().map((h, index) => <button className={h.revision === selectedRevision?.revision ? 'mem-active' : ''} key={h.revision} onClick={() => setRevision(h.revision)}><span>v{state.history.length - index} <small>{t(h.actor)}</small></span><strong>{h.summary}</strong><time>{new Date(h.time).toLocaleString()}</time></button>)}</aside>

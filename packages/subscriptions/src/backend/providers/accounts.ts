@@ -189,7 +189,7 @@ export class AccountTokenManager<S extends TimedSession> {
     if (manager === undefined) {
       const io = this.io
       let boundAccount = account
-      manager = new TokenManager<S>({
+      const created: TokenManager<S> = new TokenManager<S>({
         displayName: this.options.displayName,
         ...this.options.makeOptions(account),
         load: () => io.get(boundAccount),
@@ -198,14 +198,15 @@ export class AccountTokenManager<S extends TimedSession> {
           const canonical = await this.resolveAccount(boundAccount)
           if (canonical !== boundAccount) {
             // Rebind to the canonical key, keeping the manager and its in-flight refresh.
-            this.managers.set(canonical, manager!)
-            if (this.managers.get(boundAccount) === manager) this.managers.delete(boundAccount)
+            this.managers.set(canonical, created)
+            if (this.managers.get(boundAccount) === created) this.managers.delete(boundAccount)
             boundAccount = canonical
           }
         },
         remove: () => io.remove(boundAccount),
         onRemoved: () => { this.options.onAccountRemoved?.(boundAccount) },
       })
+      manager = created
       this.managers.set(account, manager)
     }
     return manager

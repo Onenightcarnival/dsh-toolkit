@@ -2,6 +2,7 @@
  * dsh-http client: locale dictionaries, sidebar entry and the HTTP request panel.
  * Registration failures are logged and contained within this plugin.
  */
+import type { JSX } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { HttpApi } from './api.ts'
 import { en, setRuntimeTranslate, tt, zh } from './locales.ts'

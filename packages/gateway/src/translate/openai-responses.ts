@@ -2,7 +2,7 @@
 import type { ContentBlock, FinishReason, StreamChunk, TokenUsage, ToolSchema } from '@deepseek-ai/dsh-llm'
 import {
   argumentsText, finishFailure, fullUsage, imageFromDataUrl, invalid, isRecord, joinSystem, optionalBoolean, optionalInteger,
-  optionalNumber, optionalString, parameterSchema, requestId, sse, toolName, unsupported,
+  optionalNumber, optionalString, parameterSchema, requestId, sse, toolName, textOf, unsupported,
   type DraftBlock, type DraftMessage, type ParsedRequest, type StreamEncoder,
 } from './common.ts'
 
@@ -58,7 +58,7 @@ export function parseResponsesRequest(body: unknown): ParsedRequest {
   if (body.previous_response_id !== undefined && body.previous_response_id !== null) throw unsupported('previous_response_id')
   const text = isRecord(body.text) ? body.text : undefined
   const format = text !== undefined && isRecord(text.format) ? text.format : undefined
-  if (format !== undefined && format.type !== 'text' && format.type !== undefined) throw unsupported(`text.format.type=${String(format.type)}`)
+  if (format !== undefined && format.type !== 'text' && format.type !== undefined) throw unsupported(`text.format.type=${textOf(format.type)}`)
   const system: string[] = []
   const instructions = optionalString(body.instructions, 'instructions')
   if (instructions !== undefined) system.push(instructions)
@@ -98,7 +98,7 @@ export function parseResponsesRequest(body: unknown): ParsedRequest {
         case 'reasoning':
           break
         default:
-          throw unsupported(`${where}.type=${String(type)}`)
+          throw unsupported(`${where}.type=${textOf(type)}`)
       }
     })
   } else {

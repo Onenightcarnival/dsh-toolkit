@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type JSX } from 'react'
 import type { SubscriptionsApi } from './api.ts'
 import { tt } from './locales.ts'
 
@@ -43,7 +43,7 @@ export function ImageToolview({ api, block, provider }: Props): JSX.Element | nu
     <strong>{tt(provider === 'antigravity' ? 'googleImageTitle' : provider === 'grok' ? 'grokImageTitle' : 'imageTitle')}</strong><p>{prompt}</p>
     {!settled && <p role="status">{tt('generating')}</p>}
     {block.isError ? <p role="alert">{text || block.error?.code}</p> : <>
-      <div className="dsh-sub-images">{images.map((image, i) => <Image key={i} api={api} attachment={image.attachment!}/>)}</div>
+      <div className="dsh-sub-images">{images.map((image, i) => image.attachment && <Image key={i} api={api} attachment={image.attachment}/>)}</div>
       {text && <details><summary>{`${provider ?? 'codex'}_image_generate`}</summary><pre>{text}</pre></details>}
     </>}
   </div>

@@ -2,6 +2,7 @@
  * dsh-s3 client: locale dictionaries, sidebar entry and object storage panel.
  * Registration failures are logged and contained within this plugin.
  */
+import type { JSX } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { IconArchiveOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { S3Api } from './api.ts'

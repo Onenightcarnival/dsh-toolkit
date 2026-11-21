@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import type { ColumnInfo, IndexInfo, QueryResult, TableRef } from '../protocol.ts'
 import type { DbConnection, QueryOptions } from './types.ts'
 import { sqlLiteral } from './literal.ts'
+import { catalogText } from './text.ts'
 
 interface SqliteStatement {
   all(...params: unknown[]): Record<string, unknown>[]
@@ -95,9 +96,9 @@ export class SqliteConnection implements DbConnection {
     const rows = this.db.prepare(`PRAGMA ${this.quoteIdent(table.schema)}.table_info(${this.quoteIdent(table.name)})`).all()
     return rows.map(r => ({
       name: String(r.name),
-      type: String(r.type ?? ''),
+      type: catalogText(r.type),
       nullable: Number(r.notnull) === 0,
-      defaultValue: r.dflt_value === null || r.dflt_value === undefined ? null : String(r.dflt_value),
+      defaultValue: r.dflt_value === null || r.dflt_value === undefined ? null : catalogText(r.dflt_value),
       primaryKey: Number(r.pk) > 0,
       position: Number(r.cid) + 1,
     }))
@@ -116,7 +117,7 @@ export class SqliteConnection implements DbConnection {
   async ddl(table: TableRef): Promise<string> {
     const row = this.db.prepare(`SELECT sql FROM ${this.quoteIdent(table.schema)}.sqlite_master WHERE name = ?`).all(table.name)[0]
     const idx = this.db.prepare(`SELECT sql FROM ${this.quoteIdent(table.schema)}.sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL`).all(table.name)
-    return [row?.sql ? String(row.sql) + ';' : '', ...idx.map(i => String(i.sql) + ';')].filter(Boolean).join('\n')
+    return [row?.sql ? catalogText(row.sql) + ';' : '', ...idx.map(i => String(i.sql) + ';')].filter(Boolean).join('\n')
   }
 
   async estimatedRows(table: TableRef): Promise<number | undefined> {
@@ -128,7 +129,7 @@ export class SqliteConnection implements DbConnection {
 
   async serverVersion(): Promise<string> {
     const row = this.db.prepare('SELECT sqlite_version() AS v').all()[0]
-    return `SQLite ${String(row?.v ?? '')}`
+    return `SQLite ${catalogText(row?.v)}`
   }
 
   async close(): Promise<void> { this.db.close() }

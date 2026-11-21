@@ -132,9 +132,10 @@ export function accountKeyOf(provider: ProviderId, session: StoredSession): stri
       const user = nonEmpty(auth?.chatgpt_user_id) ?? nonEmpty(auth?.user_id)
       const profile = claimObject(payload?.['https://api.openai.com/profile'])
       const email = nonEmpty(codex.emailAddress) ?? nonEmpty(payload?.email) ?? nonEmpty(profile?.email)
-      if (user === undefined && email === undefined) return codex.accountId
       // Key: JSON tuple of workspace id, kind (`user` | `email`) and identity.
-      return JSON.stringify([codex.accountId, user === undefined ? 'email' : 'user', user ?? email!.toLowerCase()])
+      if (user !== undefined) return JSON.stringify([codex.accountId, 'user', user])
+      if (email !== undefined) return JSON.stringify([codex.accountId, 'email', email.toLowerCase()])
+      return codex.accountId
     }
   }
 }

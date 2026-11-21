@@ -28,7 +28,8 @@ export class LocalLogStore {
     }
     const selected = sources.find(source => source.id === id) ?? sources[0]
     if (!selected) return { sources, text: '', truncated: false }
-    const source = this.sources.find(source => source.id === selected.id)!
+    const source = this.sources.find(source => source.id === selected.id)
+    if (!source) return { sources, text: '', truncated: false }
     const handle = await open(source.path, 'r')
     try {
       const info = await handle.stat()

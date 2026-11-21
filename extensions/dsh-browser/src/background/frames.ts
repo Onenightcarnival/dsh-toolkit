@@ -50,7 +50,7 @@ export function sortTabFrames(frames: TabFrame[]): TabFrame[] {
   const parents = new Map(frames.map(frame => [frame.frameId, frame.parentFrameId]))
   const depths = new Map<number, number>()
   for (const frame of frames) depths.set(frame.frameId, frameDepth(frame.frameId, parents))
-  return [...frames].sort((a, b) => depths.get(a.frameId)! - depths.get(b.frameId)! || a.frameId - b.frameId)
+  return [...frames].sort((a, b) => (depths.get(a.frameId) ?? 0) - (depths.get(b.frameId) ?? 0) || a.frameId - b.frameId)
 }
 
 function frameDepth(frameId: number, parents: Map<number, number>): number {
@@ -75,15 +75,15 @@ export function allocateFrameBudgets(frames: TabFrame[], budget: ContentBudget):
   const chars = allocateDimension(budget.maxChars, childFrames.length)
   const items = allocateDimension(budget.maxItems, childFrames.length)
 
-  return new Map(frames.map(frame => [
-    frame.frameId,
-    frame === mainFrame
-      ? { maxChars: chars.main, maxItems: items.main }
-      : {
-        maxChars: chars.children[childIndex.get(frame.frameId)!],
-        maxItems: items.children[childIndex.get(frame.frameId)!],
-      },
-  ]))
+  return new Map(frames.map((frame): [number, FrameBudget] => {
+    const index = childIndex.get(frame.frameId)
+    return [
+      frame.frameId,
+      index === undefined
+        ? { maxChars: chars.main, maxItems: items.main }
+        : { maxChars: chars.children[index], maxItems: items.children[index] },
+    ]
+  }))
 }
 
 function allocateDimension(total: number, childCount: number): { main: number; children: number[] } {

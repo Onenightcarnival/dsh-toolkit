@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, type ReactNode, type JSX } from 'react'
 
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
@@ -107,6 +107,7 @@ export async function copyText(text: string): Promise<void> {
   area.select()
   let ok = false
   try {
+    // oxlint-disable-next-line typescript/no-deprecated -- Copy path for pages without the async Clipboard API.
     ok = document.execCommand('copy')
   } finally {
     area.remove()

@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type JSX } from 'react'
 import { Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** 宿主菜单样式；弹层跟随触发器宽度与位置。 */

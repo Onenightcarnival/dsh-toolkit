@@ -7,6 +7,7 @@ import type { ColumnInfo, DbProfile, IndexInfo, QueryResult, TableRef, TargetSes
 import type { DbConnection, QueryOptions } from './types.ts'
 import { nodeText, parseHosts, type HostNode } from '../store.ts'
 import { sessionMatches, shuffled } from './postgres.ts'
+import { catalogText } from './text.ts'
 
 /** mysql2 column type codes → readable names. */
 const TYPE_NAMES: Record<number, string> = {
@@ -227,10 +228,10 @@ export class MysqlConnection implements DbConnection {
       FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`, [table.schema, table.name])
     return rows.map(r => ({
       name: String(r.name),
-      type: String(r.type) + (/auto_increment/i.test(String(r.extra ?? '')) ? ' AUTO_INCREMENT' : ''),
+      type: String(r.type) + (/auto_increment/i.test(catalogText(r.extra)) ? ' AUTO_INCREMENT' : ''),
       nullable: String(r.nullable).toUpperCase() === 'YES',
       // MariaDB reports a missing default as the text 'NULL'
-      defaultValue: r.default_value === null || r.default_value === undefined || (String(r.default_value).toUpperCase() === 'NULL' && String(r.nullable).toUpperCase() === 'YES') ? null : String(r.default_value),
+      defaultValue: r.default_value === null || r.default_value === undefined || (catalogText(r.default_value).toUpperCase() === 'NULL' && String(r.nullable).toUpperCase() === 'YES') ? null : catalogText(r.default_value),
       primaryKey: String(r.col_key) === 'PRI',
       position: Number(r.position),
     }))
@@ -244,7 +245,7 @@ export class MysqlConnection implements DbConnection {
     for (const r of rows) {
       const name = String(r.name)
       const idx = byName.get(name) ?? { name, columns: [], unique: Number(r.non_unique) === 0, primary: name === 'PRIMARY' }
-      idx.columns.push(String(r.col ?? `expr#${String(r.seq)}`))
+      idx.columns.push(catalogText(r.col ?? `expr#${String(r.seq)}`))
       byName.set(name, idx)
     }
     return [...byName.values()]
@@ -254,7 +255,7 @@ export class MysqlConnection implements DbConnection {
     const rows = await this.rows(`SHOW CREATE ${table.kind === 'view' ? 'VIEW' : 'TABLE'} ${this.quoteIdent(table.schema)}.${this.quoteIdent(table.name)}`)
     const row = rows[0] ?? {}
     const text = row['Create Table'] ?? row['Create View'] ?? Object.values(row)[1]
-    return text === undefined ? '' : String(text) + ';'
+    return text === undefined ? '' : catalogText(text) + ';'
   }
 
   async estimatedRows(table: TableRef): Promise<number | undefined> {
@@ -267,7 +268,7 @@ export class MysqlConnection implements DbConnection {
 
   async serverVersion(): Promise<string> {
     const rows = await this.rows('SELECT VERSION() AS v')
-    const v = String(rows[0]?.v ?? '')
+    const v = catalogText(rows[0]?.v)
     return (/mariadb/i.test(v) ? 'MariaDB ' : 'MySQL ') + v.slice(0, 60)
   }
 

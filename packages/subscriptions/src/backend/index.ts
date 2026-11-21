@@ -415,7 +415,11 @@ export class SubscriptionsAuthController implements AuthController {
   protected exchange(provider: ProviderId, code: string, attempt: OAuthAttempt): Promise<StoredSession> {
     switch (provider) {
       case 'antigravity': return exchangeAntigravityCode(code, attempt.pkce.verifier, attempt.redirectUri, resolveAntigravityOAuthConfig(this.antigravityConfig), this.antigravityConfig)
-      case 'chatgpt': return exchangeChatGptCode(code, attempt, this.registrations.get(attempt)!)
+      case 'chatgpt': {
+        const registration = this.registrations.get(attempt)
+        if (registration === undefined) throw new Error('ChatGPT sign-in attempt has no client registration')
+        return exchangeChatGptCode(code, attempt, registration)
+      }
       case 'grok': return exchangeGrokCode(code, attempt.pkce.verifier, attempt.redirectUri, attempt.pkce.challenge)
       case 'codex':
         return exchangeCodexCode(code, attempt.pkce.verifier, attempt.redirectUri)
@@ -537,6 +541,7 @@ export function apply(ctx: Context, config: Config): void {
   let poolUsage: PoolUsageTracker | undefined
   let poolAdapter: PoolAdapter | undefined
   const imagePool = new ImageAccountPool({
+    // oxlint-disable-next-line typescript/no-deprecated -- The former option name stays honored.
     enabled: config.pool?.enabled !== false && (config.pool?.autoAccounts ?? config.pool?.autoFamilies ?? true),
     onWarn,
   })
@@ -688,12 +693,16 @@ export function apply(ctx: Context, config: Config): void {
   // Account pools: a catalog model listed by ≥2 accounts of one provider is
   // served through the pool under the same id. Configured tiers are extra picker rows.
   const poolConfig = config.pool
+  // oxlint-disable-next-line typescript/no-deprecated -- The former option name stays honored.
   const autoAccounts = poolConfig?.autoAccounts ?? poolConfig?.autoFamilies ?? true
   if (poolConfig?.enabled !== false && adapters.size >= 1) {
     // Every usage poll has a hard timeout; a timed-out poll scores zero urgency.
     const fetcherFor = (provider: ProviderId, account: string): (() => Promise<ProviderUsage>) | undefined => {
       switch (provider) {
-        case 'antigravity': return () => usageFetchers.antigravity!(account, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
+        case 'antigravity': {
+          const fetchUsage = usageFetchers.antigravity
+          return fetchUsage === undefined ? undefined : () => fetchUsage(account, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
+        }
         case 'grok': {
           const tokens = grokTokens
           return tokens === undefined ? undefined : async () =>
@@ -857,13 +866,14 @@ export function apply(ctx: Context, config: Config): void {
       handles.get(provider)?.replace([provider])
     },
   }
+  const configuredCodexVersion = config.codexClientVersion
   registerAuthRpc(ctx, new SubscriptionsAuthController(
     flows, authChanged, resolveAttachments, usageFetchers, poolUsage,
     {
       ...providers.includes('codex') ? {
-        codex: config.codexClientVersion === undefined
+        codex: configuredCodexVersion === undefined
           ? presentedVersion(codexVersion)
-          : async () => ({ version: config.codexClientVersion!, source: 'config' as const }),
+          : async () => ({ version: configuredCodexVersion, source: 'config' as const }),
       } : {},
     }, config.antigravity,
   ), speed, {
@@ -881,7 +891,9 @@ export function apply(ctx: Context, config: Config): void {
         poolAdapter?.invalidate()
         handles.get(provider)?.replace([provider])
       }
-      const models = await fullCatalogs.get(provider)!(provider)
+      const listModels = fullCatalogs.get(provider)
+      if (!listModels) throw new BadRequest(`provider ${provider} is not configured`)
+      const models = await listModels(provider)
       // Enumerate each account once, with the same bounds used by pool discovery.
       const accounts = await accountTokens.get(provider)?.list() ?? []
       const accountCatalogs = await Promise.all(accounts.map(async account => ({

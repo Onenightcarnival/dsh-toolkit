@@ -2,6 +2,7 @@
  * dsh-rdb client: locale dictionaries, sidebar entry and database panel.
  * Registration failures are logged and contained within this plugin.
  */
+import type { JSX } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { IconDatabaseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { RdbApi } from './api.ts'

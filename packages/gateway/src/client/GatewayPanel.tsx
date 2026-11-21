@@ -3,7 +3,7 @@
  * tabs (overview, keys, usage). Key model allowlists are picked in a
  * provider → model tree dialog; the usage tab is filters, metrics, detail table.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react'
 import type { GatewayApi } from './api.ts'
 import { tt, type Key } from './locales.ts'
 import { formatCompact, formatNumber } from './format.ts'

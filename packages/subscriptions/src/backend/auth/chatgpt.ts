@@ -125,7 +125,9 @@ export async function validateChatGptIdentity(token: string, clientId: string, n
 }
 
 interface TokenResponse { access_token?: string; refresh_token?: string; id_token?: string; token_type?: string; expires_in?: number; scope?: string }
-async function tokenRequest(params: Record<string, string>, fetchFn: FetchFn): Promise<TokenResponse> {
+/** A token response with the fields {@link tokenRequest} verified. */
+type IssuedTokens = TokenResponse & { access_token: string; expires_in: number }
+async function tokenRequest(params: Record<string, string>, fetchFn: FetchFn): Promise<IssuedTokens> {
   const response = await fetchFn(CHATGPT_TOKEN_URL, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ ...params, resource: CHATGPT_RESOURCE }), signal: AbortSignal.timeout(20_000),
@@ -133,7 +135,7 @@ async function tokenRequest(params: Record<string, string>, fetchFn: FetchFn): P
   if (!response.ok) throw await oauthEndpointError(response, 'ChatGPT')
   const body = await response.json() as TokenResponse
   if (!body.access_token || typeof body.expires_in !== 'number' || !Number.isFinite(body.expires_in) || body.expires_in <= 0 || body.token_type?.toLowerCase() !== 'bearer') throw new Error('Invalid ChatGPT token response')
-  return body
+  return { ...body, access_token: body.access_token, expires_in: body.expires_in }
 }
 
 export class ChatGptPlanNotEnabledError extends Error {
@@ -156,8 +158,8 @@ export async function exchangeChatGptCode(code: string, attempt: OAuthAttempt, r
   // Identity-only grants retain their verified registration for explicit reauthorization.
   if (!scopes.includes(DIRECT_SCOPE)) throw new ChatGptPlanNotEnabledError(clientId)
   if (!body.refresh_token) throw new Error('ChatGPT did not grant offline access. Sign in again.')
-  return { ...issued, ...identity, scopes, accessToken: body.access_token!, refreshToken: body.refresh_token,
-    idToken: body.id_token, expiresAt: Date.now() + body.expires_in! * 1000 }
+  return { ...issued, ...identity, scopes, accessToken: body.access_token, refreshToken: body.refresh_token,
+    idToken: body.id_token, expiresAt: Date.now() + body.expires_in * 1000 }
 }
 
 export async function refreshChatGpt(session: ChatGptSession, fetchFn: FetchFn = proxiedFetch): Promise<ChatGptSession> {
@@ -167,8 +169,8 @@ export async function refreshChatGpt(session: ChatGptSession, fetchFn: FetchFn =
     const identity = await validateChatGptIdentity(body.id_token, session.clientId, undefined, fetchFn)
     if (identity.subject !== session.subject) throw new Error('ChatGPT identity changed during refresh')
   }
-  return { ...session, accessToken: body.access_token!, refreshToken: body.refresh_token,
-    idToken: body.id_token ?? session.idToken, expiresAt: Date.now() + body.expires_in! * 1000,
+  return { ...session, accessToken: body.access_token, refreshToken: body.refresh_token,
+    idToken: body.id_token ?? session.idToken, expiresAt: Date.now() + body.expires_in * 1000,
     scopes: body.scope === undefined ? session.scopes : body.scope.split(/\s+/).filter(Boolean) }
 }
 

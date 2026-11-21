@@ -7,6 +7,7 @@
  */
 
 import type { RespondResult } from './protocol.ts'
+import { textOf } from './text.ts'
 
 /** Stable failure envelope understood by the extension panel. */
 export interface HostRpcFailure {
@@ -46,7 +47,7 @@ export interface BrowserHostApi {
 export function hostFailure(error: unknown): HostRpcFailure {
   if (isRecord(error)) {
     const code = typeof error.code === 'string' ? error.code : 'internal'
-    const message = typeof error.message === 'string' ? error.message : String(error)
+    const message = typeof error.message === 'string' ? error.message : textOf(error)
     const details = isRecord(error.details) ? error.details : {}
     return { code, message, details }
   }

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, type ReactNode, type JSX } from 'react'
 import { tt } from '../locales.ts'
 
 export function errorMessage(error: unknown): string {

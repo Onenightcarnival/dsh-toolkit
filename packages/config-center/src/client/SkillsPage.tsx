@@ -1,5 +1,5 @@
 /** User skill library with source preview and ZIP installation. */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type JSX } from 'react'
 import { Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConfigCenterApi } from './api.ts'
 import type { SkillList, SkillDetail, SkillFile, SkillInstallResult } from '../protocol.ts'

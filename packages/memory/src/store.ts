@@ -87,7 +87,8 @@ export class MemoryStore {
       const after = snapshotAt(db, revision)
       if (!after) return undefined
       const previous = db.prepare('SELECT revision FROM revisions WHERE revision < ? ORDER BY revision DESC LIMIT 1').get(revision)
-      return { revision, before: previous ? snapshotAt(db, previous.revision as number)! : emptySnapshot(), after }
+      const before = previous ? snapshotAt(db, previous.revision as number) : undefined
+      return { revision, before: before ?? emptySnapshot(), after }
     })
   }
 

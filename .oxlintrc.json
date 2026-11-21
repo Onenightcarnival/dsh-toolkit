@@ -60,6 +60,16 @@
           }
         ],
         "typescript/no-array-delete": "error",
+        "typescript/no-base-to-string": "error",
+        "typescript/no-deprecated": [
+          "error",
+          {
+            // @types/chrome marks single sub-namespaces deprecated; the merged `chrome` namespace inherits the tag.
+            "allow": [
+              "chrome"
+            ]
+          }
+        ],
         "typescript/no-duplicate-enum-values": "error",
         "typescript/no-duplicate-type-constituents": "error",
         "typescript/no-empty-object-type": "off", // Merge-extensible maps intentionally use empty object types.
@@ -146,6 +156,7 @@
         "extensions/*/src/**/*.{ts,tsx}"
       ],
       "rules": {
+        "typescript/no-non-null-assertion": "error",
         "typescript/only-throw-error": "error",
         "typescript/restrict-template-expressions": [
           "error",
@@ -214,11 +225,8 @@
       ],
       "rules": {
         "no-restricted-properties": "off", // Official entry: crypto.randomUUID; enforced for web panels below.
-        "typescript/no-base-to-string": "off",
         "typescript/no-confusing-void-expression": "off",
-        "typescript/no-deprecated": "off",
         "typescript/no-dynamic-delete": "off",
-        "typescript/no-non-null-assertion": "off",
         "typescript/no-unnecessary-boolean-literal-compare": "off",
         "typescript/no-unnecessary-condition": "off",
         "typescript/no-unnecessary-type-conversion": "off",

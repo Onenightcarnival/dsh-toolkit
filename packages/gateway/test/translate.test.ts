@@ -95,7 +95,7 @@ test('chat completions: stream chunks and the complete object', () => {
   const deltas = out.filter(frame => frame.data !== '[DONE]').map(frame => frame.data as { choices: Array<{ delta: Record<string, unknown>; finish_reason: string | null }>; usage?: unknown })
   assert.equal(deltas[0].choices[0].delta.role, 'assistant')
   assert.equal(deltas[0].choices[0].delta.reasoning_content, 'thinking')
-  assert.equal(deltas.map(d => d.choices[0]?.delta.content ?? '').join(''), 'Hello')
+  assert.equal(deltas.map(d => (d.choices[0]?.delta.content as string | undefined) ?? '').join(''), 'Hello')
   const toolDeltas = deltas.flatMap(d => (d.choices[0]?.delta.tool_calls as Array<Record<string, unknown>> | undefined) ?? [])
   assert.equal(toolDeltas[0].id, 'call_1')
   assert.equal(toolDeltas[0].index, 0)

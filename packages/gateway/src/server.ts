@@ -57,7 +57,8 @@ export function describeFailure(error: unknown, aborted: boolean): Failure {
     const failure = (error as { failure?: { status?: number } }).failure
     const upstream = failure?.status
     const status = upstream !== undefined && upstream >= 400 && upstream <= 599 ? upstream : 502
-    return { status, code: (error as { code: string }).code, message: error instanceof Error ? error.message : String(error) }
+    const coded = error as { code: string; message?: unknown }
+    return { status, code: coded.code, message: typeof coded.message === 'string' ? coded.message : coded.code }
   }
   return { status: 500, code: 'internal_error', message: error instanceof Error ? error.message : String(error) }
 }

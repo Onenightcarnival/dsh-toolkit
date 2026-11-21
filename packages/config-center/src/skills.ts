@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { unzipSync } from 'fflate'
 import { parse } from 'yaml'
 import type { Skill, SkillDetail, SkillFile, SkillInstallResult } from './protocol.ts'
+import { textOf } from './text.ts'
 
 const MAX_FILE = 256 * 1024
 export const MAX_SKILL_ZIP = 32 * 1024 * 1024
@@ -40,7 +41,7 @@ function summary(file: string): Pick<Skill, 'description' | 'version'> & { front
     try { const value: unknown = parse(block[1], { maxAliasCount: 20 }); if (value && typeof value === 'object' && !Array.isArray(value)) frontmatter = value as Record<string, unknown> } catch { /* source remains available */ }
   }
   const metadata = frontmatter.metadata as Record<string, unknown> | undefined
-  return { description: String(frontmatter.description ?? text.split('\n').find(line => line.trim() && !/^(#|---)/.test(line)) ?? '').slice(0, 2000), version: String(frontmatter.version ?? metadata?.version ?? ''), frontmatter }
+  return { description: textOf(frontmatter.description ?? text.split('\n').find(line => line.trim() && !/^(#|---)/.test(line))).slice(0, 2000), version: textOf(frontmatter.version ?? metadata?.version), frontmatter }
 }
 
 /** Archive entry path: `/` separators, UTF-8 names stored without the ZIP UTF-8 flag decoded. */
@@ -235,7 +236,7 @@ export class SkillStore {
       seen.add(name.toLowerCase())
     }
     const occupants = new Map([...units].map(([top, name]) => [top, [...new Set([join(this.root, top), ...this.occupants(name)])].filter(path => fs.lstatSync(path, { throwIfNoEntry: false }))]))
-    const conflicts = [...units].filter(([top]) => occupants.get(top)!.length).map(([, name]) => name)
+    const conflicts = [...units].filter(([top]) => (occupants.get(top) ?? []).length).map(([, name]) => name)
     const result: SkillInstallResult = { installed: [], skipped: [], conflicts }
     if (conflicts.length && policy === 'ask') return result
     fs.mkdirSync(this.disabled, { recursive: true })
@@ -257,7 +258,7 @@ export class SkillStore {
         if (conflicts.includes(name) && policy === 'skip') { result.skipped.push(name); continue }
         const backups: Array<[string, string]> = []
         try {
-          for (const path of occupants.get(top)!) { const backup = join(replaced, `${backups.length}-${top}`); this.move(path, backup); backups.push([backup, path]) }
+          for (const path of occupants.get(top) ?? []) { const backup = join(replaced, `${backups.length}-${top}`); this.move(path, backup); backups.push([backup, path]) }
           this.move(fenced(extracted, top), fenced(this.root, top))
           result.installed.push(name)
         } catch (error) {

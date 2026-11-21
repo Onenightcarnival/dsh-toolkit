@@ -2,7 +2,7 @@
 import type { ContentBlock, FinishReason, StreamChunk, TokenUsage, ToolSchema } from '@deepseek-ai/dsh-llm'
 import {
   argumentsText, finishFailure, fullUsage, imageFromDataUrl, invalid, isRecord, joinSystem, optionalBoolean, optionalInteger,
-  optionalNumber, optionalString, parameterSchema, requestId, sse, stopSequences, toolName, unsupported,
+  optionalNumber, optionalString, parameterSchema, requestId, sse, stopSequences, toolName, textOf, unsupported,
   type DraftBlock, type DraftMessage, type ParsedRequest, type StreamEncoder,
 } from './common.ts'
 
@@ -57,7 +57,7 @@ export function parseChatRequest(body: unknown): ParsedRequest {
   if (optionalInteger(body.n, 'n') !== undefined && body.n !== 1) throw unsupported('n')
   if (body.logprobs === true || body.top_logprobs !== undefined && body.top_logprobs !== null) throw unsupported('logprobs')
   if (isRecord(body.response_format) && body.response_format.type !== 'text' && body.response_format.type !== undefined) {
-    throw unsupported(`response_format.type=${String(body.response_format.type)}`)
+    throw unsupported(`response_format.type=${textOf(body.response_format.type)}`)
   }
   if (!Array.isArray(body.messages) || body.messages.length === 0) throw invalid('"messages" must be a non-empty list', 'messages')
   const system: string[] = []

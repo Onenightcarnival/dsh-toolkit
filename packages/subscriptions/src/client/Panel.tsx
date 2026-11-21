@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import type { Account, Catalog, Preferences, ProviderId, Status, Usage } from '../protocol.ts'
 import type { SubscriptionsApi } from './api.ts'
 import { tt } from './locales.ts'

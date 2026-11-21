@@ -141,7 +141,9 @@ export function describeFetchError(error: unknown): string {
         if (childText !== '' && !parts.includes(childText)) parts.push(childText)
       }
     }
-    let text = layer instanceof Error ? layer.message : String(node)
+    let text = typeof layer.message === 'string'
+      ? layer.message
+      : typeof node === 'string' || typeof node === 'number' || typeof node === 'boolean' ? String(node) : ''
     const code = layer.code
     if (typeof code === 'string' && code !== '') {
       if (text === '') text = code

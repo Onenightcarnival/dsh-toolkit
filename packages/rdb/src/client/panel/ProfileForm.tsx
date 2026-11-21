@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type JSX } from 'react'
 import { TARGET_SESSION_ATTRS, type DbKind, type DbProfilePayload, type DbProfileSummary, type TargetSessionAttrs } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 import { Modal, errorMessage } from './common.tsx'

@@ -9,6 +9,7 @@
 import { getUiLocale, type UiLocale } from '../i18n.ts'
 import { imageRefsFromBlocks, type ImageAttachmentRef } from './attachments.ts'
 import { PANEL_COPY } from './strings.ts'
+import { textOf } from '../text.ts'
 
 /** One rendered conversation row. */
 export interface Row {
@@ -127,7 +128,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Extract model-visible text from content blocks (defensive: unknown block shapes degrade to markers). */
 export function textFromBlocks(blocks: unknown): string {
-  if (!Array.isArray(blocks)) return String(blocks ?? '')
+  if (!Array.isArray(blocks)) return textOf(blocks)
   const parts: string[] = []
   for (const block of blocks) {
     if (typeof block !== 'object' || block === null) continue
@@ -171,7 +172,7 @@ export function rowFromEvent(event: SessionEventView): Row | null {
 export function toolSummary(name: string, argsJson: unknown, locale: UiLocale = getUiLocale()): string {
   let summary = PANEL_COPY[locale].tool.labels[name] ?? name
   try {
-    const args = JSON.parse(String(argsJson ?? '{}')) as unknown
+    const args = typeof argsJson === 'string' ? JSON.parse(argsJson) as unknown : argsJson ?? {}
     if (typeof args === 'object' && args !== null && 'index' in args) {
       summary += ` #${String((args as { index?: unknown }).index)}`
     }

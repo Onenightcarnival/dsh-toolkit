@@ -2,7 +2,7 @@
 import type { ContentBlock, FinishReason, StreamChunk, TokenUsage, ToolSchema } from '@deepseek-ai/dsh-llm'
 import {
   argumentsObject, argumentsText, finishFailure, fullUsage, invalid, isRecord, joinSystem, optionalBoolean, optionalInteger, optionalNumber,
-  optionalString, parameterSchema, requestId, sse, stopSequences, toolName, unsupported,
+  optionalString, parameterSchema, requestId, sse, stopSequences, toolName, textOf, unsupported,
   type DraftBlock, type DraftMessage, type ParsedRequest, type PendingImage, type StreamEncoder,
 } from './common.ts'
 
@@ -46,7 +46,7 @@ function tools(value: unknown): ToolSchema[] | undefined {
   return value.map((tool: unknown, index) => {
     const where = `tools[${index}]`
     if (!isRecord(tool)) throw invalid(`"${where}" must be an object`, where)
-    if (tool.type !== undefined && tool.type !== 'custom') throw unsupported(`${where}.type=${String(tool.type)}`)
+    if (tool.type !== undefined && tool.type !== 'custom') throw unsupported(`${where}.type=${textOf(tool.type)}`)
     return {
       name: toolName(tool.name, `${where}.name`),
       description: typeof tool.description === 'string' ? tool.description : '',

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type JSX } from 'react'
 import { isEventStream, type HttpExchange, type HttpExchangeResponse, type HttpStreamHead } from '../../protocol.ts'
 import { tt, type HttpKey } from '../locales.ts'
 import { CodeView, languageOf } from './Code.tsx'

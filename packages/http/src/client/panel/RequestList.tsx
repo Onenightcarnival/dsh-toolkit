@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type JSX } from 'react'
 import type { HttpSavedRequest } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 

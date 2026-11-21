@@ -116,7 +116,7 @@ export function memoryTools(store: MemoryStore) {
         return { raw, id, existing }
       })
       const changes: Change[] = records.map(({ raw, id, existing }) => {
-        if (raw.kind === 'remove') return { id, kind: existing!.kind, remove: true }
+        if (raw.kind === 'remove') return { id, kind: (existing ?? fail('missing', id)).kind, remove: true }
         const kind = raw.kind as Kind
         if (!object(raw.fields) || !Object.keys(raw.fields).length) fail('invalid', 'fields')
         const fields: Record<string, string> = {}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type JSX } from 'react'
 import type { ConfigCenterApi } from './api.ts'
 import type { LocalLogs } from '../protocol.ts'
 import { styles } from './styles.ts'

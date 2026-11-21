@@ -47,8 +47,9 @@ function str(value: unknown): string | undefined {
 export function validateCreate(payload: S3ProfilePayload): string | undefined {
   const name = str(payload.name)?.trim() ?? ''
   if (name !== '' && !NAME_RE.test(name)) return 'name may contain letters, digits, spaces, dots, hyphens and underscores (max 64)'
-  if ((str(payload.bucket)?.trim() ?? '') === '') return 'bucket is required'
-  if (!/^[a-z0-9][a-z0-9.-]{1,62}$/.test(payload.bucket!.trim())) return 'bucket name looks invalid (lowercase letters, digits, dots, hyphens)'
+  const bucket = str(payload.bucket)?.trim() ?? ''
+  if (bucket === '') return 'bucket is required'
+  if (!/^[a-z0-9][a-z0-9.-]{1,62}$/.test(bucket)) return 'bucket name looks invalid (lowercase letters, digits, dots, hyphens)'
   if ((str(payload.accessKeyId)?.trim() ?? '') === '') return 'accessKeyId is required'
   if ((str(payload.secretAccessKey) ?? '') === '') return 'secretAccessKey is required'
   const endpoint = str(payload.endpoint)?.trim() ?? ''
@@ -138,17 +139,17 @@ export class ProfileStore {
     const error = validateCreate(payload)
     if (error !== undefined) throw new Error(error)
     const file = this.load()
-    const name = uniqueName((payload.name ?? '').trim() || payload.bucket!.trim(), file.profiles.map(p => p.name))
+    const name = uniqueName((payload.name ?? '').trim() || (payload.bucket ?? '').trim(), file.profiles.map(p => p.name))
     const now = Date.now()
     const endpoint = (payload.endpoint ?? '').trim().replace(/\/+$/, '')
     const profile: S3Profile = {
       id: randomBytes(6).toString('hex'),
       name,
-      bucket: payload.bucket!.trim(),
+      bucket: (payload.bucket ?? '').trim(),
       endpoint,
       region: (payload.region ?? '').trim() || 'us-east-1',
-      accessKeyId: payload.accessKeyId!.trim(),
-      secretAccessKey: payload.secretAccessKey!,
+      accessKeyId: (payload.accessKeyId ?? '').trim(),
+      secretAccessKey: payload.secretAccessKey ?? '',
       pathStyle: payload.pathStyle ?? (endpoint !== ''),
       prefix: normalizePrefix(payload.prefix),
       createdAt: now,
@@ -176,13 +177,13 @@ export class ProfileStore {
     }
     const error = validateCreate(merged)
     if (error !== undefined) throw new Error(error)
-    const name = uniqueName((merged.name ?? '').trim() || merged.bucket!.trim(), file.profiles.filter(p => p.id !== id).map(p => p.name))
+    const name = uniqueName((merged.name ?? '').trim() || (merged.bucket ?? '').trim(), file.profiles.filter(p => p.id !== id).map(p => p.name))
     profile.name = name
-    profile.bucket = merged.bucket!.trim()
+    profile.bucket = (merged.bucket ?? '').trim()
     profile.endpoint = (merged.endpoint ?? '').trim().replace(/\/+$/, '')
     profile.region = (merged.region ?? '').trim() || 'us-east-1'
-    profile.accessKeyId = merged.accessKeyId!.trim()
-    profile.secretAccessKey = merged.secretAccessKey!
+    profile.accessKeyId = (merged.accessKeyId ?? '').trim()
+    profile.secretAccessKey = merged.secretAccessKey ?? ''
     profile.pathStyle = merged.pathStyle ?? profile.pathStyle
     profile.prefix = normalizePrefix(merged.prefix)
     profile.updatedAt = Date.now()

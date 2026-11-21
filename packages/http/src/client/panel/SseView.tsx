@@ -3,7 +3,7 @@
  * stream is read, the text assembled from LLM-style delta events, and the raw
  * stream text once it is complete.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import type { HttpStreamEnd } from '../../protocol.ts'
 import { deltaText, type SseRow } from '../sse.ts'
 import { tt } from '../locales.ts'

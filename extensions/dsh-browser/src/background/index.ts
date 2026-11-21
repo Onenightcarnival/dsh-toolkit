@@ -1190,7 +1190,7 @@ function routeToolCall(call: ToolCall): void {
       } else {
         const socket = bridge
         if (socket === null) return
-        socket.send({ t: 'tool.result', id: call.id, ok: false, error: answer.error! })
+        socket.send({ t: 'tool.result', id: call.id, ok: false, error: answer.error ?? { code: 'action-failed', message: 'Tool call failed' } })
       }
     },
     (error: unknown) => {

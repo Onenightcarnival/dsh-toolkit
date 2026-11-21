@@ -9,6 +9,7 @@ import type { ColumnInfo, DbKind, DbProfile, IndexInfo, QueryResult, TableRef, T
 import type { DbConnection, QueryOptions } from './types.ts'
 import { nodeText, parseHosts, type HostNode } from '../store.ts'
 import { sqlLiteral } from './literal.ts'
+import { catalogText } from './text.ts'
 
 interface PgLikeResult {
   rows: unknown[][]
@@ -225,7 +226,7 @@ export class PgConnection implements DbConnection {
       ORDER BY a.attnum`, [table.schema, table.name])
     return rows.map(r => ({
       name: String(r.name), type: String(r.type), nullable: r.nullable === true,
-      defaultValue: r.default_value === null || r.default_value === undefined ? null : String(r.default_value),
+      defaultValue: r.default_value === null || r.default_value === undefined ? null : catalogText(r.default_value),
       primaryKey: r.primary_key === true, position: Number(r.position),
     }))
   }
@@ -242,7 +243,7 @@ export class PgConnection implements DbConnection {
     const byNum = new Map(attrs.map(a => [Number(a.attnum), String(a.name)]))
     return rows.map(r => ({
       name: String(r.name),
-      columns: String(r.keys ?? '').split(/\s+/).filter(Boolean).map(k => byNum.get(Number(k)) ?? `expr#${k}`),
+      columns: catalogText(r.keys).split(/\s+/).filter(Boolean).map(k => byNum.get(Number(k)) ?? `expr#${k}`),
       unique: r.unique === true,
       primary: r.primary === true,
     }))
@@ -252,7 +253,7 @@ export class PgConnection implements DbConnection {
     const q = (s: string) => this.quoteIdent(s)
     if (table.kind === 'view') {
       const rows = await this.rows(`SELECT pg_get_viewdef(($1 || '.' || $2)::regclass, true) AS def`, [q(table.schema), q(table.name)])
-      return `CREATE OR REPLACE VIEW ${q(table.schema)}.${q(table.name)} AS\n${String(rows[0]?.def ?? '')}`
+      return `CREATE OR REPLACE VIEW ${q(table.schema)}.${q(table.name)} AS\n${catalogText(rows[0]?.def)}`
     }
     const cols = await this.columns(table)
     const idx = await this.indexes(table)
@@ -274,7 +275,7 @@ export class PgConnection implements DbConnection {
 
   async serverVersion(): Promise<string> {
     const rows = await this.rows('SELECT version() AS v')
-    const v = String(rows[0]?.v ?? '')
+    const v = catalogText(rows[0]?.v)
     return this.kind === 'gaussdb' ? v.slice(0, 80) : (v.match(/^PostgreSQL [^ ]+/)?.[0] ?? v.slice(0, 80))
   }
 

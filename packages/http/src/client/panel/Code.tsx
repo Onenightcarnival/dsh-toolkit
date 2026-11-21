@@ -3,7 +3,7 @@
  * Both use the web app's highlighter (`useCodeHighlighter`): a language whose
  * grammar is unknown or still loading renders as plain text.
  */
-import { Fragment, useMemo, type KeyboardEvent, type ReactNode } from 'react'
+import { Fragment, useMemo, type KeyboardEvent, type ReactNode, type JSX } from 'react'
 import { useCodeHighlighter } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Text above this size renders without highlighting. */

@@ -126,7 +126,7 @@ export function renderExchange(method: string, value: ExchangeOutput): string {
     const names = item.variables.map(name => `{{${name}}}`).join(' ')
     lines.push(item.ok ? `host refreshed ${names} with the saved request "${item.request}" first` : `host could not refresh ${names} with the saved request "${item.request}": ${item.error ?? 'unknown error'}`)
   }
-  if ((value.redirects?.length ?? 0) > 0) lines.push(`redirected via: ${value.redirects!.join(' → ')}`)
+  if (value.redirects !== undefined && value.redirects.length > 0) lines.push(`redirected via: ${value.redirects.join(' → ')}`)
   lines.push(`${value.contentType !== '' && value.contentType !== undefined ? value.contentType : 'no content-type'} · ${humanBytes(value.bodyBytes ?? 0)}${value.bodyTruncated ? ' (truncated)' : ''}`)
   if (value.binary) lines.push('[binary body omitted]')
   else if ((value.body ?? '') !== '') lines.push('', value.body as string)

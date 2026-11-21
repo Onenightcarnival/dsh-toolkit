@@ -207,7 +207,7 @@ export class UsageStore {
       ttftMs: row.ttft_ms === null ? null : Number(row.ttft_ms),
       durationMs: Number(row.duration_ms),
       status: Number(row.status),
-      errorCode: row.error_code === null ? null : String(row.error_code),
+      errorCode: typeof row.error_code === 'string' ? row.error_code : null,
     }))
     return {
       range,

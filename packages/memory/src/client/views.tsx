@@ -1,5 +1,9 @@
+import type { JSX } from 'react'
 import { FIELDS, type Entry, type Kind } from '../model.ts'
 import { t, type Key } from './locales.ts'
+
+/** Profile shown while the entry list carries none; same shape as the empty snapshot's profile. */
+const EMPTY_PROFILE: Entry = { id: 'profile', kind: 'profile', fields: {} }
 
 export function entryName(entry?: Entry): string {
   if (!entry) return t('none')
@@ -25,7 +29,7 @@ function Actions({ entry, edit, remove }: Pick<ViewProps, 'edit' | 'remove'> & {
 }
 export function ResumeView(props: ViewProps): JSX.Element {
   const { entries, edit, add, remove, open } = props
-  const profile = entries.find(e => e.kind === 'profile')!
+  const profile = entries.find(e => e.kind === 'profile') ?? EMPTY_PROFILE
   return <div className="mem-paper-stage"><article className="mem-resume mem-paper">
     <section className="mem-profile"><div className="mem-section-heading"><h2>{t('personal')}</h2><Actions entry={profile} edit={edit} remove={remove}/></div><Fields entry={profile} keys={FIELDS.profile}/></section>
     {(['work', 'project'] as const).map(kind => <section className="mem-section" key={kind}>
@@ -43,7 +47,7 @@ export function ResumeView(props: ViewProps): JSX.Element {
 export function DirectoryView(props: ViewProps & { selected: string }): JSX.Element {
   const { entries, selected, open, edit, remove, add } = props
   const independentId = '@independent'
-  const profile = entries.find(e => e.kind === 'profile')!
+  const profile = entries.find(e => e.kind === 'profile') ?? EMPTY_PROFILE
   const independentGroup = selected === independentId
   const current = entries.find(e => e.id === selected) ?? profile
   const parent = current.kind === 'lesson' ? entries.find(e => e.id === current.fields.parentId) : current.kind === 'project' ? entries.find(e => e.id === current.fields.workId) : undefined

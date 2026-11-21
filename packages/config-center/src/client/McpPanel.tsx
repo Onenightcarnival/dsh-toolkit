@@ -1,5 +1,5 @@
 /** Native sidebar/main slots, matching the database, S3 and subscription panels. */
-import type { ComponentType } from 'react'
+import type { ComponentType, JSX } from 'react'
 import type { ConfigCenterApi } from './api.ts'
 import { McpTab } from './McpTab.tsx'
 import { tt } from './locales.ts'

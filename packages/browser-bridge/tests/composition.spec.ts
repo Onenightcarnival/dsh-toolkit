@@ -192,7 +192,7 @@ function connect(port: number): Promise<{
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}${BRIDGE_PATH}`, { headers: { origin: EXT_ORIGIN } })
     const frames: BridgeFrame[] = []
-    ws.on('message', (data) => { frames.push(JSON.parse(data.toString()) as BridgeFrame) })
+    ws.on('message', (data) => { frames.push(JSON.parse((data as Buffer).toString()) as BridgeFrame) })
     ws.on('error', reject)
     ws.on('open', () => {
       resolve({
@@ -272,6 +272,7 @@ describe('real Loader composition', () => {
     expect(agent.inbox.nextStep[0]?.id).toBe(steering.id)
     expect(JSON.stringify(agent.inbox.nextStep)).not.toContain('provisional tab')
     expect(agent.session.snapshotEvents().some(event => event.type === 'agent/inbox/spliced'
+    // oxlint-disable-next-line typescript/no-deprecated -- The assertion inspects the session log.
       && event.data.outcome === 'canceled')).toBe(true)
 
     agent.followup(createUserMessage({

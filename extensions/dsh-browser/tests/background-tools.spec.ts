@@ -19,6 +19,7 @@ function managedTab(tabId: number, overrides: Partial<chrome.tabs.Tab> = {}): ch
     highlighted: false,
     pinned: false,
     incognito: false,
+    // oxlint-disable-next-line typescript/no-deprecated -- chrome.tabs.Tab declares the field as required.
     selected: false,
     discarded: false,
     autoDiscardable: true,
