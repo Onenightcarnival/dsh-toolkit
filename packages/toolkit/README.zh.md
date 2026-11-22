@@ -7,10 +7,13 @@
 ## 安装
 
 ```sh
+# npm
+dsh plugin --profile web add @onenightcarnival/dsh-toolkit@<版本>
+# 或 Release 附件
 dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<版本>.tgz
 ```
 
-桌面版入口：插件 → 配置中心… → 插件 → 从 .tgz 安装。
+桌面版入口：插件 → 配置中心… → 插件，按 npm 包名或「从 .tgz 安装」。
 
 集成包与独立插件互斥。运行时兼容性见[仓库说明](../../README.zh.md#运行时兼容性)。
 

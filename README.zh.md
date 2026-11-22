@@ -49,11 +49,16 @@
 
 安装方式：集成包或独立插件，二者互斥。
 
-**桌面版**：「插件 → 配置中心… → 插件 → 从 .tgz 安装」，选中 tgz，按提示重启。
+集成包同时发布在 npm：[`@onenightcarnival/dsh-toolkit`](https://www.npmjs.com/package/@onenightcarnival/dsh-toolkit)，版本与 Release 相同；独立插件仅以 Release 附件分发。安装时指定与 dsh 运行时对应的版本，见[运行时兼容性](#运行时兼容性)。
+
+**桌面版**：「插件 → 配置中心… → 插件」，按 npm 包名 `@onenightcarnival/dsh-toolkit@<版本>` 安装，或「从 .tgz 安装」选中 tgz；按提示重启。
 
 **dsh 命令行**：
 
 ```sh
+# npm
+dsh plugin --profile web add @onenightcarnival/dsh-toolkit@<版本>
+# 或 Release 附件
 dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<版本>.tgz
 dsh web
 ```
@@ -150,6 +155,7 @@ git push origin v<版本>
 | 版本同步 | `scripts/version.mjs set` 将 tag 版本写入包、扩展 manifest 与 OTel `PLUGIN_VERSION` |
 | 验证与构建 | 类型检查 → 构建 → 测试 → 打包 |
 | 发布 | `dist/` 全部文件附加到同名 GitHub Release |
+| npm | 仓库变量 `NPM_PUBLISH` 为 `true` 时，Release 中的集成包 tgz 经可信发布暂存到 npm，标签为 `latest`，预发布版本为 `next`；维护者在 npmjs.com 批准后公开 |
 
 流程定义：[release.yml](.github/workflows/release.yml)。产物版本以 tag 为准；仓库版本通过 `pnpm version:set <版本>` 同步。带预发布后缀的 tag 标记为预发布，浏览器 manifest 仅保留数字版本。
 

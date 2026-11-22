@@ -7,10 +7,13 @@ Integrated plugin package for [DeepSeek Harness](https://github.com/deepseek-ai/
 ## Installation
 
 ```sh
+# npm
+dsh plugin --profile web add @onenightcarnival/dsh-toolkit@<version>
+# or the release file
 dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<version>.tgz
 ```
 
-Desktop entry: Plugins → Config center… → Plugins → Install from .tgz.
+Desktop entry: Plugins → Config center… → Plugins, by npm package name or Install from .tgz.
 
 The integrated package and standalone plugins are mutually exclusive. Runtime compatibility: [repository guide](../../README.md#runtime-compatibility).
 

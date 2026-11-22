@@ -49,11 +49,16 @@ Every [release](https://github.com/Onenightcarnival/dsh-toolkit/releases) carrie
 
 Installation modes: the integrated toolkit or standalone plugins. The two modes are mutually exclusive.
 
-**Desktop app**: Plugins → Config center… → Plugins → Install from .tgz, pick the file, restart when prompted.
+The integrated toolkit is also published on npm as [`@onenightcarnival/dsh-toolkit`](https://www.npmjs.com/package/@onenightcarnival/dsh-toolkit), with the same versions as the releases; standalone plugins are distributed as release files only. Install the version that matches the dsh runtime: [runtime compatibility](#runtime-compatibility).
+
+**Desktop app**: Plugins → Config center… → Plugins, install the npm package `@onenightcarnival/dsh-toolkit@<version>`, or Install from .tgz and pick the file; restart when prompted.
 
 **dsh CLI**:
 
 ```sh
+# npm
+dsh plugin --profile web add @onenightcarnival/dsh-toolkit@<version>
+# or the release file
 dsh plugin --profile web add file:./onenightcarnival-dsh-toolkit-<version>.tgz
 dsh web
 ```
@@ -150,6 +155,7 @@ git push origin v<version>
 | Version synchronization | `scripts/version.mjs set` writes the tag version into packages, extension manifests and OTel `PLUGIN_VERSION` |
 | Validation and build | Typecheck → build → test → package |
 | Release | All files in `dist/` attached to the matching GitHub Release |
+| npm | With the repository variable `NPM_PUBLISH` set to `true`, the toolkit tgz of the Release is staged on npm through trusted publishing, with the dist-tag `latest`, or `next` for a prerelease; a maintainer approves it on npmjs.com before it is public |
 
 Workflow: [release.yml](.github/workflows/release.yml). Artifact versions follow the tag; `pnpm version:set <version>` synchronizes repository versions. Tags with prerelease suffixes create prereleases; browser manifests retain only the numeric version.
 
