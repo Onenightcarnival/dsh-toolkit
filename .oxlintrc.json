@@ -61,6 +61,14 @@
         ],
         "typescript/no-array-delete": "error",
         "typescript/no-base-to-string": "error",
+        "typescript/no-confusing-void-expression": [
+          "error",
+          {
+            // Returning or shorthand-calling a void function where void is expected stays allowed.
+            "ignoreArrowShorthand": true,
+            "ignoreVoidReturningFunctions": true
+          }
+        ],
         "typescript/no-deprecated": [
           "error",
           {
@@ -213,7 +221,6 @@
       ],
       "rules": {
         "no-restricted-properties": "off", // Official entry: crypto.randomUUID; enforced for web panels below.
-        "typescript/no-confusing-void-expression": "off",
         "typescript/no-dynamic-delete": "off",
         "typescript/no-unnecessary-boolean-literal-compare": "off",
         "typescript/no-unnecessary-condition": "off",

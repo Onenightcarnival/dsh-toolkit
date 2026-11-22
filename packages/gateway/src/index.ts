@@ -4,7 +4,7 @@
  * host's browser session.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-host-webserver'
+import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-llm'
 import type { Server } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -113,12 +113,12 @@ export function apply(ctx: Context, config: Config = {}): void {
     if (error instanceof KeyError) return writeJson(res, error.code === 'missing' ? 404 : 400, { error: error.message, issue: error.code })
     writeJson(res, 500, { error: errorMessage(error) })
   }
-  const routes = [
-    { kind: 'exact' as const, path: API.status, handler: async (req: IncomingMessage, res: ServerResponse) => {
+  const routes: WebRoute[] = [
+    { kind: 'exact', path: API.status, handler: async (req: IncomingMessage, res: ServerResponse) => {
       if (!guard(req, res, 'GET')) return
       try { writeJson(res, 200, await status()) } catch (error) { failed(res, error) }
     } },
-    { kind: 'exact' as const, path: API.settings, handler: async (req: IncomingMessage, res: ServerResponse) => {
+    { kind: 'exact', path: API.settings, handler: async (req: IncomingMessage, res: ServerResponse) => {
       if (!guard(req, res, 'PUT')) return
       try {
         const body = await readJsonBody(req, 256 * 1024)
@@ -128,7 +128,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         writeJson(res, 200, await status())
       } catch (error) { failed(res, error) }
     } },
-    { kind: 'exact' as const, path: API.keys, handler: async (req: IncomingMessage, res: ServerResponse) => {
+    { kind: 'exact', path: API.keys, handler: async (req: IncomingMessage, res: ServerResponse) => {
       if (!guard(req, res, 'GET', 'POST', 'PATCH', 'DELETE')) return
       try {
         const url = new URL(req.url ?? '/', 'http://localhost')
@@ -151,7 +151,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         writeJson(res, 200, { record: keys.update(body.id, body) })
       } catch (error) { failed(res, error) }
     } },
-    { kind: 'exact' as const, path: API.usage, handler: (req: IncomingMessage, res: ServerResponse) => {
+    { kind: 'exact', path: API.usage, handler: (req: IncomingMessage, res: ServerResponse) => {
       if (!guard(req, res, 'GET')) return
       try {
         const params = new URL(req.url ?? '/', 'http://localhost').searchParams

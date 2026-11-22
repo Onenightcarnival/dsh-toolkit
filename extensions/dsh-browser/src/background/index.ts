@@ -505,6 +505,7 @@ function notifyApproval(request: ApprovalRequest, _windowId: number): void {
       title: 'Browser action awaiting approval',
       message: 'Click to open dsh Browser Assistant, then allow or deny within 60 seconds.',
     }
+  // oxlint-disable-next-line typescript/no-confusing-void-expression -- The call returns a promise in MV3; @types/chrome declares void.
   void Promise.resolve(chrome.notifications.create(approvalNotificationId(request.id), {
     type: 'basic',
     iconUrl: chrome.runtime.getURL('assets/icons/icon128.png'),
@@ -515,6 +516,7 @@ function notifyApproval(request: ApprovalRequest, _windowId: number): void {
 }
 
 function clearApprovalNotification(id: string): void {
+  // oxlint-disable-next-line typescript/no-confusing-void-expression -- The call returns a promise in MV3; @types/chrome declares void.
   void Promise.resolve(chrome.notifications.clear(approvalNotificationId(id))).catch(() => {})
 }
 
