@@ -76,8 +76,8 @@ export function durationMs(text: string): number | undefined {
     pattern.lastIndex = index
     const match = pattern.exec(trimmed)
     if (match === null) break
-    const unit = units[match[2]]
-    if (unit >= previousUnit) return undefined
+    const unit = units[match[2] ?? '']
+    if (unit === undefined || unit >= previousUnit) return undefined
     previousUnit = unit
     total += Number(match[1]) * unit
     index = pattern.lastIndex

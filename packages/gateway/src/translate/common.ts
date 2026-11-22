@@ -128,7 +128,7 @@ export function imageFromDataUrl(url: string): PendingImage {
   if (!match) return { type: 'pending-image', source: { kind: 'url', url } }
   const base64 = match[2]?.split(';').includes('base64') ?? false
   if (!base64) throw invalid('data URLs of images must be base64 encoded')
-  return { type: 'pending-image', source: { kind: 'base64', mediaType: match[1], data: match[3] } }
+  return { type: 'pending-image', source: { kind: 'base64', mediaType: match[1] ?? '', data: match[3] ?? '' } }
 }
 
 export function textOnly(blocks: readonly DraftBlock[]): string {
@@ -226,7 +226,7 @@ export function sse(data: unknown, event?: string): string {
 export function requestId(prefix: string): string {
   const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
   let id = ''
-  for (let i = 0; i < 24; i++) id += alphabet[Math.floor(Math.random() * alphabet.length)]
+  for (let i = 0; i < 24; i++) id += alphabet.charAt(Math.floor(Math.random() * alphabet.length))
   return `${prefix}${id}`
 }
 

@@ -85,7 +85,7 @@ function allowed(url: URL, target: HttpTarget): boolean {
 function v4Private(address: string): boolean {
   const parts = address.split('.').map(Number)
   if (parts.length !== 4 || parts.some(p => !Number.isInteger(p) || p < 0 || p > 255)) return false
-  const [a, b] = parts
+  const [a = 0, b = 0] = parts
   return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254)
     || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a >= 224
 }
@@ -237,7 +237,7 @@ const TEXT_TYPES = /^(text\/|application\/(json|xml|javascript|ecmascript|x-www-
 
 /** Textual content by media type, or by the absence of NUL bytes in the first KiB. */
 export function isTextual(contentType: string, sample: Uint8Array): boolean {
-  const type = contentType.split(';')[0].trim()
+  const type = (contentType.split(';')[0] ?? '').trim()
   if (type !== '') {
     if (TEXT_TYPES.test(type) || /\+(json|xml)$/i.test(type)) return true
     if (/^(image|audio|video|font)\//i.test(type) || /^application\/(octet-stream|zip|gzip|pdf|x-tar|wasm|x-protobuf|protobuf|msgpack|x-msgpack)/i.test(type)) return false

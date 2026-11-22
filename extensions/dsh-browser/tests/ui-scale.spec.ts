@@ -29,10 +29,10 @@ describe('panel text scale', () => {
     const smallest = UI_SCALE_STEPS[0]
     const largest = UI_SCALE_STEPS[UI_SCALE_STEPS.length - 1]
     expect(stepUiScale(smallest, -1)).toBe(smallest)
-    expect(stepUiScale(largest, 1)).toBe(largest)
+    expect(stepUiScale(largest!, 1)).toBe(largest)
     expect(uiScaleAtLimit(smallest, -1)).toBe(true)
     expect(uiScaleAtLimit(smallest, 1)).toBe(false)
-    expect(uiScaleAtLimit(largest, 1)).toBe(true)
+    expect(uiScaleAtLimit(largest!, 1)).toBe(true)
   })
 
   it('labels the scale as a whole percentage', () => {

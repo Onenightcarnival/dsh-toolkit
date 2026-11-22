@@ -155,7 +155,7 @@ export function close(server: Server): Promise<void> {
 }
 
 async function handle(deps: GatewayServerDeps, req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const path = (req.url ?? '/').split('?')[0]
+  const path = (req.url ?? '/').split('?')[0] ?? '/'
   const anthropicShape = req.headers['anthropic-version'] !== undefined || typeof req.headers['x-api-key'] === 'string'
   if (req.method === 'OPTIONS') {
     res.writeHead(204, CORS_HEADERS)

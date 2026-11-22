@@ -61,8 +61,9 @@ async function updateRegistry(update: (data: Registrations) => void, path = regi
 export async function prepareChatGptRegistration(clientId?: string): Promise<ChatGptRegistration> {
   const data = await updateRegistry(() => {})
   if (clientId !== undefined) {
-    if (!Object.hasOwn(data.accounts, clientId)) throw new Error('ChatGPT registration is unavailable')
-    return data.accounts[clientId]
+    const registration = Object.hasOwn(data.accounts, clientId) ? data.accounts[clientId] : undefined
+    if (registration === undefined) throw new Error('ChatGPT registration is unavailable')
+    return registration
   }
   return { hostId: data.hostId, clientId: 'dynamic_agent_client' }
 }
@@ -104,15 +105,16 @@ export function chatGptFlow(registration: ChatGptRegistration, idTokenHint?: str
 /** Verify identity with OpenAI's signing keys; JWT payloads alone confer no identity. */
 export async function validateChatGptIdentity(token: string, clientId: string, nonce: string | undefined, fetchFn: FetchFn = proxiedFetch): Promise<{ subject: string; emailAddress?: string }> {
   const parts = token.split('.')
-  if (parts.length !== 3) throw new Error('Invalid ChatGPT ID token')
-  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString()) as Record<string, unknown>
-  const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString()) as Record<string, unknown>
+  const [headerPart, payloadPart, signaturePart] = parts
+  if (parts.length !== 3 || headerPart === undefined || payloadPart === undefined || signaturePart === undefined) throw new Error('Invalid ChatGPT ID token')
+  const header = JSON.parse(Buffer.from(headerPart, 'base64url').toString()) as Record<string, unknown>
+  const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString()) as Record<string, unknown>
   if (header.alg !== 'RS256' || typeof header.kid !== 'string') throw new Error('Unsupported ChatGPT ID token signature')
   const response = await fetchFn(`${ISSUER}/.well-known/jwks.json`, { signal: AbortSignal.timeout(15_000) })
   if (!response.ok) throw new Error(`ChatGPT signing keys unavailable (HTTP ${response.status})`)
   const jwks = await response.json() as { keys?: (JsonWebKey & { kid?: string; use?: string; alg?: string })[] }
   const key = jwks.keys?.find(key => key.kid === header.kid && key.kty === 'RSA' && (!key.use || key.use === 'sig') && (!key.alg || key.alg === 'RS256'))
-  if (!key || !verify('RSA-SHA256', Buffer.from(`${parts[0]}.${parts[1]}`), createPublicKey({ key, format: 'jwk' }), Buffer.from(parts[2], 'base64url'))) throw new Error('Invalid ChatGPT ID token signature')
+  if (!key || !verify('RSA-SHA256', Buffer.from(`${headerPart}.${payloadPart}`), createPublicKey({ key, format: 'jwk' }), Buffer.from(signaturePart, 'base64url'))) throw new Error('Invalid ChatGPT ID token signature')
   const audiences: unknown[] = Array.isArray(payload.aud) ? payload.aud : [payload.aud]
   const now = Date.now() / 1000
   if (payload.iss !== ISSUER || !audiences.includes(clientId)

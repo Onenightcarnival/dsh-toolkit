@@ -42,7 +42,7 @@ test('http_targets lists without secrets', async () => {
   const { value, text } = await run(httpTargetsTool(store), {})
   const targets = value.targets as Array<{ name: string; authType: string }>
   assert.equal(targets.length, 2)
-  assert.equal(targets[0].authType, 'bearer')
+  assert.equal(targets[0]!.authType, 'bearer')
   assert.ok(!JSON.stringify(value).includes('ro-token-value'))
   assert.match(text, /ro.example.com \| https:\/\/ro.example.com\/api \| bearer \| GET\/HEAD\/OPTIONS only/)
   assert.match(text, /rw \| https:\/\/rw.example.com \| none \| allowed \(confirm required\)/)
@@ -90,7 +90,7 @@ test('http_history lists recorded exchanges newest first', async () => {
   assert.equal(entries.length, 2)
   assert.deepEqual(entries.map(e => e.method), ['GET', 'POST'])
   // The refused request has no URL; it lists the path as composed.
-  assert.equal(entries[0].url, 'https://other.example.net/x')
+  assert.equal(entries[0]!.url, 'https://other.example.net/x')
   assert.match(text, /\[agent\] rw: POST https:\/\/rw.example.com\/users → 200/)
   const all = await run(httpHistoryTool(store, history), {})
   // Successful and failed entries both list, each with the fields it has.

@@ -81,7 +81,7 @@ export function allocateFrameBudgets(frames: TabFrame[], budget: ContentBudget):
       frame.frameId,
       index === undefined
         ? { maxChars: chars.main, maxItems: items.main }
-        : { maxChars: chars.children[index], maxItems: items.children[index] },
+        : { maxChars: chars.children[index] ?? 0, maxItems: items.children[index] ?? 0 },
     ]
   }))
 }

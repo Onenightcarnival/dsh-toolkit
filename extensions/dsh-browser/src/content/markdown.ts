@@ -40,10 +40,11 @@ function renderTable(table: Element, base: string): string {
     const cells = [...tr.children].filter(cell => cell.tagName === 'TD' || cell.tagName === 'TH')
     if (cells.length > 0) rows.push(cells.map(cell => cellText(cell, base)))
   }
-  if (rows.length === 0) return ''
+  const first = rows[0]
+  if (first === undefined) return ''
   const width = Math.max(...rows.map(row => row.length))
   const pad = (row: string[]): string[] => [...row, ...Array.from({ length: width - row.length }, () => '')]
-  const header = pad(rows[0])
+  const header = pad(first)
   const lines = [`| ${header.join(' | ')} |`, `| ${header.map(() => '---').join(' | ')} |`]
   for (const row of rows.slice(1)) lines.push(`| ${pad(row).join(' | ')} |`)
   const caption = table.querySelector('caption')?.textContent?.trim()

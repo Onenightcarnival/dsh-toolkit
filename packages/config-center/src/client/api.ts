@@ -51,7 +51,7 @@ export class ConfigCenterApi {
     if (file.size > 32 * 1024 * 1024) throw new Error(tt('skills.zipLimit'))
     const data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
       reader.onerror = () => reject(reader.error ?? new Error('file read failed'))
       reader.readAsDataURL(file)
     })

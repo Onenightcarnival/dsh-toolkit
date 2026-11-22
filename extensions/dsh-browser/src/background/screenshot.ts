@@ -42,7 +42,7 @@ export interface ScreenshotImage {
 export function splitDataUrl(dataUrl: string): { mediaType: string; base64: string } {
   const match = /^data:([^;,]+);base64,(.*)$/s.exec(dataUrl)
   if (match === null) throw new Error('captureVisibleTab returned an unexpected data URL')
-  return { mediaType: match[1], base64: match[2] }
+  return { mediaType: match[1] ?? '', base64: match[2] ?? '' }
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -57,7 +57,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 /** Label color per index so adjacent labels stay distinguishable. */
 function labelColor(index: number): string {
   const palette = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4d7c0f']
-  return palette[index % palette.length]
+  return palette[index % palette.length] ?? '#e11d48'
 }
 
 /**

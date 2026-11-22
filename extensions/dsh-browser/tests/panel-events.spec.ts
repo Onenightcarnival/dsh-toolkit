@@ -134,8 +134,8 @@ describe('mergeHistoryRows', () => {
     ]
     const rows = mergeHistoryRows(events, nextSeq, 'zh')
     expect(rows.map(r => r.kind)).toEqual(['user', 'tool', 'assistant'])
-    expect(rows[0].text).toBe('操作页面')
-    expect(rows[2].text).toBe('已点击')
+    expect(rows[0]!.text).toBe('操作页面')
+    expect(rows[2]!.text).toBe('已点击')
     // Consecutive tool calls merge into one row.
     expect(rows[1]).toMatchObject({ text: '读取页面 → 点击元素 #7 → 点击元素 #8', status: 'complete' })
   })

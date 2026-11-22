@@ -194,14 +194,14 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
     await Promise.resolve()
-    socket.close(4000, 'replaced')
+    socket!.close(4000, 'replaced')
 
     chromeMock.alarms.onAlarm.emit({ name: 'bridge-keepalive', scheduledTime: Date.now() })
     await new Promise((resolve) => { setTimeout(resolve, 0) })
@@ -225,9 +225,9 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const originalSocket = FakeWebSocket.instances[0]
-    originalSocket.open()
+    originalSocket!.open()
     await Promise.resolve()
-    originalSocket.receive({
+    originalSocket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
@@ -241,15 +241,15 @@ describe('background bridge lifecycle', () => {
     })
     await vi.waitFor(() => { expect(chrome.storage.local.set).toHaveBeenCalledOnce() })
     panel.onDisconnect.emit()
-    expect(originalSocket.readyState).toBe(FakeWebSocket.OPEN)
+    expect(originalSocket!.readyState).toBe(FakeWebSocket.OPEN)
 
     finishSettingsWrite()
-    await vi.waitFor(() => { expect(originalSocket.readyState).toBe(FakeWebSocket.CLOSED) })
+    await vi.waitFor(() => { expect(originalSocket!.readyState).toBe(FakeWebSocket.CLOSED) })
 
     const reopened = panelPort()
     chromeMock.onConnect.emit(reopened.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(2) })
-    expect(FakeWebSocket.instances[1].url).toBe('ws://127.0.0.1:3081/ext/bridge')
+    expect(FakeWebSocket.instances[1]!.url).toBe('ws://127.0.0.1:3081/ext/bridge')
   })
 
   it('acknowledges a policy setting only after persistence without restarting the bridge', async () => {
@@ -266,9 +266,9 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
@@ -291,7 +291,7 @@ describe('background bridge lifecycle', () => {
       id: 'settings-1',
     }))
     expect(FakeWebSocket.instances).toHaveLength(1)
-    expect(socket.readyState).toBe(FakeWebSocket.OPEN)
+    expect(socket!.readyState).toBe(FakeWebSocket.OPEN)
 
     finishSettingsWrite()
     await vi.waitFor(() => {
@@ -300,7 +300,7 @@ describe('background bridge lifecycle', () => {
     })
     expect(chrome.storage.local.set).toHaveBeenCalledTimes(2)
     expect(FakeWebSocket.instances).toHaveLength(1)
-    expect(socket.readyState).toBe(FakeWebSocket.OPEN)
+    expect(socket!.readyState).toBe(FakeWebSocket.OPEN)
   })
 
   it('reports a settings persistence failure to the requesting panel', async () => {
@@ -319,9 +319,9 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
@@ -353,7 +353,7 @@ describe('background bridge lifecycle', () => {
       })
     })
 
-    socket.receive({
+    socket!.receive({
       t: 'tool.call',
       id: 'close-after-failed-enable',
       name: 'browser_close_tab',
@@ -434,14 +434,14 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'tool.call',
       id: 'close-in-flight',
       name: 'browser_close_tab',
@@ -465,7 +465,7 @@ describe('background bridge lifecycle', () => {
 
     finishTabLookup({ id: 1, windowId: 1, title: 'Tab', url: 'https://example.com/' } as chrome.tabs.Tab)
     await vi.waitFor(() => {
-      expect(socket.sent).toContainEqual({
+      expect(socket!.sent).toContainEqual({
         t: 'tool.result',
         id: 'close-in-flight',
         ok: false,
@@ -504,14 +504,14 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'tool.call',
       id: 'close-committed',
       name: 'browser_close_tab',
@@ -526,7 +526,7 @@ describe('background bridge lifecycle', () => {
     })
     await Promise.resolve()
     expect(chrome.storage.local.set).not.toHaveBeenCalled()
-    expect(socket.sent).not.toContainEqual(expect.objectContaining({
+    expect(socket!.sent).not.toContainEqual(expect.objectContaining({
       t: 'tool.result',
       id: 'close-committed',
       ok: false,
@@ -534,7 +534,7 @@ describe('background bridge lifecycle', () => {
 
     finishClose()
     await vi.waitFor(() => {
-      expect(socket.sent).toContainEqual(expect.objectContaining({
+      expect(socket!.sent).toContainEqual(expect.objectContaining({
         t: 'tool.result',
         id: 'close-committed',
         ok: true,
@@ -572,14 +572,14 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'tool.call',
       id: 'close-before-toggle',
       name: 'browser_close_tab',
@@ -591,7 +591,7 @@ describe('background bridge lifecycle', () => {
     panel.onMessage.emit({ type: 'settings', id: 'disable-fast', settings: { unrestrictedBrowserAccess: false } })
     panel.onMessage.emit({ type: 'settings', id: 'enable-fast', settings: { unrestrictedBrowserAccess: true } })
     await new Promise((resolve) => { setTimeout(resolve, 0) })
-    socket.receive({
+    socket!.receive({
       t: 'tool.call',
       id: 'close-during-revocation',
       name: 'browser_close_tab',
@@ -644,14 +644,14 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const originalSocket = FakeWebSocket.instances[0]
-    originalSocket.open()
+    originalSocket!.open()
     await Promise.resolve()
-    originalSocket.receive({
+    originalSocket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
     await Promise.resolve()
-    originalSocket.receive({
+    originalSocket!.receive({
       t: 'tool.call',
       id: 'old-close',
       name: 'browser_close_tab',
@@ -666,9 +666,9 @@ describe('background bridge lifecycle', () => {
     })
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(2) })
     const replacementSocket = FakeWebSocket.instances[1]
-    replacementSocket.open()
+    replacementSocket!.open()
     await Promise.resolve()
-    replacementSocket.receive({
+    replacementSocket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
@@ -689,8 +689,8 @@ describe('background bridge lifecycle', () => {
     })
     expect(savedBeforeClose).toBe(false)
 
-    expect(originalSocket.sent).not.toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'old-close' }))
-    expect(replacementSocket.sent).not.toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'old-close' }))
+    expect(originalSocket!.sent).not.toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'old-close' }))
+    expect(replacementSocket!.sent).not.toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'old-close' }))
   })
 
   it('does not send a navigation result across a reconnect during its checkpoint', async () => {
@@ -718,18 +718,18 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const original = FakeWebSocket.instances[0]
-    original.open()
+    original!.open()
     await Promise.resolve()
-    original.receive({ t: 'hello.ok', caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 } })
+    original!.receive({ t: 'hello.ok', caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 } })
     await Promise.resolve()
-    original.receive({
+    original!.receive({
       t: 'tool.call', id: 'follow-before-reload', name: 'browser_follow_tab',
       sessionId: 'checkpoint-session', args: { tabId: 1 }, expiresAt: Date.now() + 10_000,
     })
     await vi.waitFor(() => {
-      expect(original.sent).toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'follow-before-reload', ok: true }))
+      expect(original!.sent).toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'follow-before-reload', ok: true }))
     })
-    original.receive({
+    original!.receive({
       t: 'tool.call', id: 'old-reload', name: 'browser_reload',
       sessionId: 'checkpoint-session', args: {}, expiresAt: Date.now() + 10_000,
     })
@@ -737,14 +737,14 @@ describe('background bridge lifecycle', () => {
     panel.onMessage.emit({ type: 'settings', settings: { bridgeUrl: 'wss://replacement.example/ext/bridge' } })
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(2) })
     const replacement = FakeWebSocket.instances[1]
-    replacement.open()
+    replacement!.open()
     await Promise.resolve()
-    replacement.receive({ t: 'hello.ok', caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 } })
+    replacement!.receive({ t: 'hello.ok', caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 } })
     await Promise.resolve()
     finishCheckpoint(tab)
     await new Promise((resolve) => { setTimeout(resolve, 0) })
     for (const socket of [original, replacement]) {
-      expect(socket.sent).not.toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'old-reload' }))
+      expect(socket!.sent).not.toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'old-reload' }))
     }
   })
 
@@ -774,14 +774,14 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'tool.call',
       id: 'recovering-action',
       name: 'browser_press',
@@ -801,7 +801,7 @@ describe('background bridge lifecycle', () => {
 
     finishInjection()
     await vi.waitFor(() => {
-      expect(socket.sent).toContainEqual(expect.objectContaining({
+      expect(socket!.sent).toContainEqual(expect.objectContaining({
         t: 'tool.result',
         id: 'recovering-action',
         ok: false,
@@ -838,15 +838,15 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
     await new Promise((resolve) => { setTimeout(resolve, 0) })
     holdTarget = true
-    socket.receive({
+    socket!.receive({
       t: 'tool.call',
       id: 'restricted-across-toggle',
       name: 'browser_press',
@@ -871,7 +871,7 @@ describe('background bridge lifecycle', () => {
     panel.onMessage.emit({ type: 'settings', settings: { unrestrictedBrowserAccess: false } })
     await vi.waitFor(() => { expect(chrome.storage.local.set).toHaveBeenCalledTimes(2) })
     expect(FakeWebSocket.instances).toHaveLength(1)
-    expect(socket.sent).not.toContainEqual(expect.objectContaining({
+    expect(socket!.sent).not.toContainEqual(expect.objectContaining({
       t: 'tool.result',
       id: 'restricted-across-toggle',
     }))
@@ -882,7 +882,7 @@ describe('background bridge lifecycle', () => {
       decision: 'allow-once',
     })
     await vi.waitFor(() => {
-      expect(socket.sent).toContainEqual(expect.objectContaining({
+      expect(socket!.sent).toContainEqual(expect.objectContaining({
         t: 'tool.result',
         id: 'restricted-across-toggle',
         ok: true,
@@ -912,9 +912,9 @@ describe('background bridge lifecycle', () => {
     chromeMock.onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
+    socket!.open()
     await Promise.resolve()
-    socket.receive({
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
@@ -939,7 +939,7 @@ describe('background bridge lifecycle', () => {
     await vi.waitFor(() => {
       expect(panel.postMessage).toHaveBeenCalledWith({ type: 'settings.result', id: 'disable-refresh', ok: true })
     })
-    expect(socket.sent).not.toContainEqual(expect.objectContaining({
+    expect(socket!.sent).not.toContainEqual(expect.objectContaining({
       t: 'rpc',
       method: 'bridge.injectBrowserSnapshot',
     }))

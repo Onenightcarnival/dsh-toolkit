@@ -11,7 +11,7 @@ export const HIGHLIGHT_MAX_CHARS = 200_000
 
 /** Grammar for a body: by media type, then JSON by shape. Undefined renders plain. */
 export function languageOf(contentType: string, text = ''): string | undefined {
-  const type = contentType.split(';')[0].trim().toLowerCase()
+  const type = (contentType.split(';')[0] ?? '').trim().toLowerCase()
   if (/json/.test(type)) return 'json'
   if (type === 'text/html' || type === 'application/xhtml+xml') return 'html'
   if (/xml/.test(type)) return 'xml'

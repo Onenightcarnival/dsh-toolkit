@@ -6,6 +6,7 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "strict": true,
+    "noUncheckedIndexedAccess": true,
     "jsx": "react-jsx",
     "lib": [
       "ES2022",

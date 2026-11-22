@@ -43,7 +43,7 @@ const children = (entries: Entry[], id: string) => id === 'profile'
   : entries.filter(e => e.kind === 'project' ? e.fields.workId === id : e.kind === 'lesson' && e.fields.parentId === id)
 function brief(entry: Entry, entries: Entry[]) {
   const keys = FIELDS[entry.kind]
-  const fields = Object.fromEntries(keys.filter(k => entry.fields[k]).map(k => [k, entry.fields[k].slice(0, 400)]))
+  const fields = Object.fromEntries(keys.filter(k => entry.fields[k]).map(k => [k, (entry.fields[k] ?? '').slice(0, 400)]))
   return { id: entry.id, kind: entry.kind, title: title(entry).slice(0, 160), fields, createdAt: entry.createdAt,
     childCount: children(entries, entry.id).length, truncatedFields: keys.filter(k => (entry.fields[k]?.length ?? 0) > 400) }
 }
@@ -98,26 +98,28 @@ export function memoryTools(store: MemoryStore) {
       const refs = new Map<string, string>(), ids = new Set<string>()
       const records = args.changes.map((raw) => {
         if (!object(raw) || typeof raw.kind !== 'string' || ![...Object.keys(FIELDS), 'remove'].includes(raw.kind)) fail('invalid', 'kind')
-        const removing = raw.kind === 'remove', profile = raw.kind === 'profile'
+        const rawKind = raw.kind
+        const removing = rawKind === 'remove', profile = rawKind === 'profile'
         const allowed = removing ? ['kind', 'id'] : profile ? ['kind', 'fields'] : ['kind', 'id', 'ref', 'fields']
         if (Object.keys(raw).some(key => !allowed.includes(key))) fail('invalid', 'change')
         if (raw.id !== undefined && (typeof raw.id !== 'string' || !raw.id)) fail('invalid', 'id')
-        if (removing && !raw.id) fail('invalid', 'id')
-        const existing = state.entries.find(e => e.id === raw.id)
-        if (raw.id !== undefined && !existing) fail('missing', raw.id)
-        if (existing && !removing && existing.kind !== raw.kind) fail('invalid', 'kind')
-        const id = profile ? 'profile' : raw.id as string || randomUUID()
+        const givenId = typeof raw.id === 'string' ? raw.id : undefined
+        if (removing && !givenId) fail('invalid', 'id')
+        const existing = state.entries.find(e => e.id === givenId)
+        if (givenId !== undefined && !existing) fail('missing', givenId)
+        if (existing && !removing && existing.kind !== rawKind) fail('invalid', 'kind')
+        const id = profile ? 'profile' : givenId || randomUUID()
         if (ids.has(id)) fail('invalid', 'duplicate entry')
         ids.add(id)
         if (raw.ref !== undefined) {
-          if (raw.id || typeof raw.ref !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(raw.ref) || refs.has(raw.ref)) fail('invalid', 'ref')
+          if (givenId || typeof raw.ref !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(raw.ref) || refs.has(raw.ref)) fail('invalid', 'ref')
           refs.set(raw.ref, id)
         }
-        return { raw, id, existing }
+        return { raw, rawKind, id, existing }
       })
-      const changes: Change[] = records.map(({ raw, id, existing }) => {
-        if (raw.kind === 'remove') return { id, kind: (existing ?? fail('missing', id)).kind, remove: true }
-        const kind = raw.kind as Kind
+      const changes: Change[] = records.map(({ raw, rawKind, id, existing }) => {
+        if (rawKind === 'remove') return { id, kind: (existing ?? fail('missing', id)).kind, remove: true }
+        const kind = rawKind as Kind
         if (!object(raw.fields) || !Object.keys(raw.fields).length) fail('invalid', 'fields')
         const fields: Record<string, string> = {}
         for (const [key, value] of Object.entries(raw.fields)) {

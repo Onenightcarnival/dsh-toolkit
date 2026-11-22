@@ -617,6 +617,7 @@ async function snapshotAllFrames(
   for (let index = 0; index < settled.length; index += 1) {
     const outcome = settled[index]
     const frame = frames[index]
+    if (outcome === undefined || frame === undefined) continue
     if (outcome.status === 'rejected') {
       if (frame.frameId === 0) throw outcome.reason
       sections.push(frameHeader(frame), '(This iframe was inaccessible or destroyed while loading.)')

@@ -132,22 +132,23 @@ export function toAntigravityContents(messages: readonly TranslatableMessage[], 
     let sawFunctionCall = false
     for (let index = 0; index < message.content.length; index++) {
       const block = message.content[index]
+      if (block === undefined) continue
+      const signature = metadata[index]?.thoughtSignature
       switch (block.type) {
         case 'text':
           parts.push({
             text: block.text.trim().length > 0 ? block.text : '.',
-            ...metadata[index]?.thoughtSignature === undefined ? {} : { thoughtSignature: metadata[index].thoughtSignature },
+            ...signature === undefined ? {} : { thoughtSignature: signature },
           })
           break
         case 'reasoning': {
-          const thoughtSignature = metadata[index]?.thoughtSignature
-          if (thoughtSignature !== undefined) parts.push({ thought: true, text: block.text, thoughtSignature })
+          if (signature !== undefined) parts.push({ thought: true, text: block.text, thoughtSignature: signature })
           break
         }
         case 'image':
           if ('dataBase64' in block) {
             parts.push({ inlineData: { mimeType: block.mediaType, data: block.dataBase64 },
-              ...metadata[index]?.thoughtSignature === undefined ? {} : { thoughtSignature: metadata[index].thoughtSignature } })
+              ...signature === undefined ? {} : { thoughtSignature: signature } })
           }
           break
         case 'tool-call': {

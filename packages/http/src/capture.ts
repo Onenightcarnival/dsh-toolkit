@@ -31,7 +31,7 @@ export function parseJsonPath(path: string): Array<string | number> {
       if (close < 0) throw new Error(`unclosed "[" at ${i}`)
       const inner = text.slice(i + 1, close).trim()
       const quoted = /^(["'])(.*)\1$/.exec(inner)
-      if (quoted !== null) out.push(quoted[2])
+      if (quoted !== null) out.push(quoted[2] ?? '')
       else if (/^\d+$/.test(inner)) out.push(Number(inner))
       else throw new Error(`invalid index "${inner}"`)
       i = close + 1

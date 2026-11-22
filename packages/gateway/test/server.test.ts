@@ -15,7 +15,7 @@ const settings = { enabled: true, host: '127.0.0.1', port: 0, aliases: { 'gpt-4o
 /** Echo adapter: streams the last user text back, one tool call when a tool is declared, then usage. */
 async function* echo(options: GenerateOptions): AsyncIterable<StreamChunk> {
   const last = options.messages[options.messages.length - 1]
-  const text = (last.content as Array<{ type: string; text?: string }>).filter(block => block.type === 'text').map(block => block.text ?? '').join('')
+  const text = (last!.content as Array<{ type: string; text?: string }>).filter(block => block.type === 'text').map(block => block.text ?? '').join('')
   if (options.signal?.aborted) throw new Error('aborted before start')
   yield { type: 'block-start', index: 0, blockType: 'text' }
   for (const part of [`${options.model}:`, text]) {
@@ -27,8 +27,8 @@ async function* echo(options: GenerateOptions): AsyncIterable<StreamChunk> {
   if (options.tools && options.tools.length > 0) {
     const id = ToolCallId('call_echo')
     yield { type: 'block-start', index: 1, blockType: 'tool-call' }
-    yield { type: 'tool-call-delta', index: 1, id, name: options.tools[0].name, argumentsDelta: '{}' }
-    yield { type: 'block-end', index: 1, block: { type: 'tool-call', id, name: options.tools[0].name, arguments: '{}' } }
+    yield { type: 'tool-call-delta', index: 1, id, name: options.tools[0]!.name, argumentsDelta: '{}' }
+    yield { type: 'block-end', index: 1, block: { type: 'tool-call', id, name: options.tools[0]!.name, arguments: '{}' } }
   }
   yield { type: 'usage', usage: { inputTokens: 3, outputTokens: 2 } }
   yield { type: 'finish', reason: { kind: options.tools && options.tools.length > 0 ? 'tool-calls' : 'stop' } }
@@ -80,7 +80,7 @@ test('gateway server: auth, models, three protocols, usage ledger', async (t) =>
   assert.equal(chat.status, 200)
   const chatBody = await chat.json() as { model: string; choices: Array<{ message: { content: string }; finish_reason: string }>; usage: { total_tokens: number } }
   assert.equal(chatBody.model, 'echo:fast')
-  assert.equal(chatBody.choices[0].message.content, 'fast:hi')
+  assert.equal(chatBody.choices[0]!.message.content, 'fast:hi')
   assert.equal(chatBody.usage.total_tokens, 5)
 
   // chat completions, stream with usage, tool call
@@ -113,7 +113,7 @@ test('gateway server: auth, models, three protocols, usage ledger', async (t) =>
 
   // responses, non-stream
   const responsesObject = await (await post('/v1/responses', { model: 'echo:fast', input: [{ role: 'user', content: [{ type: 'input_text', text: 'pong' }] }] })).json() as { output: Array<{ type: string; content: Array<{ text: string }> }> }
-  assert.equal(responsesObject.output[0].content[0].text, 'fast:pong')
+  assert.equal(responsesObject.output[0]!.content[0]!.text, 'fast:pong')
 
   // anthropic messages, stream and non-stream
   const messages = await post('/v1/messages', { model: 'echo:fast', max_tokens: 10, stream: true, messages: [{ role: 'user', content: 'hey' }] }, full, { 'anthropic-version': '2023-06-01' })
@@ -121,7 +121,7 @@ test('gateway server: auth, models, three protocols, usage ledger', async (t) =>
   assert.equal(anthropicEvents[0], 'message_start')
   assert.equal(anthropicEvents.at(-1), 'message_stop')
   const message = await (await post('/v1/messages', { model: 'echo:fast', max_tokens: 10, messages: [{ role: 'user', content: 'hey' }] })).json() as { content: Array<{ text: string }>; stop_reason: string; usage: { input_tokens: number } }
-  assert.equal(message.content[0].text, 'fast:hey')
+  assert.equal(message.content[0]!.text, 'fast:hey')
   assert.equal(message.stop_reason, 'end_turn')
   assert.equal(message.usage.input_tokens, 3)
 

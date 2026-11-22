@@ -237,7 +237,8 @@ export function mainText(doc: Document): string {
   const main = deepQuerySelector(doc, 'main, [role="main"]')
   if (main !== null) return clean(elementText(main))
   const articles = doc.querySelectorAll('article')
-  if (articles.length === 1) return clean(elementText(articles[0]))
+  const article = articles[0]
+  if (articles.length === 1 && article !== undefined) return clean(elementText(article))
 
   let best: Element | null = null
   let bestScore = 0

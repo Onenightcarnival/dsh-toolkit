@@ -124,6 +124,7 @@ The tool is oxlint; the rule set comes from [`.oxlintrc.json` of deepseek-ai/dee
 | Subscription authentication | `@cortexkit/antigravity-auth-core` is a runtime dependency of subscriptions and toolkit |
 | Integrated package | Bundles the nine packages' sources directly; typechecking covers the same sources |
 | Typecheck scope | Each package's `typecheck` covers its TypeScript sources and TypeScript tests; browser-bridge tests use `tests/tsconfig.json` |
+| Indexed access | Each package's `tsconfig.json` enables `noUncheckedIndexedAccess`; index and index-signature reads include `undefined` |
 | Runtime versions | Pinned through `pnpm-workspace.yaml` overrides |
 
 ### Installation validation

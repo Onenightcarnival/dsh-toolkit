@@ -124,6 +124,7 @@ pnpm --filter dsh-browser-extension run build:firefox
 | 订阅认证依赖 | `@cortexkit/antigravity-auth-core` 为 subscriptions 与 toolkit 的运行时依赖 |
 | 集成包 | 直接编译九个子包的源码；类型检查覆盖同一组源码 |
 | 类型检查范围 | 各包的 `typecheck` 覆盖 TypeScript 源码与 TypeScript 测试；browser-bridge 的测试使用 `tests/tsconfig.json` |
+| 下标访问 | 各包的 `tsconfig.json` 启用 `noUncheckedIndexedAccess`；下标与索引签名的读取结果包含 `undefined` |
 | 运行时版本 | `pnpm-workspace.yaml` 的 overrides 统一锁定 |
 
 ### 安装验证

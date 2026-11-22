@@ -78,13 +78,15 @@ export function DataGrid(props: DataGridProps): JSX.Element {
   const startEdit = (row: number, col: number): void => {
     if (!editable || deletes.has(row)) return
     const original = page?.rows[row]?.[col]
-    const name = columns[col].name
+    const name = columns[col]?.name
+    if (name === undefined) return
     const current = updates.get(row)?.[name]
     setEditing({ row, col, value: cellText(current !== undefined ? current : original) })
   }
   const commitEdit = (value: unknown): void => {
     if (editing === undefined) return
-    const name = columns[editing.col].name
+    const name = columns[editing.col]?.name
+    if (name === undefined) { setEditing(undefined); return }
     setUpdates((prev) => {
       const next = new Map(prev)
       const rowPatch = { ...(next.get(editing.row) ?? {}) }
@@ -101,9 +103,15 @@ export function DataGrid(props: DataGridProps): JSX.Element {
   const keyOf = (row: unknown[]): Record<string, unknown> => Object.fromEntries(pk.map(k => [k, row[colIndex.get(k) ?? -1]]))
   const buildChanges = (): RowChange[] => {
     const out: RowChange[] = []
-    for (const [row, values] of updates) if (!deletes.has(row) && page) out.push({ kind: 'update', key: keyOf(page.rows[row]), values })
+    for (const [row, values] of updates) {
+      const source = deletes.has(row) ? undefined : page?.rows[row]
+      if (source) out.push({ kind: 'update', key: keyOf(source), values })
+    }
     for (const values of inserts) out.push({ kind: 'insert', values })
-    for (const row of deletes) if (page) out.push({ kind: 'delete', key: keyOf(page.rows[row]) })
+    for (const row of deletes) {
+      const source = page?.rows[row]
+      if (source) out.push({ kind: 'delete', key: keyOf(source) })
+    }
     return out
   }
 
@@ -183,10 +191,11 @@ export function DataGrid(props: DataGridProps): JSX.Element {
                   {row.map((v, c) => {
                     const name = columns[c]?.name
                     const patched = updates.get(r)
-                    const value = patched && name in patched ? patched[name] : v
+                    const dirty = patched !== undefined && name !== undefined && name in patched
+                    const value = dirty ? patched[name] : v
                     const isEditing = editing?.row === r && editing.col === c
                     return (
-                      <td key={c} {...(patched && name in patched ? { 'data-dirty': '' } : {})} {...(value === null ? { 'data-null': '' } : {})} onDoubleClick={() => { startEdit(r, c) }}>
+                      <td key={c} {...(dirty ? { 'data-dirty': '' } : {})} {...(value === null ? { 'data-null': '' } : {})} onDoubleClick={() => { startEdit(r, c) }}>
                         {isEditing ? (
                           <CellEditor value={editing.value} onChange={(val) => { setEditing({ ...editing, value: val }) }} onCommit={(val) => { commitEdit(val) }} onCancel={() => { setEditing(undefined) }} />
                         ) : (value === null ? 'NULL' : cellText(value))}

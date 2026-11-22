@@ -172,16 +172,16 @@ test('refresh: a missing value is obtained with the saved request before the age
   // The refresh is recorded as its own exchange, attributed to the sender that caused it.
   const recorded = history.list(id)
   assert.deepEqual(recorded.map(e => [e.request.path, e.source, e.refreshOf]), [['/orders', 'agent', undefined], ['/token', 'agent', ['access_token']]])
-  assert.equal(recorded[1].id, first.refreshed?.[0].exchangeId)
-  assert.equal(recorded[1].captures?.[0].ok, true)
+  assert.equal(recorded[1]!.id, first.refreshed?.[0]!.exchangeId)
+  assert.equal(recorded[1]!.captures?.[0]!.ok, true)
   // The token request obtains the token, so the target's bearer authentication is not put on it: its own header stays.
-  assert.equal(recorded[1].request.sentHeaders?.authorization, 'Basic x')
+  assert.equal(recorded[1]!.request.sentHeaders?.authorization, 'Basic x')
 
   // The value carries the lifetime the response states, and is used as it is while it lasts.
   const entry = values.entry(id, 'access_token')
   assert.equal(entry?.value, 'access-token-1')
   assert.equal((entry?.expiresAt ?? 0) - (entry?.at ?? 0), 7_200_000)
-  assert.equal(values.list(id)[0].expiresAt, entry?.expiresAt)
+  assert.equal(values.list(id)[0]!.expiresAt, entry?.expiresAt)
   const second = await engine.send('auto', { method: 'GET', path: '/orders' }, { source: 'agent' })
   assert.equal(second.response?.status, 200)
   assert.equal(second.refreshed, undefined)
@@ -199,7 +199,7 @@ test('refresh: an expired value is renewed; a rule that is off or switched off l
   values.set(id, { access_token: 'old-token' }, tokenRequestId, { access_token: 20 })
   await new Promise(resolve => setTimeout(resolve, 30))
   const renewed = await engine.send(id, { method: 'GET', path: '/orders' }, { source: 'panel' })
-  assert.equal(renewed.refreshed?.[0].reason, 'expired')
+  assert.equal(renewed.refreshed?.[0]!.reason, 'expired')
   assert.match(renewed.response?.body ?? '', /"ok":true/)
   assert.notEqual(values.entry(id, 'access_token')?.value, 'old-token')
 
@@ -221,7 +221,7 @@ test('refresh: an expired value is renewed; a rule that is off or switched off l
   const own = await engine.send(id, { ...requestInputOf(requests.get(tokenRequestId)!), requestId: tokenRequestId }, { source: 'panel' })
   assert.equal(own.refreshed, undefined)
   assert.equal(own.refreshOf, undefined)
-  assert.equal(own.captures?.[0].ok, true)
+  assert.equal(own.captures?.[0]!.ok, true)
 })
 
 test('refresh: concurrent requests share one refresh', async () => {
@@ -231,7 +231,7 @@ test('refresh: concurrent requests share one refresh', async () => {
   const results = await Promise.all([1, 2, 3, 4, 5].map(n => engine.send(id, { method: 'GET', path: `/orders/${n}` }, { source: n % 2 === 0 ? 'agent' : 'panel' })))
   assert.deepEqual(results.map(r => r.response?.status), [200, 200, 200, 200, 200])
   assert.equal(api.tokenCalls, 1)
-  assert.equal(new Set(results.map(r => r.refreshed?.[0].exchangeId)).size, 1)
+  assert.equal(new Set(results.map(r => r.refreshed?.[0]!.exchangeId)).size, 1)
   assert.equal(history.list(id).filter(e => e.refreshOf !== undefined).length, 1)
 })
 
@@ -242,12 +242,12 @@ test('refresh: a failed refresh stops the request and is reported; cancelling st
   const failed = await engine.send(id, { method: 'DELETE', path: '/orders/1' }, { source: 'agent' })
   assert.equal(failed.response, undefined)
   assert.match(failed.error ?? '', /refresh of \{\{access_token\}\} by request 'get token' failed: \{\{access_token\}\} was not captured: response status 500/)
-  assert.equal(failed.refreshed?.[0].ok, false)
+  assert.equal(failed.refreshed?.[0]!.ok, false)
   assert.equal(api.apiCalls, 0)
   assert.equal(api.tokenCalls, 1)
   const output = toOutput(failed)
   assert.equal(output.ok, false)
-  assert.equal(output.refreshed?.[0].ok, false)
+  assert.equal(output.refreshed?.[0]!.ok, false)
   // The next request tries again; nothing is retried within one request.
   await engine.send(id, { method: 'GET', path: '/orders' }, { source: 'agent' })
   assert.equal(api.tokenCalls, 2)
@@ -518,7 +518,7 @@ test('upgrade: files written before secret variables, lifetimes and refresh load
     // The target takes secret variables and the rule a refresh setting from here on.
     assert.deepEqual(oldStore.update(targetId, { secrets: { key: 'new-secret-value' } }).secrets, { key: 'new-secret-value' })
     assert.equal(oldStore.find('legacy')?.variables.org, 'acme')
-    oldRequests.update(requestId, { captures: [{ ...oldRequests.get(requestId)!.captures[0], refresh: 'expired' }] })
+    oldRequests.update(requestId, { captures: [{ ...oldRequests.get(requestId)!.captures[0]!, refresh: 'expired' }] })
     oldValues.delete(targetId)
     const renewed = await oldEngine.send('legacy', { method: 'GET', path: '/orders', headers: { Authorization: 'Bearer {{token}}' } }, { source: 'agent' })
     assert.deepEqual(renewed.refreshed?.map(r => r.ok), [true])

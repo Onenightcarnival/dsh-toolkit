@@ -21,7 +21,7 @@ export function renderTable(result: QueryResult): string {
   const cell = (v: unknown): string => v === null || v === undefined ? 'NULL' : cellText(v)
   const rows = result.rows.map(r => r.map(cell).map(s => s.length > 80 ? s.slice(0, 77) + '…' : s))
   const widths = result.columns.map((c, i) => Math.max(c.name.length, ...rows.map(r => r[i]?.length ?? 0)))
-  const line = (cells: string[]) => cells.map((s, i) => s.padEnd(widths[i])).join(' | ')
+  const line = (cells: string[]) => cells.map((s, i) => s.padEnd(widths[i] ?? 0)).join(' | ')
   const out = [line(result.columns.map(c => c.name)), widths.map(w => '-'.repeat(w)).join('-+-'), ...rows.map(line)]
   out.push(`(${result.rowCount} row(s)${result.truncated ? ', truncated — add WHERE/LIMIT' : ''}, ${result.durationMs} ms)`)
   return out.join('\n')

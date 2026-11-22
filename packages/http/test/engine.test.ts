@@ -133,8 +133,8 @@ test('GET with variables, query, fixed headers and bearer auth; secrets masked; 
   assert.ok(!JSON.stringify(exchange).includes('super-secret-token'))
   assert.equal(exchange.request.url, `${origin}/v1/echo/42?q=42`)
   const [recorded] = history.list(t.id)
-  assert.equal(recorded.id, exchange.id)
-  assert.equal(recorded.source, 'agent')
+  assert.equal(recorded!.id, exchange.id)
+  assert.equal(recorded!.source, 'agent')
 })
 
 test('POST defaults content-type to JSON; HEAD drops the body; query auth masked in URL', async () => {
@@ -143,7 +143,7 @@ test('POST defaults content-type to JSON; HEAD drops the body; query auth masked
   const seen = JSON.parse(exchange.response!.body) as { method: string; body: string; headers: Record<string, string>; url: string }
   assert.equal(seen.method, 'POST')
   assert.equal(seen.body, '{"a":1}')
-  assert.match(seen.headers['content-type'], /application\/json/)
+  assert.match(seen.headers['content-type']!, /application\/json/)
   assert.equal(seen.url, '/v1/echo?api_key=••••••')
   assert.equal(exchange.request.url, `${origin}/v1/echo?api_key=••••••`)
   const head = await engine.send(t.id, { method: 'HEAD', path: 'echo', body: 'ignored' }, { source: 'panel' })
@@ -220,7 +220,7 @@ test('cancel: an aborted signal ends the request and records `cancelled`; sent h
   const cancelled = await engine.send(t.id, { method: 'GET', path: 'slow' }, { source: 'panel', signal: controller.signal })
   assert.equal(cancelled.error, 'cancelled')
   assert.ok(Date.now() - started < 1000)
-  assert.equal(history.list(t.id)[0].error, 'cancelled')
+  assert.equal(history.list(t.id)[0]!.error, 'cancelled')
   const already = new AbortController()
   already.abort()
   assert.equal((await engine.send(t.id, { method: 'GET', path: 'echo' }, { source: 'panel', signal: already.signal })).error, 'cancelled')
@@ -236,7 +236,7 @@ test('requestId of a saved request is recorded on the exchange; malformed ids ar
   const t = target()
   const tagged = await engine.send(t.id, { method: 'GET', path: 'echo', requestId: 'abc123def456' }, { source: 'panel' })
   assert.equal(tagged.requestId, 'abc123def456')
-  assert.equal(history.list(t.id)[0].requestId, 'abc123def456')
+  assert.equal(history.list(t.id)[0]!.requestId, 'abc123def456')
   const dropped = await engine.send(t.id, { method: 'GET', path: 'echo', requestId: '../etc' }, { source: 'panel' })
   assert.equal(dropped.requestId, undefined)
 })
@@ -252,7 +252,7 @@ test('direct scope: full URL without a target, panel only; typed credential head
   assert.equal(direct.request.headers.Authorization, 'Bearer ••••••')
   assert.equal(direct.request.sentHeaders?.authorization, 'Bearer ••••••')
   assert.ok(!JSON.stringify(direct).includes('typed-token-xyz') && !JSON.stringify(direct).includes('key-98765'))
-  assert.equal(history.list('direct')[0].id, direct.id)
+  assert.equal(history.list('direct')[0]!.id, direct.id)
   // The agent cannot send through the direct scope.
   await assert.rejects(engine.send('direct', { method: 'GET', path: `${origin}/v1/echo` }, { source: 'agent' }), /not found/)
   // Scheme defaults and malformed input.
@@ -296,7 +296,7 @@ test('binary bodies: base64 for the live panel response on request, never in the
   const t = target()
   const kept = await engine.send(t.id, { method: 'GET', path: 'binary' }, { source: 'panel', keepBinary: true })
   assert.equal(kept.response?.bodyBase64, Buffer.from([0, 1, 2, 3]).toString('base64'))
-  assert.equal(history.list(t.id)[0].response?.bodyBase64, undefined)
+  assert.equal(history.list(t.id)[0]!.response?.bodyBase64, undefined)
   const plain = await engine.send(t.id, { method: 'GET', path: 'binary' }, { source: 'panel' })
   assert.equal(plain.response?.bodyBase64, undefined)
   const text = await engine.send(t.id, { method: 'GET', path: 'echo' }, { source: 'panel', keepBinary: true })
@@ -311,15 +311,15 @@ test('event stream: head and events are reported as they arrive, masked; the exc
   assert.equal(exchange.error, undefined)
   assert.deepEqual(heads, [200])
   assert.deepEqual(seen.map(e => [e.event, e.data]), [['start', '{"n":0}'], ['', 'token Bearer ••••••'], ['', 'line one\nline two'], ['', '[DONE]']])
-  assert.equal(seen[2].id, '7')
-  assert.ok(seen[0].at <= seen[3].at)
+  assert.equal(seen[2]!.id, '7')
+  assert.ok(seen[0]!.at <= seen[3]!.at)
   const response = exchange.response!
   assert.equal(response.stream?.ended, 'complete')
   assert.equal(response.stream?.times.length, 4)
   assert.equal(response.binary, false)
   assert.ok(response.body.startsWith(': hello\n\nevent: start'))
   assert.ok(!JSON.stringify(exchange).includes('stream-secret-9'))
-  assert.equal(history.list(t.id)[0].response?.stream?.times.length, 4)
+  assert.equal(history.list(t.id)[0]!.response?.stream?.times.length, 4)
 })
 
 test('event stream: stop, idle and total deadlines, and the body cap end it with what arrived', async () => {

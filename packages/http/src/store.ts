@@ -131,7 +131,7 @@ export function normalizeSecrets(value: unknown, previous: Record<string, string
   const given = normalizeMap(value, 'secrets', VARIABLE_NAME_RE)
   const out: Record<string, string> = {}
   for (const [name, raw] of Object.entries(given)) {
-    const kept = raw !== '' ? raw : Object.hasOwn(previous, name) ? previous[name] : ''
+    const kept = raw !== '' ? raw : Object.hasOwn(previous, name) ? previous[name] ?? '' : ''
     if (kept === '' && !allowMissing) fail(`secrets: value of "${name}" is required`)
     out[name] = kept
   }
@@ -817,7 +817,8 @@ export class ValueStore {
   /** One value of a scope with its origin and expiry. */
   entry(scopeId: string, name: string): CapturedEntry | undefined {
     const scope = this.load()[scopeId]
-    return scope !== undefined && Object.hasOwn(scope, name) ? { ...scope[name] } : undefined
+    const stored = scope !== undefined && Object.hasOwn(scope, name) ? scope[name] : undefined
+    return stored === undefined ? undefined : { ...stored }
   }
 
   /** Secret-free list of a scope's values, by name. */
@@ -832,14 +833,16 @@ export class ValueStore {
    * @param lifetimes - lifetime in ms by variable name; a value without one does not expire.
    */
   set(scopeId: string, values: Record<string, string>, requestId: string, lifetimes: Record<string, number> = {}): void {
-    const names = Object.keys(values).filter(name => VARIABLE_NAME_RE.test(name) && values[name].length <= MAX_CAPTURED_LENGTH)
+    const names = Object.keys(values).filter(name => VARIABLE_NAME_RE.test(name) && (values[name] ?? '').length <= MAX_CAPTURED_LENGTH)
     if (names.length === 0) return
     const scopes = this.load()
     const scope = scopes[scopeId] ?? {}
     const at = Date.now()
     for (const name of names) {
+      const value = values[name]
+      if (value === undefined) continue
       const lifetime = lifetimes[name]
-      scope[name] = { value: values[name], requestId, at, ...(typeof lifetime === 'number' && lifetime > 0 ? { expiresAt: at + lifetime } : {}) }
+      scope[name] = { value, requestId, at, ...(typeof lifetime === 'number' && lifetime > 0 ? { expiresAt: at + lifetime } : {}) }
     }
     scopes[scopeId] = scope
     this.save(scopes)

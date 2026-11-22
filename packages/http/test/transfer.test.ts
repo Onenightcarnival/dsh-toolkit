@@ -70,7 +70,7 @@ test('import into an empty configuration: targets need their secrets again', () 
     assert.deepEqual(api?.auth, { type: 'bearer', token: '' })
     assert.deepEqual(api?.headers, { 'X-Trace': 'on', Authorization: 'Bearer {{token}}' })
     assert.deepEqual(api?.secrets, { client_secret: '' })
-    assert.equal(plan.requests.find(r => r.name === 'login')?.captures[0].refresh, 'expired')
+    assert.equal(plan.requests.find(r => r.name === 'login')?.captures[0]!.refresh, 'expired')
     assert.notEqual(api?.id, source.store.find('api')?.id)
     // Requests follow their target under its new id and keep their own ids.
     assert.deepEqual(plan.requests.filter(r => r.targetId === api?.id).map(r => r.name), ['login', 'me'])
@@ -94,7 +94,7 @@ test('import over an existing configuration: overwrite keeps stored secrets, ski
   try {
     seed(store, requests)
     const bundle = JSON.parse(JSON.stringify(exportBundle(store.list(), requests.list(), store.settings()))) as HttpBundle
-    bundle.targets[0].baseUrl = 'https://api.example.com/v2'
+    bundle.targets[0]!.baseUrl = 'https://api.example.com/v2'
     bundle.targets.push({ id: 'file-new', name: 'fresh', baseUrl: 'https://fresh.example.com', auth: { type: 'none' }, headers: {}, variables: {}, allowedHosts: [], allowMutations: false, allowPrivate: false, timeoutMs: 30_000 })
     bundle.requests = bundle.requests.filter(r => r.name !== 'me')
     bundle.requests.push({ id: 'zzzz', targetId: 'file-new', name: 'first', method: 'GET', path: '/', query: [], headers: [], auth: { type: 'none' }, bodyMode: 'none', body: '', form: [], captures: [] })

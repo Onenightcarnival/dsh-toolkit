@@ -32,7 +32,7 @@ test('typed batch creates server ids, resolves forward references, and stores on
   assert.equal(entries.find(e => e.id === result.refs.lesson)!.fields.parentId, result.refs.project)
   assert.equal(entries.find(e => e.id === result.refs.project)!.fields.workId, result.refs.work)
   assert.equal(store.read().history.length, 1)
-  assert.equal(store.read().history[0].source, 'session:session-test/call:call-test')
+  assert.equal(store.read().history[0]!.source, 'session:session-test/call:call-test')
   const detail = await run('memory_get', { id: result.refs.lesson })
   assert.deepEqual(detail.ancestors.map((e: { id: string }) => e.id), [result.refs.work, result.refs.project])
   assert.equal(detail.entry.fields.lesson, 'Verified bridge isolation before shipping')

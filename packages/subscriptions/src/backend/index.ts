@@ -744,8 +744,9 @@ export function apply(ctx: Context, config: Config): void {
         for (const [key, definition] of buildAccountPools(sources)) pools.set(key, definition)
       }
       for (const [id, members] of Object.entries(poolConfig?.families ?? {})) {
-        if (members.length === 0) continue
-        const owner = members[0].provider
+        const first = members[0]
+        if (first === undefined) continue
+        const owner = first.provider
         const kept = members.filter(member => member.provider === owner)
         if (kept.length < members.length) {
           onWarn(`pool "${id}": cross-provider members are ignored; only ${owner} accounts are pooled`)
@@ -781,7 +782,7 @@ export function apply(ctx: Context, config: Config): void {
       const fastModels = await codexAdapter?.fastCapableModels() ?? []
       const accountPreferences = preferences.get('codex').accounts
       for (const { key } of await codexTokens?.list() ?? []) {
-        if (!accountPreferences || !Object.hasOwn(accountPreferences, key) || accountPreferences[key].independentEntry !== true) continue
+        if (!accountPreferences || !Object.hasOwn(accountPreferences, key) || accountPreferences[key]?.independentEntry !== true) continue
         for (const model of [...fastModels]) {
           if (parseAccountModelId(model)) continue
           if (await codexAdapter?.supportsFastTier(model, key)) fastModels.push(accountModelId(key, model))

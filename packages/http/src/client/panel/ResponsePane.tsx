@@ -48,7 +48,7 @@ export function saveName(url: string, contentType: string): string {
 
 /** The body as a Blob: the complete binary body when the host returned it, else the decoded text. */
 function bodyBlob(response: HttpExchangeResponse): Blob | undefined {
-  const type = response.contentType.split(';')[0].trim() || 'application/octet-stream'
+  const type = (response.contentType.split(';')[0] ?? '').trim() || 'application/octet-stream'
   if (response.bodyBase64 !== undefined) {
     const binary = atob(response.bodyBase64)
     const bytes = new Uint8Array(binary.length)
@@ -91,7 +91,7 @@ export function ResponsePane(props: ResponsePaneProps): JSX.Element {
   const sentHeaders = Object.entries(exchange?.request.sentHeaders ?? exchange?.request.headers ?? {})
   const sentContentType = sentHeaders.find(([name]) => name.toLowerCase() === 'content-type')?.[1] ?? ''
   const captured = (exchange?.captures ?? []).filter(result => result.ok).map(result => result.name)
-  const mediaType = (response?.contentType ?? '').split(';')[0].trim().toLowerCase()
+  const mediaType = ((response?.contentType ?? '').split(';')[0] ?? '').trim().toLowerCase()
   const html = response !== undefined && !response.binary && response.body !== '' && (mediaType === 'text/html' || mediaType === 'application/xhtml+xml')
   const image = response !== undefined && response.bodyBase64 !== undefined && mediaType.startsWith('image/')
     ? `data:${mediaType};base64,${response.bodyBase64}` : undefined

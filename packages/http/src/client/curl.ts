@@ -35,7 +35,7 @@ export function tokenize(text: string): string[] {
     started = false
   }
   while (i < text.length) {
-    const c = text[i]
+    const c = text.charAt(i)
     if (c === '\\') {
       const next = text[i + 1]
       if (next === '\n') { i += 2; continue }
@@ -56,7 +56,7 @@ export function tokenize(text: string): string[] {
       started = true
       while (i < text.length && text[i] !== "'") {
         if (text[i] === '\\' && i + 1 < text.length) {
-          const e = text[i + 1]
+          const e = text[i + 1] ?? ''
           if (e === 'x') {
             const hex = /^[0-9a-fA-F]{1,2}/.exec(text.slice(i + 2))?.[0] ?? ''
             current += hex === '' ? 'x' : String.fromCharCode(parseInt(hex, 16))
@@ -70,7 +70,7 @@ export function tokenize(text: string): string[] {
             i += 2
           }
         } else {
-          current += text[i]
+          current += text.charAt(i)
           i++
         }
       }
@@ -82,12 +82,12 @@ export function tokenize(text: string): string[] {
       started = true
       while (i < text.length && text[i] !== '"') {
         if (text[i] === '\\' && i + 1 < text.length) {
-          const e = text[i + 1]
+          const e = text[i + 1] ?? ''
           if (e === '\n') { i += 2; continue }
           current += '"\\$`'.includes(e) ? e : `\\${e}`
           i += 2
         } else {
-          current += text[i]
+          current += text.charAt(i)
           i++
         }
       }
@@ -171,6 +171,7 @@ export function parseCurl(text: string): ParsedCurl | undefined {
 
   for (let i = 1; i < tokens.length; i++) {
     const token = tokens[i]
+    if (token === undefined) continue
     if (token.startsWith('--') && token.length > 2) {
       const eq = token.indexOf('=')
       const name = eq < 0 ? token.slice(2) : token.slice(2, eq)
@@ -183,7 +184,7 @@ export function parseCurl(text: string): ParsedCurl | undefined {
     }
     if (token.startsWith('-') && token.length > 1) {
       for (let j = 1; j < token.length; j++) {
-        const flag = token[j]
+        const flag = token[j] ?? ''
         if (flag === 'G') { get = true; continue }
         if (flag === 'I') { head = true; continue }
         const long = SHORT_VALUE[flag]

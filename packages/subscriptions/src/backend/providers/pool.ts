@@ -129,8 +129,9 @@ export class PoolAdapter extends LlmAdapter {
   private async assemblePools(): Promise<Map<string, PoolDefinition>> {
     const pools = await this.familyPools()
     for (const [id, members] of Object.entries(this.options.tiers)) {
-      if (members.length === 0) continue
-      const owner = members[0].provider
+      const first = members[0]
+      if (first === undefined) continue
+      const owner = first.provider
       const key = poolKey(owner, id)
       if (pools.has(key)) this.warnOnce(`tier pool "${id}" overrides the account pool of the same id under ${owner}`)
       pools.set(key, { members, extra: true })
@@ -333,7 +334,7 @@ export class PoolAdapter extends LlmAdapter {
     if (stickyMember !== undefined && scored.includes(stickyMember)) {
       const best = scored[0]
       const stickyUrgency = quotas.get(stickyMember)?.urgency ?? 0
-      const bestUrgency = quotas.get(best)?.urgency ?? 0
+      const bestUrgency = best === undefined ? 0 : quotas.get(best)?.urgency ?? 0
       if (best === stickyMember || bestUrgency <= stickyUrgency * this.options.switchMargin) {
         // Sticky holds (no challenger beats it by the margin): lead with it.
         scored.splice(scored.indexOf(stickyMember), 1)

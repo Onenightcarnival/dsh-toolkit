@@ -9,11 +9,11 @@
  *   well-formed JWT with a JSON object payload.
  */
 export function decodeJwtPayload(token: string): Record<string, unknown> | undefined {
-  const parts = token.split('.')
-  if (parts.length < 2) return undefined
+  const payloadPart = token.split('.')[1]
+  if (payloadPart === undefined) return undefined
   let parsed: unknown
   try {
-    parsed = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+    parsed = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8'))
   } catch {
     return undefined
   }

@@ -53,9 +53,9 @@ test('runCaptures: body paths, headers, scalars and the reasons for a miss', () 
 
   const failed = runCaptures([rule('token', 'data.access_token')], { status: 401, headers, body, truncated: false })
   assert.deepEqual(failed.values, {})
-  assert.match(failed.results[0].error ?? '', /401/)
-  assert.match(runCaptures([rule('token', 'a')], { status: 200, headers, body: 'plain', truncated: false }).results[0].error ?? '', /not JSON/)
-  assert.match(runCaptures([rule('token', 'a')], { status: 200, headers, body, truncated: true }).results[0].error ?? '', /truncated/)
+  assert.match(failed.results[0]!.error ?? '', /401/)
+  assert.match(runCaptures([rule('token', 'a')], { status: 200, headers, body: 'plain', truncated: false }).results[0]!.error ?? '', /not JSON/)
+  assert.match(runCaptures([rule('token', 'a')], { status: 200, headers, body, truncated: true }).results[0]!.error ?? '', /truncated/)
   // A header rule does not need a JSON body.
   assert.deepEqual(runCaptures([rule('session', 'x-session', 'header')], { status: 204, headers, body: '', truncated: false }).values, { session: 'sess-1' })
 })
@@ -160,7 +160,7 @@ test('engine: a saved request captures values that later requests of the scope s
   // A response outside 2xx keeps the stored value; the agent's sends and other scopes run no rules.
   const denied = requests.create({ targetId: target.id, path: '/denied', captures: [rule('token', 'data.access_token')] })
   const refused = await engine.send(target.id, { method: 'GET', path: '/denied', requestId: denied.id }, { source: 'panel' })
-  assert.equal(refused.captures?.[0].ok, false)
+  assert.equal(refused.captures?.[0]!.ok, false)
   assert.equal(values.map(target.id).token, 'secret-token-2')
   await engine.send('chain', { method: 'POST', path: '/login', requestId: login.id }, { source: 'agent' })
   assert.equal(values.map(target.id).token, 'secret-token-2')
@@ -169,7 +169,7 @@ test('engine: a saved request captures values that later requests of the scope s
 test('engine: requests without a target capture and substitute within their own scope', async () => {
   const login = requests.create({ targetId: DIRECT_TARGET_ID, path: `${origin}/login`, captures: [rule('direct_token', 'data.access_token')] })
   const first = await engine.send(DIRECT_TARGET_ID, { method: 'GET', path: `${origin}/login`, requestId: login.id }, { source: 'panel' })
-  assert.equal(first.captures?.[0].ok, true)
+  assert.equal(first.captures?.[0]!.ok, true)
   const me = await engine.send(DIRECT_TARGET_ID, { method: 'GET', path: `${origin}/me`, headers: { 'X-Session': '{{direct_token}}' } }, { source: 'panel' })
   assert.match(me.response?.body ?? '', /"session":"••••••"/)
   assert.equal(values.delete(DIRECT_TARGET_ID, 'direct_token'), 1)

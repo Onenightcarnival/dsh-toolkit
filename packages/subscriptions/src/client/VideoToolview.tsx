@@ -23,8 +23,9 @@ function fileNameOf(block: NonNullable<Props['block']>, text: string): string | 
     if (typeof fileName === 'string' && fileName.length > 0) return fileName
   }
   const match = /^Saved video to (.+\.mp4)/m.exec(text)
-  if (match === null) return undefined
-  return match[1].slice(match[1].lastIndexOf('/') + 1)
+  const path = match?.[1]
+  if (path === undefined) return undefined
+  return path.slice(path.lastIndexOf('/') + 1)
 }
 
 function Video({ api, name }: { api: SubscriptionsApi; name: string }): JSX.Element {

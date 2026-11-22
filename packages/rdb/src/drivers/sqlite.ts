@@ -54,7 +54,8 @@ export class SqliteConnection implements DbConnection {
       const all = stmt.all(...params)
       const truncated = all.length > options.maxRows
       const rows = truncated ? all.slice(0, options.maxRows) : all
-      const names = rows.length > 0 ? Object.keys(rows[0]) : (stmt.columns?.().map(c => c.name) ?? [])
+      const first = rows[0]
+      const names = first !== undefined ? Object.keys(first) : (stmt.columns?.().map(c => c.name) ?? [])
       const types = stmt.columns?.() ?? []
       return {
         columns: names.map(name => ({ name, type: types.find(c => c.name === name)?.type ?? '' })),

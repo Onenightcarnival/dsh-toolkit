@@ -925,13 +925,15 @@ async function authorizeToolCall(
     await persistSettings({ sharePageContent: 'auto' })
     return 'approved'
   }
-  if (decision === 'trust-session' && prompt.kind === 'action' && prompt.canTrust && prompt.origins.length === 1) {
-    sessionTrustedActionOrigins.add(prompt.origins[0])
+  // Trust applies to an action prompt that names exactly one origin.
+  const trustOrigin = prompt.kind === 'action' && prompt.canTrust && prompt.origins.length === 1 ? prompt.origins[0] : undefined
+  if (decision === 'trust-session' && trustOrigin !== undefined) {
+    sessionTrustedActionOrigins.add(trustOrigin)
     return 'approved'
   }
   // `trust-origin` is accepted on the wire; the panel manages permanent trust in Settings.
-  if (decision === 'trust-origin' && prompt.kind === 'action' && prompt.canTrust && prompt.origins.length === 1) {
-    await persistSettings({ trustedActionOrigins: [...settings.trustedActionOrigins, prompt.origins[0]] })
+  if (decision === 'trust-origin' && trustOrigin !== undefined) {
+    await persistSettings({ trustedActionOrigins: [...settings.trustedActionOrigins, trustOrigin] })
     return 'approved'
   }
   return decision === 'allow-once' ? 'approved' : 'denied'

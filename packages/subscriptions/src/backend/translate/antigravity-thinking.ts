@@ -15,7 +15,7 @@ export function antigravityReasoning(model: string): LlmResolvedModelInfo['reaso
   const fixedEffort = /^gemini-.*-(low|medium|high)$/.exec(model)?.[1]
   const efforts = fixedEffort !== undefined && ids.includes(fixedEffort) ? [fixedEffort] : ids
   return efforts.length === 0 ? undefined : {
-    efforts: efforts.map(id => ({ id: ReasoningEffortId(id), name: id[0].toUpperCase() + id.slice(1) })),
+    efforts: efforts.map(id => ({ id: ReasoningEffortId(id), name: id.charAt(0).toUpperCase() + id.slice(1) })),
   }
 }
 

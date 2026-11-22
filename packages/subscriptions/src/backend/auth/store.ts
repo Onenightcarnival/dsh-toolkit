@@ -162,7 +162,7 @@ function resolveAccount(entry: ProviderAccounts<StoredSession>, key: string): st
     && Object.hasOwn(entry.aliases, key)
     && !seen.has(key)) {
     seen.add(key)
-    key = entry.aliases[key]
+    key = entry.aliases[key] ?? key
   }
   return key
 }
@@ -177,7 +177,8 @@ function resolveCodexReference(entry: ProviderAccounts<CodexSession>, reference:
   if (wanted.length === 0) return reference
   const matches = Object.entries(entry.accounts).filter(([, session]) =>
     session.accountId === reference.trim() || codexEmail(session) === wanted)
-  return matches.length === 1 ? matches[0][0] : reference
+  const [only] = matches
+  return matches.length === 1 && only !== undefined ? only[0] : reference
 }
 
 /**

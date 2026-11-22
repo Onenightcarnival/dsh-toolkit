@@ -26,8 +26,8 @@ test('toggle registers and disposes tools and guidance without a new content ver
   store.setAgentTools(false); sync()
   assert.equal(active.size, 0); assert.equal(store.read().revision, 0)
   const context = { callId: 'test' } as ToolRunContext
-  assert.equal(JSON.parse(await read.execute({}, context) as string).error.code, 'disabled')
-  assert.equal(JSON.parse(await commit.execute({ stateToken: 'r:0', summary: 'Stale dispatched call', changes: [] }, context) as string).error.code, 'disabled')
+  assert.equal(JSON.parse(await read!.execute({}, context) as string).error.code, 'disabled')
+  assert.equal(JSON.parse(await commit!.execute({ stateToken: 'r:0', summary: 'Stale dispatched call', changes: [] }, context) as string).error.code, 'disabled')
   store.setAgentTools(true); sync(); assert.equal(active.size, 3)
   assert.equal(store.read().history.length, 0)
   cleanup.forEach(dispose => dispose()); assert.equal(active.size, 0)

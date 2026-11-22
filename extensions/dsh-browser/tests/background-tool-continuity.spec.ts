@@ -158,9 +158,9 @@ describe('tool-driven session checkpoints', () => {
     onConnect.emit(panel.port)
     await vi.waitFor(() => { expect(FakeWebSocket.instances).toHaveLength(1) })
     const socket = FakeWebSocket.instances[0]
-    socket.open()
-    await vi.waitFor(() => { expect(socket.sent).toContainEqual(expect.objectContaining({ t: 'hello' })) })
-    socket.receive({
+    socket!.open()
+    await vi.waitFor(() => { expect(socket!.sent).toContainEqual(expect.objectContaining({ t: 'hello' })) })
+    socket!.receive({
       t: 'hello.ok',
       caps: { textOnly: true, snapshotMaxChars: 32_000, maxInteractiveItems: 60 },
     })
@@ -169,7 +169,7 @@ describe('tool-driven session checkpoints', () => {
     panel.onDisconnect.emit()
 
     const call = async (id: string, name: string): Promise<void> => {
-      socket.receive({
+      socket!.receive({
         t: 'tool.call',
         id,
         name,
@@ -178,7 +178,7 @@ describe('tool-driven session checkpoints', () => {
         sessionId: 'session-live',
       })
       await vi.waitFor(() => {
-        expect(socket.sent).toContainEqual(expect.objectContaining({ t: 'tool.result', id }))
+        expect(socket!.sent).toContainEqual(expect.objectContaining({ t: 'tool.result', id }))
       })
     }
 
@@ -203,7 +203,7 @@ describe('tool-driven session checkpoints', () => {
     action = async () => await new Promise((resolve) => {
       finishCommitted = () => resolve({ ok: true, result: { text: 'navigated' } })
     })
-    socket.receive({
+    socket!.receive({
       t: 'tool.call',
       id: 'committed',
       name: 'browser_navigate',
@@ -213,10 +213,10 @@ describe('tool-driven session checkpoints', () => {
     })
     await vi.waitFor(() => { expect(finishCommitted).toBeTypeOf('function') })
     currentTab = browserTab('https://example.com/committed')
-    socket.receive({ t: 'tool.cancel', id: 'committed' })
+    socket!.receive({ t: 'tool.cancel', id: 'committed' })
     finishCommitted()
     await vi.waitFor(() => {
-      expect(socket.sent).toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'committed', ok: true }))
+      expect(socket!.sent).toContainEqual(expect.objectContaining({ t: 'tool.result', id: 'committed', ok: true }))
     })
     await vi.waitFor(() => { expect(storedUrlKey(sessionData)).toBe('https://example.com/committed') })
 

@@ -184,9 +184,9 @@ export class RdbEngine {
   async query(idOrName: string, sql: string, options: { allowWrite: boolean; maxRows?: number; timeoutMs?: number; params?: unknown[] }): Promise<QueryResult> {
     const dialect: SqlDialect = { mysql: this.profile(idOrName).kind === 'mysql' }
     const statements = splitStatements(sql, dialect)
-    if (statements.length === 0) throw new Error('empty SQL')
-    if (statements.length > 1) throw new Error(`one statement at a time (got ${statements.length}); run them separately or use a transaction`)
     const statement = statements[0]
+    if (statement === undefined) throw new Error('empty SQL')
+    if (statements.length > 1) throw new Error(`one statement at a time (got ${statements.length}); run them separately or use a transaction`)
     if (!options.allowWrite && !isReadOnly(statement, dialect)) throw new Error('refused: only read statements run here (SELECT / WITH / EXPLAIN / SHOW); writes go through db_execute')
     const { conn } = await this.connect(idOrName)
     const q: QueryOptions = { maxRows: Math.max(1, Math.min(100000, options.maxRows ?? DEFAULT_MAX_ROWS)), timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS }

@@ -12,7 +12,7 @@ export const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 export const FETCH_TIMEOUT_MS = 15_000
 
 function normalizeMediaType(value: string | undefined): ImageMediaType | undefined {
-  const type = value?.split(';')[0].trim().toLowerCase()
+  const type = value?.split(';')[0]?.trim().toLowerCase()
   if (type === 'image/jpg') return 'image/jpeg'
   return MEDIA_TYPES.find(known => known === type)
 }

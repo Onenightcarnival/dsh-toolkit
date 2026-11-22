@@ -43,7 +43,9 @@ export function sessionTitleFromEvent(event: SessionEventView): string | undefin
 /** Recover the newest valid title while replaying session.history. */
 export function latestSessionTitle(events: readonly SessionEventView[]): string | undefined {
   for (let index = events.length - 1; index >= 0; index -= 1) {
-    const title = sessionTitleFromEvent(events[index])
+    const event = events[index]
+    if (event === undefined) continue
+    const title = sessionTitleFromEvent(event)
     if (title !== undefined) return title
   }
   return undefined

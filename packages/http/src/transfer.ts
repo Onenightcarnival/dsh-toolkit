@@ -117,9 +117,10 @@ export function planImport(raw: unknown, current: { targets: readonly HttpTarget
     if (seenNames.has(name.toLowerCase())) fail(`the file lists target '${name}' twice`)
     seenNames.add(name.toLowerCase())
     const index = targets.findIndex(target => target.name.toLowerCase() === name.toLowerCase())
-    if (index >= 0) result.conflicts.push(targets[index].name)
-    if (index >= 0 && conflict === 'skip') {
-      result.skipped.push(targets[index].name)
+    const existing = index >= 0 ? targets[index] : undefined
+    if (existing !== undefined) result.conflicts.push(existing.name)
+    if (existing !== undefined && conflict === 'skip') {
+      result.skipped.push(existing.name)
       continue
     }
     const previous = index >= 0 ? targets[index] : undefined

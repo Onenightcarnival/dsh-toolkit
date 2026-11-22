@@ -364,7 +364,7 @@ export type HttpSendLine =
   | { type: 'error'; error: string }
 
 export function isEventStream(contentType: string): boolean {
-  return contentType.split(';')[0].trim().toLowerCase() === 'text/event-stream'
+  return (contentType.split(';')[0] ?? '').trim().toLowerCase() === 'text/event-stream'
 }
 
 /**
@@ -530,14 +530,14 @@ const REFERENCE_RE = /\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}/g
 
 /** Replace `{{name}}` with the variable value; unknown names stay as written. */
 export function substitute(text: string, variables: Record<string, string>): string {
-  return text.replace(REFERENCE_RE, (match, name: string) => Object.hasOwn(variables, name) ? variables[name] : match)
+  return text.replace(REFERENCE_RE, (match, name: string) => Object.hasOwn(variables, name) ? variables[name] ?? match : match)
 }
 
 /** Names referenced as `{{name}}` in any of the texts. */
 export function referencedVariables(texts: Iterable<string>): Set<string> {
   const out = new Set<string>()
   for (const text of texts) {
-    for (const match of text.matchAll(REFERENCE_RE)) out.add(match[1])
+    for (const match of text.matchAll(REFERENCE_RE)) if (match[1] !== undefined) out.add(match[1])
   }
   return out
 }
@@ -616,7 +616,7 @@ export function joinUrl(baseUrl: string, path: string, query: Record<string, str
     }
   } else {
     const base = new URL(baseUrl)
-    const [pathPart, ...queryParts] = path.split('?')
+    const [pathPart = '', ...queryParts] = path.split('?')
     const basePath = base.pathname.replace(/\/+$/, '')
     const relative = pathPart.replace(/^\/+/, '')
     url = new URL(base.origin)

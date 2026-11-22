@@ -483,10 +483,13 @@ export function createImageGenerateTool(options: ImageGenerateToolOptions): Tool
       const refs: ImageGenerateImageValue[] = []
       if (attachments !== undefined && imageCapable) {
         for (const [index, image] of images.entries()) {
+          const mediaType = mediaTypes[index]
+          const path = paths[index]
+          if (mediaType === undefined || path === undefined) continue
           const ref = await attachments.saveImage({
             data: image.data,
-            mediaType: mediaTypes[index],
-            name: basename(paths[index]),
+            mediaType,
+            name: basename(path),
           })
           refs.push({
             attachmentId: ref.attachmentId,

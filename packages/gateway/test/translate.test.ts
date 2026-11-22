@@ -64,11 +64,11 @@ test('chat completions: parse, materialize and reject unsupported parameters', a
   const options = await materialize(parsed, { provider: 'deepseek', model: 'deepseek-chat' }, noImages, new AbortController().signal)
   assert.equal(options.provider, 'deepseek')
   assert.equal(options.system, parsed.system)
-  assert.equal(options.tools?.[0].name, 'get_weather')
-  assert.equal(options.messages[0].role, 'user')
-  assert.equal(options.messages[1].role, 'assistant')
+  assert.equal(options.tools?.[0]!.name, 'get_weather')
+  assert.equal(options.messages[0]!.role, 'user')
+  assert.equal(options.messages[1]!.role, 'assistant')
   assert.deepEqual((options.messages[1] as { source: unknown }).source, { kind: 'model', provider: 'deepseek', model: 'deepseek-chat' })
-  assert.equal(options.messages[2].role, 'tool')
+  assert.equal(options.messages[2]!.role, 'tool')
   assert.equal((options.messages[2] as { toolCallId: string }).toolCallId, 'call_1')
 
   const base = { messages: [{ role: 'user', content: 'hi' }] }
@@ -83,7 +83,7 @@ test('chat completions: parse, materialize and reject unsupported parameters', a
     assert.throws(() => parseChatRequest(body), (error: unknown) => error instanceof GatewayError && error.status === 400, JSON.stringify(body))
   }
   const images = parseChatRequest({ messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } }, { type: 'image_url', image_url: 'https://example.com/a.png' }] }] })
-  assert.deepEqual(images.messages[0].content, [
+  assert.deepEqual(images.messages[0]!.content, [
     { type: 'pending-image', source: { kind: 'base64', mediaType: 'image/png', data: 'AAAA' } },
     { type: 'pending-image', source: { kind: 'url', url: 'https://example.com/a.png' } },
   ])
@@ -93,22 +93,22 @@ test('chat completions: stream chunks and the complete object', () => {
   const encoder = new ChatStreamEncoder('deepseek:deepseek-chat', true)
   const out = frames(encoder.start() + sampleChunks.map(chunk => encoder.push(chunk)).join('') + encoder.end())
   const deltas = out.filter(frame => frame.data !== '[DONE]').map(frame => frame.data as { choices: Array<{ delta: Record<string, unknown>; finish_reason: string | null }>; usage?: unknown })
-  assert.equal(deltas[0].choices[0].delta.role, 'assistant')
-  assert.equal(deltas[0].choices[0].delta.reasoning_content, 'thinking')
+  assert.equal(deltas[0]!.choices[0]!.delta.role, 'assistant')
+  assert.equal(deltas[0]!.choices[0]!.delta.reasoning_content, 'thinking')
   assert.equal(deltas.map(d => (d.choices[0]?.delta.content as string | undefined) ?? '').join(''), 'Hello')
   const toolDeltas = deltas.flatMap(d => (d.choices[0]?.delta.tool_calls as Array<Record<string, unknown>> | undefined) ?? [])
-  assert.equal(toolDeltas[0].id, 'call_1')
-  assert.equal(toolDeltas[0].index, 0)
-  assert.equal((toolDeltas[0].function as { name: string }).name, 'get_weather')
+  assert.equal(toolDeltas[0]!.id, 'call_1')
+  assert.equal(toolDeltas[0]!.index, 0)
+  assert.equal((toolDeltas[0]!.function as { name: string }).name, 'get_weather')
   assert.equal(toolDeltas.map(d => (d.function as { arguments: string }).arguments).join(''), '{"city":"Paris"}')
-  assert.equal(deltas.at(-2)?.choices[0].finish_reason, 'tool_calls')
+  assert.equal(deltas.at(-2)?.choices[0]!.finish_reason, 'tool_calls')
   assert.deepEqual((deltas.at(-1) as { usage: Record<string, unknown> }).usage.prompt_tokens, 10)
   assert.equal(out.at(-1)?.data, '[DONE]')
 
   const complete = chatCompletion('deepseek:deepseek-chat', [{ type: 'text', text: 'Hello' }, { type: 'tool-call', id: callId, name: 'get_weather', arguments: '{}' }], usage, { kind: 'tool-calls' }) as { choices: Array<{ message: Record<string, unknown>; finish_reason: string }>; usage: Record<string, unknown> }
-  assert.equal(complete.choices[0].finish_reason, 'tool_calls')
-  assert.equal(complete.choices[0].message.content, 'Hello')
-  assert.equal((complete.choices[0].message.tool_calls as unknown[]).length, 1)
+  assert.equal(complete.choices[0]!.finish_reason, 'tool_calls')
+  assert.equal(complete.choices[0]!.message.content, 'Hello')
+  assert.equal((complete.choices[0]!.message.tool_calls as unknown[]).length, 1)
   assert.equal(complete.usage.total_tokens, 15)
 })
 
@@ -131,9 +131,9 @@ test('responses: parse input items and stream semantic events', () => {
   assert.equal(parsed.reasoningEffort, 'high')
   assert.equal(parsed.maxTokens, 50)
   assert.equal(parsed.messages.length, 4)
-  assert.equal(parsed.messages[1].role, 'assistant')
-  assert.equal(parsed.messages[2].role, 'tool')
-  assert.equal(parsed.messages[3].content.length, 2)
+  assert.equal(parsed.messages[1]!.role, 'assistant')
+  assert.equal(parsed.messages[2]!.role, 'tool')
+  assert.equal(parsed.messages[3]!.content.length, 2)
   assert.throws(() => parseResponsesRequest({ input: 'hi', previous_response_id: 'resp_1' }), (error: unknown) => error instanceof GatewayError && error.status === 400)
   assert.throws(() => parseResponsesRequest({ input: 'hi', tools: [{ type: 'web_search_preview' }] }), (error: unknown) => error instanceof GatewayError && error.status === 400)
   assert.throws(() => parseResponsesRequest({ input: 'hi', text: { format: { type: 'json_schema' } } }), (error: unknown) => error instanceof GatewayError && error.status === 400)
@@ -153,7 +153,7 @@ test('responses: parse input items and stream semantic events', () => {
   const completed = (out.at(-1)?.data as { response: { output: Array<Record<string, unknown>>; usage: Record<string, unknown>; status: string } }).response
   assert.equal(completed.status, 'completed')
   assert.deepEqual(completed.output.map(item => item.type), ['reasoning', 'message', 'function_call'])
-  assert.equal(completed.output[2].arguments, '{"city":"Paris"}')
+  assert.equal(completed.output[2]!.arguments, '{"city":"Paris"}')
   assert.equal(completed.usage.total_tokens, 15)
 
   const object = responsesCompletion('x:y', [{ type: 'text', text: 'Hi' }], usage, { kind: 'max-tokens' }) as { status: string; incomplete_details: unknown }
@@ -178,8 +178,8 @@ test('anthropic messages: parse blocks, drop thinking, stream events', () => {
   assert.equal(parsed.maxTokens, 1024)
   assert.deepEqual(parsed.stop, ['END'])
   assert.deepEqual(parsed.messages.map(message => message.role), ['user', 'assistant', 'tool', 'user'])
-  assert.deepEqual(parsed.messages[1].content, [{ type: 'tool-call', id: 'toolu_1', name: 'get_weather', arguments: '{"city":"Paris"}' }])
-  assert.equal(parsed.messages[3].content.length, 2)
+  assert.deepEqual(parsed.messages[1]!.content, [{ type: 'tool-call', id: 'toolu_1', name: 'get_weather', arguments: '{"city":"Paris"}' }])
+  assert.equal(parsed.messages[3]!.content.length, 2)
   assert.throws(() => parseMessagesRequest({ messages: [{ role: 'user', content: 'hi' }], tools: [{ type: 'web_search_20250305', name: 'web_search' }] }), (error: unknown) => error instanceof GatewayError && error.status === 400)
 
   const encoder = new AnthropicStreamEncoder('x:y')
@@ -204,9 +204,9 @@ test('anthropic messages: parse blocks, drop thinking, stream events', () => {
 test('stream encoders report upstream failures after the stream started', () => {
   const failure: StreamChunk = { type: 'finish', reason: { kind: 'error', failure: { code: 'QUOTA', message: 'quota exceeded', status: 429 } } }
   const chat = frames(new ChatStreamEncoder('x:y', false).push(failure))
-  assert.equal((chat[0].data as { error: { code: string } }).error.code, 'QUOTA')
+  assert.equal((chat[0]!.data as { error: { code: string } }).error.code, 'QUOTA')
   const responses = frames(new ResponsesStreamEncoder('x:y').push(failure)).map(frame => frame.event)
   assert.deepEqual(responses, ['response.failed', 'error'])
   const anthropic = frames(new AnthropicStreamEncoder('x:y').push(failure))
-  assert.equal(anthropic[0].event, 'error')
+  assert.equal(anthropic[0]!.event, 'error')
 })

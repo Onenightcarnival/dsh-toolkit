@@ -15,9 +15,10 @@ export function parseAccountModelId(id: string): { account: string; model: strin
   if (!id.startsWith(ACCOUNT_MODEL_PREFIX)) return undefined
   const parts = id.slice(ACCOUNT_MODEL_PREFIX.length).split(':')
   try {
-    if (parts.length !== 2) throw new Error()
-    const account = decodeURIComponent(parts[0])
-    const model = decodeURIComponent(parts[1])
+    const [accountPart, modelPart] = parts
+    if (parts.length !== 2 || accountPart === undefined || modelPart === undefined) throw new Error()
+    const account = decodeURIComponent(accountPart)
+    const model = decodeURIComponent(modelPart)
     if (!account || !model || accountModelId(account, model) !== id) throw new Error()
     return { account, model }
   } catch { throw new LlmError('Invalid independent account model id', 'NO_ADAPTER') }

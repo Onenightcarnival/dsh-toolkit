@@ -139,7 +139,7 @@ function relayTokenRef(routeKey: string): string {
 
 function parseRelayModels(text: string): Array<{ id: string; contextWindow?: number }> {
   return text.split('\n').map(line => line.trim()).filter(line => line !== '').map((line) => {
-    const [id, contextWindow] = line.split(',').map(part => part.trim())
+    const [id = '', contextWindow] = line.split(',').map(part => part.trim())
     const parsed = contextWindow === undefined || contextWindow === '' ? undefined : Number(contextWindow)
     return {
       id,
@@ -1807,7 +1807,7 @@ export function App(): React.JSX.Element {
   // The status bar shows connection state only.
   const statusText = copy.status[state]
   const sessionMenuTitle = sessionTitle ?? copy.app.newSession
-  const approvalDialog = !approvalReadyForSession(queuedApproval, sessionRef.current, sessionChanging)
+  const approvalDialog = queuedApproval === undefined || !approvalReadyForSession(queuedApproval, sessionRef.current, sessionChanging)
     ? null
     : <ApprovalDialog request={queuedApproval} onDecision={(decision) => { void decideApproval(decision) }} copy={copy} />
 
