@@ -9,7 +9,7 @@ Relational database workbench for [DeepSeek Harness](https://github.com/deepseek
 | Surface | Behavior |
 |---|---|
 | Connections | Saved profiles, schema/table/view tree and multi-host selection |
-| Data | Pagination, filters, sorting and inline edits with SQL preview and one transaction |
+| Data | Pagination, filters, sorting and inline edits with SQL preview and one transaction. Pending edits are tied to each row's primary key and stay through paging, sorting and filtering; a table or view without a primary key, and a row whose key is null or binary, is read-only |
 | Structure | Columns, indexes and DDL |
 | SQL | Query editor and CSV export |
 | Agent | `db_connections`, `db_schema`, `db_query`, `db_explain`, `db_execute`; global tool switch and per-connection write permission |

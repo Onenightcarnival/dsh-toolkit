@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from 'react'
 import type { RdbApi } from '../api.ts'
 import { quoteIdentifier, type ChangesResult, type DbKind, type RowChange, type RowFilter, type RowsPage, type TableInfo, type TableRef } from '../../protocol.ts'
 import { tt } from '../locales.ts'
+import { buildChanges, cellText, rowId, rowKey, withCellEdit, type PendingUpdate, type RowKey } from '../pending.ts'
 import { BannerView, Modal, errorMessage, type Banner } from './common.tsx'
 
 const PAGE = 100
@@ -15,15 +16,10 @@ export interface DataGridProps {
   info: TableInfo
 }
 
-/** Cell text for display; objects/arrays are shown as JSON. */
-export function cellText(v: unknown): string {
-  if (typeof v === 'string') return v
-  if (typeof v === 'number' || typeof v === 'bigint' || typeof v === 'boolean') return String(v)
-  if (typeof v !== 'object' || v === null) return ''
-  return JSON.stringify(v)
-}
+export { cellText }
 
-interface EditState { row: number; col: number; value: string }
+/** The cell being edited: its row by id and key, its column, the text typed so far and the value as loaded. */
+interface EditState { id: string; key: RowKey; col: number; value: string; original: unknown }
 
 export function DataGrid(props: DataGridProps): JSX.Element {
   const { api, connectionId, kind, table, info } = props
@@ -36,15 +32,15 @@ export function DataGrid(props: DataGridProps): JSX.Element {
   const [applied, setApplied] = useState<RowFilter[]>([])
   const [loading, setLoading] = useState(false)
   const [banner, setBanner] = useState<Banner | undefined>()
-  // Pending changes: per original row index → new values; new rows; deleted row indexes.
-  const [updates, setUpdates] = useState<Map<number, Record<string, unknown>>>(new Map())
+  // Pending changes and the selection are keyed by row id (primary key), so they follow their rows across pages, sorting and filters.
+  const [updates, setUpdates] = useState<Map<string, PendingUpdate>>(new Map())
   const [inserts, setInserts] = useState<Record<string, unknown>[]>([])
-  const [deletes, setDeletes] = useState<Set<number>>(new Set())
-  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [deletes, setDeletes] = useState<Map<string, RowKey>>(new Map())
+  const [selected, setSelected] = useState<Map<string, RowKey>>(new Map())
   const [editing, setEditing] = useState<EditState | undefined>()
   const [preview, setPreview] = useState<{ statements: string[]; changes: RowChange[] } | undefined>()
 
-  const reset = (): void => { setUpdates(new Map()); setInserts([]); setDeletes(new Set()); setSelected(new Set()); setEditing(undefined) }
+  const reset = (): void => { setUpdates(new Map()); setInserts([]); setDeletes(new Map()); setSelected(new Map()); setEditing(undefined) }
 
   const load = useCallback(async (off = offset, s = sort, f = applied): Promise<void> => {
     setLoading(true)
@@ -75,48 +71,23 @@ export function DataGrid(props: DataGridProps): JSX.Element {
     setApplied(filter.op === 'is null' || filter.op === 'is not null' ? [{ column: filter.column, op: filter.op }] : [{ column: filter.column, op: filter.op, value: filter.value ?? '' }])
   }
 
-  const startEdit = (row: number, col: number): void => {
-    if (!editable || deletes.has(row)) return
-    const original = page?.rows[row]?.[col]
+  /** Start editing a cell of an addressable row that is not marked for deletion. */
+  const startEdit = (id: string | undefined, key: RowKey | undefined, col: number, original: unknown): void => {
+    if (!editable || id === undefined || key === undefined || deletes.has(id)) return
     const name = columns[col]?.name
     if (name === undefined) return
-    const current = updates.get(row)?.[name]
-    setEditing({ row, col, value: cellText(current !== undefined ? current : original) })
+    const current = updates.get(id)?.values[name]
+    setEditing({ id, key, col, value: cellText(current !== undefined ? current : original), original })
   }
   const commitEdit = (value: unknown): void => {
     if (editing === undefined) return
     const name = columns[editing.col]?.name
-    if (name === undefined) { setEditing(undefined); return }
-    setUpdates((prev) => {
-      const next = new Map(prev)
-      const rowPatch = { ...(next.get(editing.row) ?? {}) }
-      const original = page?.rows[editing.row]?.[editing.col]
-      if (cellText(value) === cellText(original) && (value === null) === (original === null)) delete rowPatch[name]
-      else rowPatch[name] = value
-      if (Object.keys(rowPatch).length === 0) next.delete(editing.row)
-      else next.set(editing.row, rowPatch)
-      return next
-    })
+    if (name !== undefined) setUpdates(prev => withCellEdit(prev, editing.id, editing.key, name, value, editing.original))
     setEditing(undefined)
   }
 
-  const keyOf = (row: unknown[]): Record<string, unknown> => Object.fromEntries(pk.map(k => [k, row[colIndex.get(k) ?? -1]]))
-  const buildChanges = (): RowChange[] => {
-    const out: RowChange[] = []
-    for (const [row, values] of updates) {
-      const source = deletes.has(row) ? undefined : page?.rows[row]
-      if (source) out.push({ kind: 'update', key: keyOf(source), values })
-    }
-    for (const values of inserts) out.push({ kind: 'insert', values })
-    for (const row of deletes) {
-      const source = page?.rows[row]
-      if (source) out.push({ kind: 'delete', key: keyOf(source) })
-    }
-    return out
-  }
-
   const openPreview = async (): Promise<void> => {
-    const changes = buildChanges()
+    const changes = buildChanges(updates, inserts, deletes)
     if (changes.length === 0) return
     try {
       const result: ChangesResult = await api.changes(connectionId, { schema: table.schema, table: table.name, changes, apply: false })
@@ -163,7 +134,7 @@ export function DataGrid(props: DataGridProps): JSX.Element {
         <a className="dsh-rdb-ghost" href={exportUrl} download>{tt('data.export')}</a>
         {editable && <>
           <button type="button" className="dsh-rdb-ghost" onClick={() => { setInserts(prev => [...prev, {}]) }}>{tt('data.addRow')}</button>
-          <button type="button" className="dsh-rdb-ghost" disabled={selected.size === 0} onClick={() => { setDeletes(prev => new Set([...prev, ...selected])); setSelected(new Set()) }}>{tt('data.deleteRows')}</button>
+          <button type="button" className="dsh-rdb-ghost" disabled={selected.size === 0} onClick={() => { setDeletes(prev => new Map([...prev, ...selected])); setSelected(new Map()) }}>{tt('data.deleteRows')}</button>
         </>}
       </div>
 
@@ -185,25 +156,40 @@ export function DataGrid(props: DataGridProps): JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {(page?.rows ?? []).map((row, r) => (
-                <tr key={r} {...(deletes.has(r) ? { 'data-deleted': '' } : {})} {...(updates.has(r) ? { 'data-changed': '' } : {})}>
-                  {editable && <td className="dsh-rdb-colCheck"><input type="checkbox" className="dsh-rdb-check" checked={selected.has(r)} onChange={() => { setSelected((prev) => { const n = new Set(prev); if (n.has(r)) n.delete(r); else n.add(r); return n }) }} /></td>}
-                  {row.map((v, c) => {
-                    const name = columns[c]?.name
-                    const patched = updates.get(r)
-                    const dirty = patched !== undefined && name !== undefined && name in patched
-                    const value = dirty ? patched[name] : v
-                    const isEditing = editing?.row === r && editing.col === c
-                    return (
-                      <td key={c} {...(dirty ? { 'data-dirty': '' } : {})} {...(value === null ? { 'data-null': '' } : {})} onDoubleClick={() => { startEdit(r, c) }}>
-                        {isEditing ? (
-                          <CellEditor value={editing.value} onChange={(val) => { setEditing({ ...editing, value: val }) }} onCommit={(val) => { commitEdit(val) }} onCancel={() => { setEditing(undefined) }} />
-                        ) : (value === null ? 'NULL' : cellText(value))}
+              {(page?.rows ?? []).map((row, r) => {
+                // A row whose primary key cannot be read is shown but takes no edits and no selection.
+                const key = rowKey(pk, colIndex, row)
+                const id = key === undefined ? undefined : rowId(pk, key)
+                const patched = id === undefined ? undefined : updates.get(id)?.values
+                return (
+                  <tr key={id ?? `row-${String(r)}`} {...(id !== undefined && deletes.has(id) ? { 'data-deleted': '' } : {})} {...(patched !== undefined ? { 'data-changed': '' } : {})}>
+                    {editable && (
+                      <td className="dsh-rdb-colCheck">
+                        <input
+                          type="checkbox" className="dsh-rdb-check" disabled={id === undefined} checked={id !== undefined && selected.has(id)}
+                          onChange={() => {
+                            if (id === undefined || key === undefined) return
+                            setSelected((prev) => { const n = new Map(prev); if (n.has(id)) n.delete(id); else n.set(id, key); return n })
+                          }}
+                        />
                       </td>
-                    )
-                  })}
-                </tr>
-              ))}
+                    )}
+                    {row.map((v, c) => {
+                      const name = columns[c]?.name
+                      const dirty = patched !== undefined && name !== undefined && name in patched
+                      const value = dirty ? patched[name] : v
+                      const isEditing = editing !== undefined && editing.id === id && editing.col === c
+                      return (
+                        <td key={c} {...(dirty ? { 'data-dirty': '' } : {})} {...(value === null ? { 'data-null': '' } : {})} onDoubleClick={() => { startEdit(id, key, c, v) }}>
+                          {isEditing ? (
+                            <CellEditor value={editing.value} onChange={(val) => { setEditing({ ...editing, value: val }) }} onCommit={(val) => { commitEdit(val) }} onCancel={() => { setEditing(undefined) }} />
+                          ) : (value === null ? 'NULL' : cellText(value))}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
               {inserts.map((values, i) => (
                 <tr key={`new-${i}`} data-new="">
                   <td className="dsh-rdb-colCheck"><button type="button" className="dsh-rdb-link" data-danger onClick={() => { setInserts(prev => prev.filter((_, j) => j !== i)) }}>×</button></td>

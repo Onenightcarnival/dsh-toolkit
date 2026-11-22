@@ -56,7 +56,8 @@
   ],
   "scripts": {
     "build": "node build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-transform-types --test test/*.test.ts"
   },
   "peerDependencies": {
     "react": "^18.2.0",

@@ -67,8 +67,9 @@ MySQL / MariaDB 通过 `SHOW REPLICA STATUS`（旧版 `SHOW SLAVE STATUS`）判�
 | 对象树 | 按 schema 切换与名称过滤，包含表和视图；MySQL schema 为同服务器上的数据库 |
 | 数据页 | 每页 100 行；列头排序，单列过滤 |
 | 编辑 | 双击单元格；`∅` 置 NULL，Esc 取消；支持新增行与删除所选 |
+| 待保存的改动 | 按行的主键记录；翻页、排序与过滤后保留，随「保存改动」或「放弃」结束 |
 | 保存改动 | SQL 预览与确认后，在一个事务中提交 |
-| 只读对象 | 无主键的表、视图 |
+| 只读对象 | 无主键的表、视图；主键值为空或为二进制的行 |
 | 结构页 | 列、类型、可空、默认值、主键、索引与 DDL |
 | SQL 执行 | Ctrl+Enter 执行选中内容或全文；单条语句，允许末尾分号与注释；写操作需确认 |
 | SQL 结果 | 最多 1000 行，支持 CSV 导出 |
@@ -108,6 +109,7 @@ pnpm install
 pnpm --filter @onenightcarnival/dsh-rdb run build       # lib/index.js（host，内联 pg / mysql2 / gaussdb-node）
                                                         # lib/client.js（客户端，dsh 模块加载器封装）
 pnpm --filter @onenightcarnival/dsh-rdb run typecheck
+pnpm --filter @onenightcarnival/dsh-rdb run test        # 数据页待保存改动的单元测试
 pnpm --filter @onenightcarnival/dsh-rdb pack            # onenightcarnival-dsh-rdb-<版本>.tgz
 ```
 
