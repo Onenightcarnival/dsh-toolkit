@@ -10,9 +10,6 @@
 #           dsh-browser-extension-chrome-<version>.zip
 #           SHA256SUMS.txt
 #         A prerelease label (v0.5.1-rc.1) marks the Release as pre-release.
-# npm:    with the repository variable NPM_PUBLISH set to "true", the toolkit tarball of the Release
-#         is staged on npm through trusted publishing: dist-tag "latest", or "next" for a prerelease.
-#         A maintainer approves the staged version on npmjs.com before it is public.
 name: Release
 
 on:
@@ -67,37 +64,3 @@ jobs:
             args+=(--prerelease)
           fi
           gh release create "$GITHUB_REF_NAME" dist/* "${args[@]}"
-
-  npm:
-    needs: release
-    if: vars.NPM_PUBLISH == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-
-      # Staged publishing needs npm 11.15 or later.
-      - name: Update npm
-        run: npm install --global npm@^11.15.0
-
-      - name: Download the toolkit tarball of the Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          file="onenightcarnival-dsh-toolkit-${GITHUB_REF_NAME#v}.tgz"
-          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern "$file" --pattern SHA256SUMS.txt
-          grep -F "  $file" SHA256SUMS.txt | sha256sum --check
-
-      - name: Stage on npm
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          tag=latest
-          if [[ "$version" == *-* ]]; then
-            tag=next
-          fi
-          npm stage publish "onenightcarnival-dsh-toolkit-${version}.tgz" --access public --tag "$tag"

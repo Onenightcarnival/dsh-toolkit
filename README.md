@@ -155,7 +155,6 @@ git push origin v<version>
 | Version synchronization | `scripts/version.mjs set` writes the tag version into packages, extension manifests and OTel `PLUGIN_VERSION` |
 | Validation and build | Typecheck → build → test → package |
 | Release | All files in `dist/` attached to the matching GitHub Release |
-| npm | With the repository variable `NPM_PUBLISH` set to `true`, the toolkit tgz of the Release is staged on npm through trusted publishing, with the dist-tag `latest`, or `next` for a prerelease; a maintainer approves it on npmjs.com before it is public |
 
 Workflow: [release.yml](.github/workflows/release.yml). Artifact versions follow the tag; `pnpm version:set <version>` synchronizes repository versions. Tags with prerelease suffixes create prereleases; browser manifests retain only the numeric version.
 
