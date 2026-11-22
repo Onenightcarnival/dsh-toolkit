@@ -9,11 +9,29 @@ import { build } from 'esbuild'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
+import { bundledFiles, writeThirdPartyNotices } from './third-party-notices.mjs'
 
 const HOST_EXTERNAL = ['@deepseek-ai/*', 'bufferutil', 'utf-8-validate']
 const CLIENT_EXTERNAL = ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client', '@deepseek-ai/*']
 /** DSH libraries outside the web module loader; each importing package lists them in devDependencies. */
 const CLIENT_INLINED = ['@deepseek-ai/dsh-util-crypto']
+
+/** Modules bundled so far, per package directory; the input of the package's third-party notices. */
+const bundled = new Map()
+
+function record(dir, metafile) {
+  const files = bundled.get(dir) ?? new Set()
+  for (const file of bundledFiles(metafile, dir)) files.add(file)
+  bundled.set(dir, files)
+}
+
+/**
+ * Write THIRD_PARTY_LICENSES.txt of a package from the bundles built for it in this process.
+ * @param {{ dir: string, sources?: string[] }} options sources: directories whose SOURCE_NOTICES.txt apply (default: dir)
+ */
+export function writeNotices({ dir, sources }) {
+  writeThirdPartyNotices({ dir, files: bundled.get(dir) ?? [], ...(sources === undefined ? {} : { sources }) })
+}
 
 /** Resolves CLIENT_INLINED imports to their files ahead of the `@deepseek-ai/*` external pattern. */
 const inlineClientLibraries = {
@@ -43,11 +61,12 @@ export async function buildHost({ dir, entry, outfile = 'lib/index.js', inlined 
   const pkg = manifest(dir)
   const inlinedText = inlined.map(name => `${name} ${versionOf(dir, name)}`).join(', ')
   mkdirSync(join(dir, 'lib'), { recursive: true })
-  await build({
+  const result = await build({
     absWorkingDir: dir,
     entryPoints: [entry],
     outfile,
     bundle: true,
+    metafile: true,
     format: 'esm',
     platform: 'node',
     target: 'node22',
@@ -60,6 +79,7 @@ export async function buildHost({ dir, entry, outfile = 'lib/index.js', inlined 
 import { createRequire as __toolkitCreateRequire } from 'node:module';
 const require = __toolkitCreateRequire(import.meta.url);` },
   })
+  record(dir, result.metafile)
 }
 
 /** @param {{ dir: string, entry: string, outfile?: string, id?: string }} options */
@@ -70,6 +90,7 @@ export async function buildClient({ dir, entry, outfile = 'lib/client.js', id })
     entryPoints: [entry],
     bundle: true,
     write: false,
+    metafile: true,
     format: 'cjs',
     platform: 'browser',
     target: 'es2022',
@@ -80,6 +101,7 @@ export async function buildClient({ dir, entry, outfile = 'lib/client.js', id })
     legalComments: 'none',
     logLevel: 'info',
   })
+  record(dir, result.metafile)
   const body = result.outputFiles[0].text
   const wrapped = `window.__ModuleLoader__.load({
 \tid: ${JSON.stringify(id ?? pkg.name)},

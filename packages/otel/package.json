@@ -23,8 +23,7 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "LICENSE",
-    "THIRD-PARTY-NOTICES"
+    "THIRD_PARTY_LICENSES.txt"
   ],
   "engines": {
     "node": ">=22.19.0",

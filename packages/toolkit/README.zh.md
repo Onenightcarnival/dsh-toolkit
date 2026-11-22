@@ -127,4 +127,4 @@ toolkit 模块入口：
 
 ## 许可
 
-MIT。第三方声明见 [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt)。
+MIT。第三方声明：安装包内的 `THIRD_PARTY_LICENSES.txt`，由构建按实际打包的模块生成。

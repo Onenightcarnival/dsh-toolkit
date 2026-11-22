@@ -188,4 +188,4 @@ pnpm --filter @onenightcarnival/dsh-config-center run test:smoke   # 真实宿�
 
 ## 协议
 
-MIT。第三方声明：[THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt)。
+MIT。第三方声明：安装包内的 `THIRD_PARTY_LICENSES.txt`，由构建按实际打包的模块生成。

@@ -186,9 +186,9 @@ OAuth 客户端配置按以下顺序读取：
 
 ## 源码维护
 
-`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理，提供方为 `codex`、`chatgpt`、`antigravity` 与 `grok`。后端从本地源码构建。Antigravity 协议参考：[LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6)。源码来源和 MIT 许可证位于 `THIRD_PARTY_LICENSES.txt`。
+`src/backend` 包含 OAuth PKCE、令牌刷新、流式模型适配、Codex 搜索和图片附件处理，提供方为 `codex`、`chatgpt`、`antigravity` 与 `grok`。后端从本地源码构建。Antigravity 协议参考：[LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6)。源码来源和 MIT 许可证位于 [SOURCE_NOTICES.txt](SOURCE_NOTICES.txt)。
 
-`THIRD_PARTY_LICENSES.txt` 随独立包和集成包发布。修改协议后端时需重新验证 OAuth、RPC、工具策略和模型目录测试。
+构建将其与所打包第三方包的许可证一并写入独立包和集成包的 `THIRD_PARTY_LICENSES.txt`。修改协议后端时需重新验证 OAuth、RPC、工具策略和模型目录测试。
 
 ## 开发验证
 

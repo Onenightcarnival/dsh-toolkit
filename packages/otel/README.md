@@ -116,7 +116,7 @@ node packages/otel/test/service.integration.mjs
 
 ## 许可
 
-本项目 MIT。采集管线来自 Apache-2.0 的 [@loongsuite/dsh-plugin](https://github.com/loongsuite/dsh-plugin)。第三方版权声明与许可全文见 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES)。
+本项目 MIT。采集管线来自 Apache-2.0 的 [@loongsuite/dsh-plugin](https://github.com/loongsuite/dsh-plugin)。第三方版权声明与许可全文见安装包内的 `THIRD_PARTY_LICENSES.txt`，由构建按实际打包的模块生成。
 
 ## 界面语言
 

@@ -51,7 +51,8 @@
     "lib/client.js",
     "lib/types/**/*.d.ts",
     "cordis.patch.yml",
-    "src"
+    "src",
+    "THIRD_PARTY_LICENSES.txt"
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.1.0",

@@ -25,3 +25,9 @@
 - 各包 README 记录模块配置、接口和开发约束；浏览器安装、操作与权限说明统一保存在 `docs/browser.md` 及其中文版本。
 - 其他文档通过链接引用已有说明；中英文版本保留相同的功能、边界与约束。
 - 文档和注释随对应行为更新；删除失效说明和历史排错过程。
+
+## 许可证与第三方声明
+
+- 各包与浏览器扩展的 `LICENSE` 内容相同，版权人为 onenightcarnival。
+- `THIRD_PARTY_LICENSES.txt` 由构建生成，不入库：`scripts/third-party-notices.mjs` 读取打包工具给出的模块列表，写入所含第三方包的许可证文本。
+- 源自其他项目的源码在所属目录的 `SOURCE_NOTICES.txt` 中声明，构建将其写入对应产物的 `THIRD_PARTY_LICENSES.txt`。

@@ -161,4 +161,4 @@ git push origin v<版本>
 
 ## 许可
 
-MIT。第三方声明见 [OTel](packages/otel/THIRD-PARTY-NOTICES)、[Config center](packages/config-center/THIRD_PARTY_LICENSES.txt)、[Subscriptions](packages/subscriptions/THIRD_PARTY_LICENSES.txt) 和 [Toolkit](packages/toolkit/THIRD_PARTY_LICENSES.txt)。
+MIT。安装包内的 `THIRD_PARTY_LICENSES.txt` 由构建按实际打包的模块生成，列出所含第三方包的许可证。源自其他项目的源码声明：[订阅后端](packages/subscriptions/SOURCE_NOTICES.txt)、[浏览器桥](packages/browser-bridge/SOURCE_NOTICES.txt)、[浏览器扩展](extensions/dsh-browser/SOURCE_NOTICES.txt)，同样写入对应安装包的 `THIRD_PARTY_LICENSES.txt`。

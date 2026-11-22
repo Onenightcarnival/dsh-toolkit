@@ -46,7 +46,8 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "README.zh.md"
+    "README.zh.md",
+    "THIRD_PARTY_LICENSES.txt"
   ],
   "scripts": {
     "build": "node build.mjs",

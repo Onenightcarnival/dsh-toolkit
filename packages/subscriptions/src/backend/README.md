@@ -36,4 +36,4 @@ Changes to authentication, model translation, search or images require subscript
 | V1ki/dsh-plugin-subscriptions | `9930c5ee5e3fa239db9031f47a0f6f30f7ffc443` | Grok authentication, model catalog, usage, X search, image and video generation |
 | LiZhenNet/dsh-antigravity | `94957767c5e247d86cec8833fb1b67f659078af6` | Antigravity protocol reference |
 
-Upstream changes enter through reviewed source updates. MIT notices reside in [THIRD_PARTY_LICENSES.txt](../../THIRD_PARTY_LICENSES.txt) and ship with standalone and toolkit artifacts.
+Upstream changes enter through reviewed source updates. MIT notices reside in [SOURCE_NOTICES.txt](../../SOURCE_NOTICES.txt); the build writes them into `THIRD_PARTY_LICENSES.txt` of the standalone and toolkit artifacts.

@@ -1,4 +1,6 @@
 import { fileURLToPath } from 'node:url'
-import { buildClient } from '../../scripts/build-plugin.mjs'
+import { buildClient, writeNotices } from '../../scripts/build-plugin.mjs'
 
-await buildClient({ dir: fileURLToPath(new URL('.', import.meta.url)), entry: 'src/client/index.js' })
+const dir = fileURLToPath(new URL('.', import.meta.url))
+await buildClient({ dir, entry: 'src/client/index.js' })
+writeNotices({ dir })

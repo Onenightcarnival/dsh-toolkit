@@ -189,9 +189,9 @@ Auth and preferences use `plugins/subscriptions/` in the DSH home. The UI reads 
 
 ## Source and license
 
-`src/backend` contains OAuth PKCE, token refresh, streaming model adapters, Codex search and image attachment handling. Providers: `codex`, `chatgpt`, `antigravity`, `grok`. The backend builds from local source. Antigravity protocol reference: [LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6). Source provenance and MIT license notices reside in `THIRD_PARTY_LICENSES.txt`.
+`src/backend` contains OAuth PKCE, token refresh, streaming model adapters, Codex search and image attachment handling. Providers: `codex`, `chatgpt`, `antigravity`, `grok`. The backend builds from local source. Antigravity protocol reference: [LiZhenNet/dsh-antigravity](https://github.com/LiZhenNet/dsh-antigravity/tree/94957767c5e247d86cec8833fb1b67f659078af6). Source provenance and MIT license notices reside in [SOURCE_NOTICES.txt](SOURCE_NOTICES.txt).
 
-Third-party notices are included in both standalone and toolkit artifacts. Backend changes require rerunning the OAuth, RPC, model and tool-policy integration tests.
+The build writes them, with the licenses of the bundled packages, into `THIRD_PARTY_LICENSES.txt` of the standalone and toolkit artifacts. Backend changes require rerunning the OAuth, RPC, model and tool-policy integration tests.
 
 ## Development
 
