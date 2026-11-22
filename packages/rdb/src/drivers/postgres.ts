@@ -17,7 +17,12 @@ interface PgLikeResult {
   command: string
   fields: { name: string; dataTypeID: number }[]
 }
-interface PgLikeClient {
+/** Per-connection type parsers of a node-postgres style client. */
+export interface PgTypeParsers {
+  getTypeParser(oid: number, format: 'text'): (value: string) => unknown
+  setTypeParser(oid: number, format: 'text', parser: (value: string) => unknown): void
+}
+interface PgLikeClient extends PgTypeParsers {
   connect(): Promise<void>
   query(config: { text: string; values?: unknown[]; rowMode?: 'array' }): Promise<PgLikeResult>
   end(): Promise<void>
@@ -25,7 +30,6 @@ interface PgLikeClient {
 }
 interface PgLikeModule {
   Client: new (config: Record<string, unknown>) => PgLikeClient
-  types?: { setTypeParser(oid: number, parser: (value: string) => unknown): void }
 }
 
 /** Common OID → readable type names (both servers share the PostgreSQL catalog OIDs). */
@@ -34,10 +38,27 @@ const TYPE_NAMES: Record<number, string> = {
   114: 'json', 142: 'xml', 700: 'float4', 701: 'float8', 790: 'money', 1042: 'bpchar', 1043: 'varchar',
   1082: 'date', 1083: 'time', 1114: 'timestamp', 1184: 'timestamptz', 1186: 'interval', 1266: 'timetz',
   1700: 'numeric', 2950: 'uuid', 3802: 'jsonb', 1007: 'int4[]', 1009: 'text[]', 1015: 'varchar[]',
+  1115: 'timestamp[]', 1182: 'date[]', 1185: 'timestamptz[]', 1187: 'interval[]',
+}
+
+/** date, timestamp, timestamptz and interval. */
+const TEMPORAL_OIDS = [1082, 1114, 1184, 1186]
+/** Arrays of date, timestamp, timestamptz and interval. */
+const TEMPORAL_ARRAY_OIDS = [1182, 1115, 1185, 1187]
+const TEXT_ARRAY_OID = 1009
+
+/**
+ * Date, timestamp and interval values keep the text the server sent. A `date`
+ * or a `timestamp` carries no time zone; a `timestamptz` is rendered in the
+ * session time zone. Arrays of them are arrays of that text.
+ */
+export function keepTemporalText(client: PgTypeParsers): void {
+  const textArray = client.getTypeParser(TEXT_ARRAY_OID, 'text')
+  for (const oid of TEMPORAL_OIDS) client.setTypeParser(oid, 'text', value => value)
+  for (const oid of TEMPORAL_ARRAY_OIDS) client.setTypeParser(oid, 'text', textArray)
 }
 
 function toJs(value: unknown): unknown {
-  if (value instanceof Date) return value.toISOString()
   if (Buffer.isBuffer(value)) return { $bytes: value.length }
   if (typeof value === 'bigint') return value.toString()
   return value
@@ -87,7 +108,7 @@ export class PgConnection implements DbConnection {
 
   private open(node: HostNode): PgLikeClient {
     const mod = (this.kind === 'gaussdb' ? gaussModule : pgModule) as PgLikeModule
-    return new mod.Client({
+    const client = new mod.Client({
       host: node.host,
       port: node.port,
       database: this.profile.database,
@@ -97,6 +118,8 @@ export class PgConnection implements DbConnection {
       connectionTimeoutMillis: 15000,
       application_name: 'dsh-rdb',
     })
+    keepTemporalText(client)
+    return client
   }
 
   private async sessionState(client: PgLikeClient): Promise<SessionState> {
