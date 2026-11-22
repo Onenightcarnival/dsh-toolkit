@@ -23,7 +23,7 @@ const FILES = [
   { path: 'packages/http/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/subscriptions/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/otel/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
-  { path: 'packages/otel/src/index.js', field: /^(export const PLUGIN_VERSION = )"([^"]*)"/m },
+  { path: 'packages/otel/src/index.js', field: /^(export const PLUGIN_VERSION = )'([^']*)'/m, quote: '\'' },
   { path: 'packages/browser-bridge/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/config-center/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
   { path: 'packages/gateway/package.json', field: /^(\s*"version":\s*)"([^"]*)"/m },
@@ -39,15 +39,21 @@ if ((command !== 'set' && command !== 'check') || version === undefined || !VERS
   process.exit(1)
 }
 
-let mismatches = 0
-for (const file of FILES) {
+// Every file is read and matched before the first one is written.
+const entries = FILES.map((file) => {
   const target = join(ROOT, file.path)
   const text = readFileSync(target, 'utf8')
   const match = file.field.exec(text)
   if (match === null) throw new Error(`${file.path}: no version field`)
+  return { file, target, text, match }
+})
+
+let mismatches = 0
+for (const { file, target, text, match } of entries) {
   const expected = file.numericOnly ? version.replace(/-.*$/, '') : version
   if (command === 'set') {
-    writeFileSync(target, text.replace(file.field, `$1"${expected}"`))
+    const quote = file.quote ?? '"'
+    writeFileSync(target, text.replace(file.field, `$1${quote}${expected}${quote}`))
     console.log(`${file.path}: ${expected}`)
   } else if (match[2] === expected) {
     console.log(`${file.path}: ${expected}`)
