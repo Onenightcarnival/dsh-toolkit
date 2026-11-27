@@ -69,7 +69,7 @@ test('model defaults ignore providers outside the served set and omit them from 
     await writeFile(path, JSON.stringify({ codex: { 'stale-model': 'high' }, grok: { 'stale-model': 'low' }, antigravity: { 'stale-model': 'high' }, chatgpt: { 'gpt-fixture': 'low' } }))
     await mod.loadModelDefaults()
     assert.equal(mod.modelDefaultsLoadError(), undefined)
-    assert.deepEqual({ ...mod.modelDefaultsSnapshot() }, { chatgpt: { 'gpt-fixture': 'low' } })
+    assert.deepEqual(structuredClone(mod.modelDefaultsSnapshot()), { chatgpt: { 'gpt-fixture': 'low' } })
     await mod.setDefaultEffort('chatgpt', 'gpt-other', 'high')
     assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), { chatgpt: { 'gpt-fixture': 'low', 'gpt-other': 'high' } })
   } finally { await mod.resetModelDefaultsForTests() }
