@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-subscriptions",
-  "version": "0.9.9",
+  "version": "0.9.11",
   "description": "ChatGPT subscription models through Sign in with ChatGPT for DeepSeek Harness",
   "author": "onenightcarnival",
   "license": "MIT",

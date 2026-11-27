@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-http",
-  "version": "0.9.9",
+  "version": "0.9.11",
   "description": "HTTP API client for DeepSeek Harness (dsh): API targets with host-side credentials, request builder, response viewer and shared history in the web GUI, with an optional http_* agent toolset.",
   "author": "onenightcarnival",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "@onenightcarnival/dsh-toolkit",
-  "version": "0.9.9",
+  "version": "0.9.11",
   "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), HTTP API client (dsh-http), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser), configuration center (dsh-config-center), career memory (dsh-memory), API gateway (dsh-gateway); ChatGPT subscription models (dsh-subscriptions)",
   "author": "onenightcarnival",
   "license": "MIT",
