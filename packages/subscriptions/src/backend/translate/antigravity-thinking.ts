@@ -4,6 +4,12 @@ import type { LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm'
 
 const configurableImageThinking = (model: string): boolean => /^gemini-3\.1-flash(?:-lite)?-image(?:-|$)/.test(model)
 
+/** Major version of a Gemini model id (`gemini-4-…` → 4); 0 for any other model. */
+export function geminiMajor(model: string): number {
+  const major = /^gemini-(\d+)/i.exec(model)?.[1]
+  return major === undefined ? 0 : Number(major)
+}
+
 /** Efforts supported by the known Antigravity runtime families. Unknown models keep upstream defaults. */
 export function antigravityReasoning(model: string): LlmResolvedModelInfo['reasoning'] {
   if (/-image(?:-|$)/.test(model) && !configurableImageThinking(model)) return undefined
@@ -11,7 +17,7 @@ export function antigravityReasoning(model: string): LlmResolvedModelInfo['reaso
     : model.startsWith('claude-') ? ['high']
       : model.startsWith('gpt-oss-') ? ['medium']
         : model.startsWith('gemini-3.1-pro') || model === 'gemini-pro-agent' ? ['low', 'high']
-          : /^gemini-(?:2\.5|3)/.test(model) ? ['low', 'medium', 'high'] : []
+          : model.startsWith('gemini-2.5') || geminiMajor(model) >= 3 ? ['low', 'medium', 'high'] : []
   const fixedEffort = /^gemini-.*-(low|medium|high)$/.exec(model)?.[1]
   const efforts = fixedEffort !== undefined && ids.includes(fixedEffort) ? [fixedEffort] : ids
   return efforts.length === 0 ? undefined : {

@@ -13,7 +13,7 @@ import type {
 import type { ResolvedToolResultBlock, TranslatableMessage } from './resolved.js'
 import { withToolResultImages } from './resolved.js'
 import { parseSse } from './sse.js'
-import { antigravityThinking } from './antigravity-thinking.js'
+import { antigravityThinking, geminiMajor } from './antigravity-thinking.js'
 import { antigravityToolParameters } from './antigravity-schema.js'
 
 /** Metadata retained with an assistant block for lossless Antigravity replay. */
@@ -99,9 +99,9 @@ export function toAntigravityTools(tools: readonly ToolSchema[], model = 'gemini
 
 const SKIP_THOUGHT_SIGNATURE_VALIDATOR = 'skip_thought_signature_validator'
 
-/** Gemini 3 validates the first function call in every model tool-call step. */
+/** Gemini from version 3 on validates the first function call in every model tool-call step. */
 function requiresThoughtSignatures(model?: string): boolean {
-  return model !== undefined && /^gemini-3(?:[.-]|$)/i.test(model)
+  return model !== undefined && geminiMajor(model) >= 3
 }
 
 export function toAntigravityContents(messages: readonly TranslatableMessage[], model?: string): {

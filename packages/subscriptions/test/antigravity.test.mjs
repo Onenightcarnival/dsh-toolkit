@@ -242,6 +242,35 @@ test('Antigravity request preserves tool pairing, images, caller system and sign
   assert.deepEqual(body.request.contents[2].parts[0].functionResponse, { id: 'call-1', name: 'lookup', response: { output: [1, 2] } })
 })
 
+test('a function call without a signature of this model carries the placeholder on Gemini 3 and later', () => {
+  const messages = [
+    { role: 'user', content: [{ type: 'text', text: 'Look' }] },
+    { role: 'assistant', source: { kind: 'model', provider: 'antigravity', model: 'claude-sonnet-fixture' }, content: [
+      { type: 'tool-call', id: 'call-1', name: 'lookup', arguments: '{}' }, { type: 'tool-call', id: 'call-2', name: 'lookup', arguments: '{}' },
+    ] },
+    { role: 'tool', source: { kind: 'tool', callId: 'call-1' }, content: [{ type: 'text', text: 'a' }] },
+    { role: 'tool', source: { kind: 'tool', callId: 'call-2' }, content: [{ type: 'text', text: 'b' }] },
+  ]
+  const calls = model => toAntigravityRequest({ model }, messages, 'fixture-project').request.contents[1].parts.map(part => part.thoughtSignature)
+  for (const model of ['gemini-3-flash', 'gemini-3.7-flash-tiered', 'gemini-4-hydrogen-high', 'gemini-10-fixture']) {
+    assert.deepEqual(calls(model), ['skip_thought_signature_validator', undefined], model)
+  }
+  for (const model of ['gemini-2.5-flash', 'claude-sonnet-fixture', 'gpt-oss-fixture']) assert.deepEqual(calls(model), [undefined, undefined], model)
+})
+
+test('reasoning efforts follow the Gemini major version', async () => {
+  const efforts = async (model) => {
+    const adapter = new AntigravityAdapter({ models: [{ id: model }], discovery: false, tokens: {}, streamIdleTimeoutMs: 1000 })
+    return (await adapter.resolveModel('antigravity', model)).reasoning?.efforts.map(effort => effort.id)
+  }
+  assert.deepEqual(await efforts('gemini-4-argon'), ['low', 'medium', 'high'])
+  assert.deepEqual(await efforts('gemini-4-hydrogen-high'), ['high'])
+  assert.deepEqual(await efforts('gemini-2.5-flash'), ['low', 'medium', 'high'])
+  assert.equal(await efforts('gemini-2.0-flash'), undefined)
+  assert.deepEqual(toAntigravityRequest({ model: 'gemini-4-hydrogen-high', reasoningEffort: 'high' }, [], 'project').request.generationConfig.thinkingConfig,
+    { includeThoughts: true, thinkingBudget: -1 })
+})
+
 const sse = frames => new Response(frames.map(frame => `data: ${JSON.stringify(frame)}\n\n`).join('')).body
 test('Flash Image advertises Minimal/High and sends thinkingLevel without a token budget', async () => {
   const model = 'gemini-3.1-flash-image'
