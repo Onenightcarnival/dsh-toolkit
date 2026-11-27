@@ -9,23 +9,15 @@ const transport = { name: 'subscriptions-transport', inject: backend.inject, app
 
 export interface Config {
   enabled?: boolean
-  codexClientVersion?: string
   streamIdleTimeoutMs?: number
-  rateLimit?: backend.Config['rateLimit']
-  models?: backend.ModelEntry[]
   chatgpt?: { models?: backend.ModelEntry[] }
-  antigravity?: backend.Config['antigravity'] & { models?: backend.ModelEntry[] }
-  grok?: { models?: backend.ModelEntry[] }
 }
 
 export function backendConfig(config: Config = {}): backend.Config {
   return {
-    providers: ['codex', 'chatgpt', 'antigravity', 'grok'],
-    antigravity: config.antigravity,
-    codexClientVersion: config.codexClientVersion,
+    providers: ['chatgpt'],
     streamIdleTimeoutMs: config.streamIdleTimeoutMs,
-    rateLimit: config.rateLimit,
-    models: { chatgpt: config.chatgpt?.models, codex: config.models, antigravity: config.antigravity?.models, grok: config.grok?.models },
+    models: { chatgpt: config.chatgpt?.models },
   }
 }
 

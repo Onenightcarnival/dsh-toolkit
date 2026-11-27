@@ -1,9 +1,8 @@
 /**
  * Proxy routing for every outbound subscription request. When a proxy is
  * configured, {@link proxiedFetch} attaches an undici {@link ProxyAgent} as the
- * fetch `dispatcher`, so token exchanges, model-API streams, usage lookups,
- * model discovery, and the `codex_web_search` / `codex_image_generate`
- * tools all leave through the proxy without touching their call sites.
+ * fetch `dispatcher`, so token exchanges, model-API streams and model
+ * discovery all leave through the proxy without touching their call sites.
  *
  * The config lives at `~/.dsh/plugins/subscriptions/proxy.json` (mode 0600,
  * it may carry a password), sibling to the auth store. The `proxyGet` /
@@ -80,7 +79,7 @@ export interface ProxyDraft {
 }
 
 /** Destination the `proxyTest` endpoint probes when none is given. */
-export const DEFAULT_PROXY_TEST_URL = 'https://api.x.ai/v1/models'
+export const DEFAULT_PROXY_TEST_URL = 'https://api.openai.com/v1/models'
 /** Probe deadline. */
 export const DEFAULT_PROXY_TEST_TIMEOUT_MS = 15_000
 

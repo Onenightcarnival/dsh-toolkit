@@ -112,8 +112,7 @@ export class AccountPreferencesAdapter extends LlmAdapter {
       if (model.id.startsWith(ACCOUNT_MODEL_PREFIX) || !this.options.settings.visible(this.options.provider, model.id)) continue
       try { await pool.resolveModel(provider, model.id); result.set(model.id, model) } catch { /* excluded tier */ }
     }
-    const priority = (model: LlmModelInfo): number => (model as LlmModelInfo & { priority?: number }).priority ?? Number.MAX_SAFE_INTEGER
-    return [...result.values()].sort((left, right) => priority(left) - priority(right))
+    return [...result.values()]
   }
   override async resolveModel(provider: string, id: string): Promise<LlmResolvedModelInfo> {
     const independent = parseAccountModelId(id)

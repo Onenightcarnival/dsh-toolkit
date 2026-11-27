@@ -4,13 +4,6 @@ import { dirname } from 'node:path'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { PROVIDER_IDS, type ProviderId } from './auth/store.js'
 
-export const PROVIDER_TOOLS = {
-  chatgpt: [],
-  codex: ['image_generate', 'web_search'],
-  antigravity: ['image_generate', 'web_search'],
-  grok: ['image_generate', 'video_generate', 'x_search'],
-} as const
-export type SubscriptionTool = 'image_generate' | 'web_search' | 'x_search' | 'video_generate'
 export interface AccountPreferences {
   alias?: string
   /** Absent means included. */
@@ -25,19 +18,12 @@ export interface ProviderPreferences {
   /** Absent follows discovery; an explicit selection hides newly discovered models. */
   visibleModels?: string[]
   contextWindows?: Record<string, number>
-  tools?: Partial<Record<SubscriptionTool, boolean>>
-}
-interface ToolRevision {
-  at: number
-  provider: ProviderId
-  tools: Partial<Record<SubscriptionTool, boolean>>
 }
 interface Document {
   providers: Partial<Record<ProviderId, ProviderPreferences>>
-  toolHistory: ToolRevision[]
 }
 
-export function validatePreferences(provider: ProviderId, input: unknown): ProviderPreferences {
+export function validatePreferences(input: unknown): ProviderPreferences {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('settings must be an object')
   const raw = input as Record<string, unknown>
   const result: ProviderPreferences = {}
@@ -83,22 +69,15 @@ export function validatePreferences(provider: ProviderId, input: unknown): Provi
       result.contextWindows[model] = value
     }
   }
-  if (raw.tools !== undefined) {
-    if (!raw.tools || typeof raw.tools !== 'object' || Array.isArray(raw.tools)) throw new Error('tools must be an object')
-    result.tools = {}
-    for (const [tool, enabled] of Object.entries(raw.tools)) {
-      if (!(PROVIDER_TOOLS[provider] as readonly string[]).includes(tool) || typeof enabled !== 'boolean') {
-        throw new Error(`unsupported tool setting: ${provider}/${tool}`)
-      }
-      result.tools[tool as SubscriptionTool] = enabled
-    }
-  }
   return result
 }
 
-/** Durable user preferences, independent of expiring discovery caches. */
+/**
+ * Durable user preferences, independent of expiring discovery caches.
+ * Sections outside {@link PROVIDER_IDS} are ignored on read and absent from the next write.
+ */
 export class ProviderSettingsStore {
-  private current: Document = { providers: {}, toolHistory: [] }
+  private current: Document = { providers: {} }
   private writes: Promise<void> = Promise.resolve()
   readonly path: string
 
@@ -106,15 +85,10 @@ export class ProviderSettingsStore {
     this.path = path
     try {
       const raw = JSON.parse(readFileSync(path, 'utf8')) as Document
-      if (!raw.providers || !Array.isArray(raw.toolHistory)) throw new Error('invalid settings document')
+      if (!raw.providers) throw new Error('invalid settings document')
       for (const provider of PROVIDER_IDS) {
-        if (Object.hasOwn(raw.providers, provider)) this.current.providers[provider] = validatePreferences(provider, raw.providers[provider])
+        if (Object.hasOwn(raw.providers, provider)) this.current.providers[provider] = validatePreferences(raw.providers[provider])
       }
-      this.current.toolHistory = raw.toolHistory.map((revision) => {
-        if (!PROVIDER_IDS.includes(revision.provider) || !Number.isSafeInteger(revision.at) || revision.at < 0) throw new Error('invalid tool history')
-        const tools = validatePreferences(revision.provider, { tools: revision.tools }).tools ?? {}
-        return { at: revision.at, provider: revision.provider, tools }
-      }).sort((a, b) => a.at - b.at)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error(`Cannot read provider settings at ${path}`, { cause: error })
     }
@@ -128,30 +102,16 @@ export class ProviderSettingsStore {
     return this.current.providers[provider]?.visibleModels?.includes(model) ?? true
   }
 
-  contextWindow(model: string, provider: ProviderId = 'codex'): number | undefined {
+  contextWindow(provider: ProviderId, model: string): number | undefined {
     const windows = this.current.providers[provider]?.contextWindows
     return windows && Object.hasOwn(windows, model) ? windows[model] : undefined
   }
 
-  /** Creation-time policy survives restarts and never changes an existing session. */
-  toolEnabled(provider: ProviderId, tool: SubscriptionTool, createdAt = Date.now()): boolean {
-    let enabled = true
-    for (const revision of this.current.toolHistory) {
-      if (revision.at > createdAt) break
-      if (revision.provider === provider) enabled = revision.tools[tool] !== false
-    }
-    return enabled
-  }
-
   set(provider: ProviderId, input: unknown): Promise<void> {
-    const preferences = validatePreferences(provider, input)
+    const preferences = validatePreferences(input)
     const run = this.writes.then(async () => {
       const next = structuredClone(this.current)
-      const before = next.providers[provider]?.tools ?? {}
       next.providers[provider] = preferences
-      if (PROVIDER_TOOLS[provider].some(tool => (before[tool] !== false) !== (preferences.tools?.[tool] !== false))) {
-        next.toolHistory.push({ at: Date.now(), provider, tools: preferences.tools ?? {} })
-      }
       await mkdir(dirname(this.path), { recursive: true })
       const temporary = `${this.path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
       try {

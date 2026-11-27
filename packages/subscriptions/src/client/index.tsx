@@ -3,8 +3,6 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Rpc } from '../protocol.ts'
 import { SubscriptionsApi } from './api.ts'
 import { SubscriptionsPanel } from './Panel.tsx'
-import { ImageToolview } from './ImageToolview.tsx'
-import { VideoToolview } from './VideoToolview.tsx'
 import { mountPanel, type LayoutLike, type SlotsLike, type PanelIconProps } from './mount.tsx'
 import { en, zh, setRuntimeTranslate, tt } from './locales.ts'
 import css from './styles.css'
@@ -38,16 +36,4 @@ export function apply(ctx: Context): void {
     slots: services.slots, layout: services.layout, locale: NS, order: 60,
     label: () => tt('title'), icon: Icon, panel: SubscriptionsPanel, props: () => ({ api }),
   }), 'subscriptions: panel')
-  for (const provider of ['codex', 'antigravity', 'grok'] as const) {
-    for (const key of [`${provider}_image_generate`, `dsh_subscriptions_${provider}_image_generate`]) {
-      ctx.effect(() => services.slots.inject('tool.call.toolview', () => services.slots.register({
-        name: 'tool.call.toolview', key, locale: NS, inject: () => ({ api, provider }),
-      }, ImageToolview)), `subscriptions: ${key} preview`)
-    }
-  }
-  for (const key of ['grok_video_generate', 'dsh_subscriptions_grok_video_generate']) {
-    ctx.effect(() => services.slots.inject('tool.call.toolview', () => services.slots.register({
-      name: 'tool.call.toolview', key, locale: NS, inject: () => ({ api }),
-    }, VideoToolview)), `subscriptions: ${key} preview`)
-  }
 }

@@ -3,15 +3,14 @@
  * configured tier extras. The picker is the union of every account's
  * catalog. A model listed by several accounts failovers; a model listed by
  * one account is pinned to it. Tiers are extra picker rows. Member
- * selection is sticky per session and optionally quota-aware; failures fail over to the next member as long as no stream
- * chunk has been emitted.
+ * selection is sticky per session; failures fail over to the next member as
+ * long as no stream chunk has been emitted.
  */
 
 import {
   EMPTY_RESPONSE_CODE,
   LlmAdapter,
   LlmError,
-  QUOTA_EXCEEDED_CODE,
 } from '@deepseek-ai/dsh-llm'
 import type {
   GenerateOptions,
@@ -24,23 +23,13 @@ import type { AccountAwareAdapter } from './accounts.js'
 import type { ConcretePoolMember, PoolDefinition, PoolMemberRef } from './pool-family.js'
 import { poolKey } from './pool-family.js'
 import { accountKey, classifyPoolFailure, memberKey, PoolHealthRegistry } from './pool-health.js'
-import type { MemberQuota, PoolUsageTracker } from './pool-usage.js'
-
-/** Member-selection strategy: plain priority failover or quota-aware scheduling. */
-export type PoolStrategy = 'priority' | 'quota_aware'
 
 export interface PoolAdapterOptions {
   /** The live subscription adapters, by provider route. */
   adapters: Partial<Record<ProviderId, AccountAwareAdapter>>
   health: PoolHealthRegistry
-  usage: PoolUsageTracker
-  strategy: PoolStrategy
-  /** A challenger must out-urgency the sticky member by this factor to take over. */
-  switchMargin: number
   /** The default account of one provider (for config members omitting `account`). */
   defaultAccount: (provider: ProviderId) => Promise<string | undefined>
-  /** Resolve legacy account aliases before pool deduplication and cache identity. */
-  resolveAccount?: (provider: ProviderId, account: string) => Promise<string>
   /** Account pools (auto-aggregated plus config overrides), resolved lazily. */
   families: () => Promise<Map<string, PoolDefinition>>
   /** User-configured extra picker entries (heterogeneous fallbacks), by pool id. */
@@ -177,9 +166,8 @@ export class PoolAdapter extends LlmAdapter {
     const seen = new Set<string>()
     const resolved: ConcretePoolMember[] = []
     for (const member of members) {
-      const requested = member.account ?? await this.options.defaultAccount(member.provider)
-      if (requested === undefined) continue
-      const account = await (this.options.resolveAccount?.(member.provider, requested) ?? Promise.resolve(requested))
+      const account = member.account ?? await this.options.defaultAccount(member.provider)
+      if (account === undefined) continue
       const key = memberKey(member.provider, account, member.model)
       if (seen.has(key)) continue
       seen.add(key)
@@ -239,7 +227,7 @@ export class PoolAdapter extends LlmAdapter {
     const definition = (await this.pools()).get(poolKey(options.provider, options.model))
     if (definition === undefined) throw new LlmError(`unknown pool model "${options.model}"`, 'NO_ADAPTER')
     const members = await this.concrete(definition.members)
-    const candidates = await this.select(options.model, members, options.sessionId)
+    const candidates = this.select(options.model, members, options.sessionId)
     if (candidates.length === 0) throw this.exhausted(options.model, members)
     let lastError: unknown
     for (const member of candidates) {
@@ -256,7 +244,7 @@ export class PoolAdapter extends LlmAdapter {
           throw new LlmError(`${memberLabel(member)} returned an empty stream`, EMPTY_RESPONSE_CODE)
         }
       } catch (error: unknown) {
-        const classification = classifyPoolFailure(error, member.provider)
+        const classification = classifyPoolFailure(error)
         if (classification.action === 'throw') throw error
         if ('cooldownMs' in classification) {
           this.options.health.markUnavailable(
@@ -266,10 +254,6 @@ export class PoolAdapter extends LlmAdapter {
             classification.cooldownMs,
             classification.reason,
           )
-          // A quota failure invalidates the cached usage snapshot; other failures keep it.
-          if (classification.reason === QUOTA_EXCEEDED_CODE || classification.reason === 'RATE_LIMIT') {
-            this.options.usage.invalidate(member.provider, member.account)
-          }
         }
         this.options.onWarn(
           `pool "${options.model}": ${memberLabel(member)} failed before any output`
@@ -299,49 +283,22 @@ export class PoolAdapter extends LlmAdapter {
     throw this.exhausted(options.model, members, lastError)
   }
 
-  /**
-   * Order the candidates for one request. Health filters both strategies;
-   * `quota_aware` then ranks by urgency (members without telemetry
-   * score zero and sink to the bottom of their class), while
-   * quota-exhausted members stay as a last-resort tail in pool order. The
-   * sticky member keeps its lead unless a challenger out-scores it by
-   * `switchMargin`.
-   */
-  private async select(
+  /** Order the candidates for one request: available members in pool order, the session's sticky member first. */
+  private select(
     poolId: string,
     members: ConcretePoolMember[],
     sessionId: GenerateOptions['sessionId'],
-  ): Promise<ConcretePoolMember[]> {
+  ): ConcretePoolMember[] {
     const usable = members.filter(member =>
       this.options.adapters[member.provider] !== undefined
       && this.options.health.isMemberAvailable(member.provider, member.account, member.model))
-    if (usable.length === 0) return []
     const stickyMember = sessionId === undefined
       ? undefined
       : usable.find(member =>
         memberKey(member.provider, member.account, member.model) === this.sticky.get(stickyKey(poolId, sessionId)))
-    if (this.options.strategy === 'priority') {
-      return stickyMember === undefined
-        ? usable
-        : [stickyMember, ...usable.filter(member => member !== stickyMember)]
-    }
-    const quotas = new Map<ConcretePoolMember, MemberQuota>(
-      await Promise.all(usable.map(async member => [member, await this.options.usage.quotaFor(member)] as const)),
-    )
-    const scored = usable.filter(member => quotas.get(member)?.available === true)
-    const quotaFull = usable.filter(member => quotas.get(member)?.available === false)
-    scored.sort((a, b) => (quotas.get(b)?.urgency ?? 0) - (quotas.get(a)?.urgency ?? 0))
-    if (stickyMember !== undefined && scored.includes(stickyMember)) {
-      const best = scored[0]
-      const stickyUrgency = quotas.get(stickyMember)?.urgency ?? 0
-      const bestUrgency = best === undefined ? 0 : quotas.get(best)?.urgency ?? 0
-      if (best === stickyMember || bestUrgency <= stickyUrgency * this.options.switchMargin) {
-        // Sticky holds (no challenger beats it by the margin): lead with it.
-        scored.splice(scored.indexOf(stickyMember), 1)
-        scored.unshift(stickyMember)
-      }
-    }
-    return [...scored, ...quotaFull]
+    return stickyMember === undefined
+      ? usable
+      : [stickyMember, ...usable.filter(member => member !== stickyMember)]
   }
 
   /** Pin the serving member to the session (with bounded memory). */

@@ -46,10 +46,9 @@ function retryAfterMs(error: LlmError): number | undefined {
  * cooldown; transport failures switch without a record; everything else
  * (including CONTEXT_WINDOW_EXCEEDED and ABORTED) is rethrown.
  * @param error - the failure thrown by a member adapter's stream.
- * @param provider - the failing member's provider.
  * @returns the action the pool should take.
  */
-export function classifyPoolFailure(error: unknown, _provider: ProviderId): PoolFailureAction {
+export function classifyPoolFailure(error: unknown): PoolFailureAction {
   if (!(error instanceof LlmError)) return { action: 'throw' }
   switch (error.code) {
     case QUOTA_EXCEEDED_CODE:

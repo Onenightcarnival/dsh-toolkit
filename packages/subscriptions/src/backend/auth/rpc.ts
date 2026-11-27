@@ -9,14 +9,10 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionRpcHandler, HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
-type AuthRpcHandler = (endpoint: string, payload: unknown, signal: AbortSignal) => ReturnType<ConnectionRpcHandler>
+type AuthRpcHandler = (endpoint: string, payload: unknown) => ReturnType<ConnectionRpcHandler>
 import type { RpcResult } from '../compat.js'
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { PROVIDER_IDS, type ProviderId } from './store.js'
-import type { ProviderUsage } from '../providers/common.js'
 import type { ProxyConfigView, ProxyDraft, ProxyInput, ProxyTestResult } from '../http.js'
-import type { CliVersion } from '../providers/npm-cli-version.js'
 
 /**
  * Endpoint-name prefix under the shared `/api` channel: endpoint `status`
@@ -28,49 +24,10 @@ export const SUBSCRIPTIONS_AUTH_PREFIX = 'subscriptions-auth.'
 /** Every endpoint {@link dispatch} answers; each gets one exact Fetch route. */
 export const SUBSCRIPTIONS_AUTH_ENDPOINTS = [
   'providerSettings', 'setProviderSettings',
-  'status', 'login', 'manual', 'cancel', 'logout', 'setDefault', 'usage',
-  'image', 'video',
-  'speed', 'setSpeed',
+  'status', 'login', 'manual', 'cancel', 'logout', 'setDefault',
   'proxyGet', 'proxySet', 'proxyTest',
   'modelDefaults', 'setModelDefault',
 ] as const
-
-/** Media types the attachment store accepts (ImageMediaType). */
-const IMAGE_MEDIA_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
-
-/** Decoded image bytes returned by the `image` endpoint. */
-export interface ImageBytesResult {
-  mediaType: string
-  dataBase64: string
-}
-
-/** Decoded video bytes returned by the `video` endpoint. */
-export interface VideoBytesResult {
-  mediaType: string
-  dataBase64: string
-}
-
-/** Bare MP4 file names the `video` endpoint accepts (no path separators). */
-const VIDEO_NAME_PATTERN = /^[\w.-]+\.mp4$/
-
-/** One session's speed choice: standard routing or the fast (priority) tier. */
-export type SpeedTier = 'standard' | 'fast'
-
-/** `speed` endpoint value: the session's choice plus the visibility list. */
-export interface SpeedState {
-  /** The session's current speed tier (default `standard`). */
-  tier: SpeedTier
-  /** Codex model ids whose catalog advertises a fast tier. */
-  fastModels: string[]
-}
-
-/** Speed state the RPC handler delegates to (in-memory, per session). */
-export interface SpeedController {
-  /** Current speed state: the session's tier and the fast-capable codex models. */
-  speed(sessionId: string): Promise<SpeedState>
-  /** Set one session's speed tier. */
-  setSpeed(sessionId: string, tier: SpeedTier): Promise<void>
-}
 
 /** One logged-in account, as rendered by the Settings page. */
 export interface AccountStatus {
@@ -80,8 +37,6 @@ export interface AccountStatus {
   account?: string
   /** Epoch milliseconds at which the stored access token expires. */
   expiresAt?: number
-  /** Plan name the session carries (ChatGPT planType), when known. */
-  plan?: string
   /** Whether direct (non-pool) routes serve this account. */
   isDefault: boolean
   connected?: boolean
@@ -98,8 +53,6 @@ export interface ProviderStatus {
   accounts: AccountStatus[]
   /** The last login error, shown until the next success. */
   detail?: string
-  /** The CLI version this route presents (Codex), and where it came from. */
-  clientVersion?: CliVersion
 }
 
 /** Proxy config operations behind the `proxyGet/proxySet/proxyTest` endpoints. */
@@ -132,7 +85,7 @@ export interface ModelDefaultsCatalog {
   models: ModelDefaultView[]
 }
 
-/** Per-account catalog returned by providerSettings, including providers without usage APIs. */
+/** Per-account catalog returned by providerSettings. */
 export interface ProviderAccountCatalog {
   key: string
   /** Original identity; the editable alias lives in settings.accounts[key].alias. */
@@ -176,30 +129,6 @@ export interface AuthController {
   logout(provider: ProviderId, account: string): Promise<void>
   /** Pin the account direct (non-pool) routes serve. */
   setDefault(provider: ProviderId, account: string): Promise<void>
-  /**
-   * Current subscription usage of one account.
-   * @param signal - caller cancellation from the RPC transport.
-   * @param force - bypass a fresh cached snapshot; a failure cooldown still applies.
-   * @returns `{ supported: false }` when the provider has no usage endpoint.
-   * @throws when logged out or the usage lookup fails.
-   */
-  usage(provider: ProviderId, account: string, signal: AbortSignal, force?: boolean): Promise<ProviderUsage>
-  /**
-   * Read one image attachment's bytes for inline display.
-   * @param ref - the full durable reference (`readImage` verifies against it).
-   * @param signal - caller cancellation from the RPC transport.
-   * @returns the media type and base64-encoded bytes.
-   * @throws when no attachment service is mounted or the read fails.
-   */
-  readImage(ref: ImageAttachmentRef, signal: AbortSignal): Promise<ImageBytesResult>
-  /**
-   * Read one generated video's bytes for inline playback.
-   * @param name - bare MP4 file name inside the plugin's videos directory.
-   * @param signal - caller cancellation from the RPC transport.
-   * @returns the media type and base64-encoded bytes.
-   * @throws when the file is absent.
-   */
-  readVideo(name: string, signal: AbortSignal): Promise<VideoBytesResult>
 }
 
 /** Invalid request payload or unavailable endpoint; answered with code `bad-request`. */
@@ -275,7 +204,7 @@ function fetchRouteFor(endpoint: string, handler: AuthRpcHandler): FetchRouteCom
           },
         })
       }
-      return serverResponse(envelope.rpcId, await handler(endpoint, envelope.payload, request.signal))
+      return serverResponse(envelope.rpcId, await handler(endpoint, envelope.payload))
     },
   }
 }
@@ -328,70 +257,13 @@ function readModelDefaultInput(payload: unknown): { provider: ProviderId; model:
   }
 }
 
-/** Validate the `setSpeed` endpoint's tier. */
-function readSpeedTier(payload: unknown): SpeedTier {
-  const tier = (payload as Record<string, unknown>).tier
-  if (tier !== 'standard' && tier !== 'fast') {
-    throw new BadRequest('payload.tier must be "standard" or "fast"')
-  }
-  return tier
-}
-
-/** Validate the `video` endpoint's payload into a bare file name (never a path). */
-function readVideoName(payload: unknown): string {
-  if (typeof payload !== 'object' || payload === null) throw new BadRequest('payload must be an object')
-  const name = (payload as Record<string, unknown>).name
-  if (typeof name !== 'string' || !VIDEO_NAME_PATTERN.test(name) || name.includes('..')) {
-    throw new BadRequest('payload.name must be a bare .mp4 file name')
-  }
-  return name
-}
-
-/** Validate the `image` endpoint's payload into a full attachment reference. */
-function readImageRef(payload: unknown): ImageAttachmentRef {
-  if (typeof payload !== 'object' || payload === null) throw new BadRequest('payload must be an object')
-  const record = payload as Record<string, unknown>
-  const attachmentId = record.attachmentId
-  if (typeof attachmentId !== 'string' || attachmentId.length === 0) {
-    throw new BadRequest('payload.attachmentId must be a non-empty string')
-  }
-  const mediaType = record.mediaType
-  if (typeof mediaType !== 'string' || !(IMAGE_MEDIA_TYPES as readonly string[]).includes(mediaType)) {
-    throw new BadRequest(`payload.mediaType must be one of ${IMAGE_MEDIA_TYPES.join(', ')}`)
-  }
-  for (const field of ['bytes', 'width', 'height'] as const) {
-    const value = record[field]
-    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-      throw new BadRequest(`payload.${field} must be a positive integer`)
-    }
-  }
-  const name = record.name
-  if (name !== undefined && typeof name !== 'string') {
-    throw new BadRequest('payload.name must be a string when present')
-  }
-  return {
-    attachmentId: AttachmentId(attachmentId),
-    mediaType: mediaType as ImageAttachmentRef['mediaType'],
-    bytes: record.bytes as number,
-    width: record.width as number,
-    height: record.height as number,
-    ...name === undefined ? {} : { name },
-  }
-}
-
-/** Validate the usage/model catalog endpoints' optional force flag. */
+/** Validate the model catalog endpoints' optional force flag. */
 function readForce(payload: unknown): boolean {
   if (typeof payload !== 'object' || payload === null) return false
   const force = (payload as Record<string, unknown>).force
   if (force === undefined) return false
   if (typeof force !== 'boolean') throw new BadRequest('payload.force must be a boolean when present')
   return force
-}
-
-/** Validate the session id both speed endpoints carry. */
-function readSessionId(payload: unknown): string {
-  if (typeof payload !== 'object' || payload === null) throw new BadRequest('payload must be an object')
-  return readString(payload, 'sessionId')
 }
 
 /** Validate a `proxySet` payload into a shape `ProxyInput` accepts. */
@@ -474,12 +346,10 @@ function readProxyTestPayload(payload: unknown): { url?: string; proxy?: ProxyDr
 
 async function dispatch(
   controller: AuthController,
-  speed: SpeedController,
   proxy: ProxyConfigController | undefined,
   modelDefaults: ModelDefaultsController | undefined,
   endpoint: string,
   payload: unknown,
-  signal: AbortSignal,
   providerSettings?: ProviderSettingsController,
 ): Promise<RpcResult<unknown>> {
   switch (endpoint) {
@@ -525,19 +395,6 @@ async function dispatch(
       await controller.setDefault(provider, readString(payload, 'account'))
       return ok({ ok: true })
     }
-    case 'usage': {
-      const provider = readProvider(payload)
-      return ok(await controller.usage(provider, readString(payload, 'account'), signal, readForce(payload)))
-    }
-    case 'image':
-      return ok(await controller.readImage(readImageRef(payload), signal))
-    case 'video':
-      return ok(await controller.readVideo(readVideoName(payload), signal))
-    case 'speed':
-      return ok(await speed.speed(readSessionId(payload)))
-    case 'setSpeed':
-      await speed.setSpeed(readSessionId(payload), readSpeedTier(payload))
-      return ok({ ok: true })
     case 'proxyGet':
       if (proxy === undefined) throw new BadRequest('proxy configuration is unavailable')
       return ok(await proxy.get())
@@ -567,14 +424,12 @@ async function dispatch(
  * Register the `/subscriptions-auth` RPC channel when a host connection exists.
  * @param ctx - the plugin context (headless profiles have no `connection`).
  * @param controller - the auth operations backing the endpoints.
- * @param speed - the per-session speed-tier state backing the Speed toggle.
  * @param proxy - optional proxy-config controller backing `proxyGet`/`proxySet`/`proxyTest`.
  * @param modelDefaults - optional per-model default-effort state backing `modelDefaults`/`setModelDefault`.
  */
 export function registerAuthRpc(
   ctx: Context,
   controller: AuthController,
-  speed: SpeedController,
   proxy?: ProxyConfigController,
   modelDefaults?: ModelDefaultsController,
   providerSettings?: ProviderSettingsController,
@@ -585,9 +440,9 @@ export function registerAuthRpc(
   // fence and browser authentication.
   ctx.inject(['connection'], (ctx) => {
     const connection = ctx.get('connection') as HostConnectionHandle
-    const handler: AuthRpcHandler = async (endpoint, payload, signal) => {
+    const handler: AuthRpcHandler = async (endpoint, payload) => {
       try {
-        return await dispatch(controller, speed, proxy, modelDefaults, endpoint, payload, signal, providerSettings)
+        return await dispatch(controller, proxy, modelDefaults, endpoint, payload, providerSettings)
       } catch (error) {
         return failure(error)
       }

@@ -17,7 +17,6 @@ import {
   getAccountSession,
   listAccounts,
   saveAccountSession,
-  resolveAccountKey,
 } from '../auth/store.js'
 import type { AccountEntry, ProviderId } from '../auth/store.js'
 
@@ -47,6 +46,8 @@ export interface AccountAwareAdapter extends LlmAdapter {
    * account resolves that member's account-specific limits.
    */
   resolveOwnModel(provider: string, model: string, account?: string): Promise<LlmResolvedModelInfo>
+  /** One model's default context window and advertised ceiling, as one account's catalog lists them. */
+  contextLimits(model: string, account?: string): Promise<{ default: number; max?: number }>
   /** Drop cached catalogs: one account, or every account when omitted (login/logout). */
   clearAccountCatalog(account?: string): void
 }
@@ -59,16 +60,7 @@ export interface UnionAccountCatalogsOptions {
   signal?: AbortSignal
 }
 
-/** Catalog sort hint when the provider advertised one (Codex `priority`). */
-function catalogPriority(model: LlmModelInfo): number {
-  const ranked = model as LlmModelInfo & { priority?: number }
-  return typeof ranked.priority === 'number' ? ranked.priority : Number.MAX_SAFE_INTEGER
-}
-
-/**
- * Merge account catalogs, keeping the first occurrence of each model id.
- * Numeric priority determines row order; unranked models follow ranked ones.
- */
+/** Merge account catalogs in account order, keeping the first occurrence of each model id. */
 export async function unionAccountCatalogs(
   accounts: readonly string[],
   listOne: (account: string, signal?: AbortSignal) => Promise<readonly LlmModelInfo[]>,
@@ -102,7 +94,6 @@ export async function unionAccountCatalogs(
       models.push(model)
     }
   }
-  models.sort((left, right) => catalogPriority(left) - catalogPriority(right))
   return models
 }
 
@@ -112,8 +103,6 @@ export interface AccountStoreIo<S> {
   get(account?: string): Promise<S | undefined>
   save(account: string, session: S): Promise<void>
   remove(account: string): Promise<void>
-  /** Resolve a legacy alias to the canonical account key. */
-  resolve?(account: string): Promise<string>
 }
 
 export interface AccountTokenManagerOptions<S extends TimedSession> {
@@ -139,7 +128,6 @@ export class AccountTokenManager<S extends TimedSession> {
       get: account => getAccountSession(provider, account) as Promise<S | undefined>,
       save: (account, session) => saveAccountSession(provider, account, session as never),
       remove: account => deleteAccountSession(provider, account),
-      resolve: account => resolveAccountKey(provider, account),
     }
   }
 
@@ -162,25 +150,14 @@ export class AccountTokenManager<S extends TimedSession> {
    * @throws LlmError MISSING_CREDENTIAL when the account is not logged in.
    */
   async session(account?: string, forceRefresh = false): Promise<S> {
-    const requested = account ?? await this.defaultAccount()
-    if (requested === undefined) throw this.missingCredential()
-    const key = await this.resolveAccount(requested)
+    const key = account ?? await this.defaultAccount()
+    if (key === undefined) throw this.missingCredential()
     return this.tokensFor(key).session(forceRefresh)
   }
 
-  /** Resolve a legacy alias before it reaches any per-account manager or cache. */
-  resolveAccount(account: string): Promise<string> {
-    return this.io.resolve?.(account) ?? Promise.resolve(account)
-  }
-
   /** Read an account's stored session without any refresh side effect. */
-  async peek(account?: string): Promise<S | undefined> {
-    return this.io.get(account === undefined ? undefined : await this.resolveAccount(account))
-  }
-
-  /** Whether a session is stored for the account (cheap; never refreshes). */
-  async hasSession(account?: string): Promise<boolean> {
-    return (await this.peek(account)) !== undefined
+  peek(account?: string): Promise<S | undefined> {
+    return this.io.get(account)
   }
 
   /** The TokenManager bound to one account (created lazily, then cached). */
@@ -188,25 +165,14 @@ export class AccountTokenManager<S extends TimedSession> {
     let manager = this.managers.get(account)
     if (manager === undefined) {
       const io = this.io
-      let boundAccount = account
-      const created: TokenManager<S> = new TokenManager<S>({
+      manager = new TokenManager<S>({
         displayName: this.options.displayName,
         ...this.options.makeOptions(account),
-        load: () => io.get(boundAccount),
-        save: async (session) => {
-          await io.save(boundAccount, session)
-          const canonical = await this.resolveAccount(boundAccount)
-          if (canonical !== boundAccount) {
-            // Rebind to the canonical key, keeping the manager and its in-flight refresh.
-            this.managers.set(canonical, created)
-            if (this.managers.get(boundAccount) === created) this.managers.delete(boundAccount)
-            boundAccount = canonical
-          }
-        },
-        remove: () => io.remove(boundAccount),
-        onRemoved: () => { this.options.onAccountRemoved?.(boundAccount) },
+        load: () => io.get(account),
+        save: session => io.save(account, session),
+        remove: () => io.remove(account),
+        onRemoved: () => { this.options.onAccountRemoved?.(account) },
       })
-      manager = created
       this.managers.set(account, manager)
     }
     return manager

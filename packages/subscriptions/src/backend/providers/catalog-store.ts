@@ -1,6 +1,7 @@
 /**
  * Discovered-model cache: ~/.dsh/plugins/subscriptions/models.json.
- * Each provider stores its last successful catalog and fetch time.
+ * Each account stores its last successful catalog and fetch time under
+ * `accounts[provider][account]`.
  * Validated metadata remains available across restarts and network failures.
  * Missing, corrupt or malformed snapshots read as absent and are replaced
  * by the next successful discovery.
@@ -21,11 +22,8 @@ export function modelsFilePath(): string {
   return dshHomePath('plugins', 'subscriptions', 'models.json')
 }
 
-/**
- * The raw file shape: one unvalidated snapshot per provider (the default
- * account's), plus `accounts[provider][account]` for every other account.
- */
-type CatalogFile = Partial<Record<ProviderId, unknown>> & { accounts?: unknown }
+/** The raw file shape: one unvalidated snapshot per account under `accounts[provider][account]`. */
+interface CatalogFile { accounts?: unknown }
 
 /** The per-account section of the file, or undefined when absent or malformed. */
 function accountSection(store: CatalogFile, provider: ProviderId): Record<string, unknown> | undefined {
@@ -76,14 +74,10 @@ function sanitizeModel(value: unknown): DiscoveredModel | undefined {
       && (typeof raw.contextWindow !== 'number' || !Number.isInteger(raw.contextWindow) || raw.contextWindow <= 0))
     || (raw.maxContextWindow !== undefined
       && (typeof raw.maxContextWindow !== 'number' || !Number.isSafeInteger(raw.maxContextWindow) || raw.maxContextWindow <= 0))
-    || (raw.maxOutputTokens !== undefined
-      && (typeof raw.maxOutputTokens !== 'number' || !Number.isSafeInteger(raw.maxOutputTokens) || raw.maxOutputTokens <= 0))
     || (raw.priority !== undefined
       && (typeof raw.priority !== 'number' || !Number.isFinite(raw.priority)))) return undefined
   const reasoning = raw.reasoning === undefined ? undefined : sanitizeReasoning(raw.reasoning)
   if (raw.reasoning !== undefined && reasoning === undefined) return undefined
-  const fastTier = raw.fastTier
-  if (fastTier !== undefined && typeof fastTier !== 'boolean') return undefined
   const inputModalities = raw.inputModalities
   if (inputModalities !== undefined
     && (!Array.isArray(inputModalities) || inputModalities.length === 0
@@ -94,10 +88,8 @@ function sanitizeModel(value: unknown): DiscoveredModel | undefined {
     ...raw.description === undefined ? {} : { description: raw.description },
     ...raw.contextWindow === undefined ? {} : { contextWindow: raw.contextWindow },
     ...raw.maxContextWindow === undefined ? {} : { maxContextWindow: raw.maxContextWindow },
-    ...raw.maxOutputTokens === undefined ? {} : { maxOutputTokens: raw.maxOutputTokens },
     ...raw.priority === undefined ? {} : { priority: raw.priority },
     ...reasoning === undefined ? {} : { reasoning },
-    ...fastTier === undefined ? {} : { fastTier },
     ...inputModalities === undefined ? {} : { inputModalities: [...inputModalities as ('text' | 'image')[]] },
   }
 }
@@ -105,7 +97,7 @@ function sanitizeModel(value: unknown): DiscoveredModel | undefined {
 /**
  * Validate a persisted catalog snapshot. Any malformed field invalidates the
  * whole snapshot; a successful discovery writes a complete replacement.
- * @param value - the raw per-provider file entry.
+ * @param value - the raw per-account file entry.
  * @returns the validated snapshot, or undefined when unusable.
  */
 export function sanitizeSnapshot(value: unknown): CatalogSnapshot | undefined {
@@ -155,35 +147,8 @@ async function writeCatalogFile(store: CatalogFile, path: string): Promise<void>
 }
 
 /**
- * Build the durable half of one provider's catalog cache over the shared
- * models.json file (concurrent writers are last-writer-wins).
- * @param provider - the provider route keying the file entry.
- * @param path - store file path; defaults to {@link modelsFilePath}.
- * @returns the persistence hooks for {@link ModelCatalogCache}.
- */
-export function catalogStore(provider: ProviderId, path = modelsFilePath()): CatalogPersistence {
-  return {
-    async load() {
-      return sanitizeSnapshot((await readCatalogFile(path))[provider])
-    },
-    async save(snapshot) {
-      const store = await readCatalogFile(path)
-      store[provider] = snapshot
-      await writeCatalogFile(store, path)
-    },
-    async clear() {
-      const store = await readCatalogFile(path)
-      if (store[provider] === undefined) return
-      delete store[provider]
-      await writeCatalogFile(store, path)
-    },
-  }
-}
-
-/**
- * The durable half of one NON-default account's catalog cache. The provider
- * entry belongs to the default account; every other account keeps its own
- * snapshot under `accounts[provider][account]`.
+ * The durable half of one account's catalog cache over the shared models.json
+ * file (concurrent writers are last-writer-wins).
  * @param provider - the provider route.
  * @param account - the canonical account key.
  * @param path - store file path; defaults to {@link modelsFilePath}.

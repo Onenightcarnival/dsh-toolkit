@@ -56,8 +56,8 @@ function versionOf(dir, name) {
   return JSON.parse(readFileSync(file, 'utf8')).version
 }
 
-/** @param {{ dir: string, entry: string, outfile?: string, inlined?: string[], external?: string[], plugins?: import('esbuild').Plugin[] }} options */
-export async function buildHost({ dir, entry, outfile = 'lib/index.js', inlined = [], external = [], plugins = [] }) {
+/** @param {{ dir: string, entry: string, outfile?: string, inlined?: string[], plugins?: import('esbuild').Plugin[] }} options */
+export async function buildHost({ dir, entry, outfile = 'lib/index.js', inlined = [], plugins = [] }) {
   const pkg = manifest(dir)
   const inlinedText = inlined.map(name => `${name} ${versionOf(dir, name)}`).join(', ')
   mkdirSync(join(dir, 'lib'), { recursive: true })
@@ -70,7 +70,7 @@ export async function buildHost({ dir, entry, outfile = 'lib/index.js', inlined 
     format: 'esm',
     platform: 'node',
     target: 'node22',
-    external: [...HOST_EXTERNAL, ...external],
+    external: HOST_EXTERNAL,
     legalComments: 'none',
     logLevel: 'info',
     plugins,

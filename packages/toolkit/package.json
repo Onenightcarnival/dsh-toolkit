@@ -1,7 +1,7 @@
 {
   "name": "@onenightcarnival/dsh-toolkit",
   "version": "0.9.9",
-  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), HTTP API client (dsh-http), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser), configuration center (dsh-config-center), career memory (dsh-memory), API gateway (dsh-gateway); Codex, ChatGPT, Google Antigravity and Grok subscriptions, Codex web search, Grok X search, image and video generation",
+  "description": "All Onenightcarnival plugins for DeepSeek Harness (dsh) in one self-contained package: relational databases (dsh-rdb), S3 storage (dsh-s3), HTTP API client (dsh-http), OpenTelemetry export (dsh-otel), browser bridge (dsh-bridge-browser), configuration center (dsh-config-center), career memory (dsh-memory), API gateway (dsh-gateway); ChatGPT subscription models (dsh-subscriptions)",
   "author": "onenightcarnival",
   "license": "MIT",
   "repository": {
@@ -77,7 +77,6 @@
     "@deepseek-ai/dsh-subprocess": "0.2.2-rc.5",
     "@deepseek-ai/dsh-tools": "0.2.2-rc.5",
     "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-web": "0.2.2-rc.5",
     "@deepseek-ai/schemastery": "3.19.0",
     "@onenightcarnival/dsh-bridge-browser": "workspace:*",
     "@onenightcarnival/dsh-config-center": "workspace:*",
@@ -93,8 +92,5 @@
     "@onenightcarnival/dsh-memory": "workspace:*",
     "@onenightcarnival/dsh-gateway": "workspace:*",
     "@deepseek-ai/dsh-error": "0.2.2-rc.5"
-  },
-  "dependencies": {
-    "@cortexkit/antigravity-auth-core": "2.2.0"
   }
 }

@@ -1,15 +1,14 @@
-import { EMPTY_RESPONSE_CODE, LlmAdapter, LlmError } from '@deepseek-ai/dsh-llm'
+import { EMPTY_RESPONSE_CODE, LlmAdapter, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { ChatGptSession, ProviderId } from '../auth/store.js'
 import { CHATGPT_RESOURCE, chatGptPlanEnabled } from '../auth/chatgpt.js'
 import { proxiedFetch } from '../http.js'
-import { resolveImages } from '../translate/resolved.js'
-import { streamResponses, toResponsesInput, toResponsesTools } from '../translate/responses.js'
+import { projectToolMessages, resolveImages } from '../translate/resolved.js'
+import { reconcileResponsesToolCalls, streamResponses, toResponsesInput, toResponsesTools } from '../translate/responses.js'
 import { AccountTokenManager, DISCOVERY_TIMEOUT_MS, unionAccountCatalogs } from './accounts.js'
-import { ModelCatalogCache, discoverOrRetryAuth, httpLlmError, idleWatchdog, mapFetchFailure, mergeReasoning, oauthEndpointError } from './common.js'
+import { ModelCatalogCache, discoverOrRetryAuth, effortDisplayName, httpLlmError, idleWatchdog, mapFetchFailure, mergeReasoning, oauthEndpointError } from './common.js'
 import type { CatalogPersistence, DiscoveredModel, FetchFn, ModelEntry } from './common.js'
-import { parseCodexModels, projectCodexMessages, reconcileResponsesToolCalls } from './codex.js'
 import type { PoolAdapter } from './pool.js'
 
 interface ChatGptAdapterOptions {
@@ -24,6 +23,57 @@ interface ChatGptAdapterOptions {
   pool?: () => PoolAdapter | undefined
 }
 
+/** One `/models` entry of the ChatGPT catalog (the fields this plugin reads). */
+interface ChatGptWireModel {
+  slug?: string
+  display_name?: string
+  description?: string | null
+  context_window?: number | null
+  max_context_window?: number | null
+  supported_reasoning_levels?: { effort?: string; description?: string }[]
+  default_reasoning_level?: string | null
+  input_modalities?: string[]
+  visibility?: string
+  priority?: number
+}
+
+/** Decode one catalog entry; an entry without a slug yields undefined. */
+function parseChatGptModel(entry: ChatGptWireModel): DiscoveredModel | undefined {
+  if (typeof entry.slug !== 'string' || entry.slug.length === 0) return undefined
+  const efforts = (entry.supported_reasoning_levels ?? [])
+    .filter(level => typeof level.effort === 'string' && level.effort.length > 0)
+    .map(level => ({
+      id: ReasoningEffortId(level.effort as string),
+      name: effortDisplayName(level.effort as string),
+      ...level.description === undefined ? {} : { description: level.description },
+    }))
+  const defaultEffort = typeof entry.default_reasoning_level === 'string'
+      && entry.default_reasoning_level.length > 0
+      && efforts.some(effort => effort.id === ReasoningEffortId(entry.default_reasoning_level as string))
+    ? ReasoningEffortId(entry.default_reasoning_level)
+    : undefined
+  return {
+    id: entry.slug,
+    name: typeof entry.display_name === 'string' && entry.display_name.length > 0
+      ? entry.display_name
+      : entry.slug,
+    ...typeof entry.description === 'string' && entry.description.length > 0
+      ? { description: entry.description }
+      : {},
+    ...typeof entry.context_window === 'number' && entry.context_window > 0
+      ? { contextWindow: entry.context_window }
+      : {},
+    ...typeof entry.max_context_window === 'number' && Number.isSafeInteger(entry.max_context_window) && entry.max_context_window > 0
+      ? { maxContextWindow: entry.max_context_window }
+      : {},
+    ...typeof entry.priority === 'number' ? { priority: entry.priority } : {},
+    ...efforts.length > 0
+      ? { reasoning: { efforts, ...defaultEffort === undefined ? {} : { defaultEffort } } }
+      : {},
+    inputModalities: entry.input_modalities?.includes('image') ? ['text', 'image'] : ['text'],
+  }
+}
+
 function requirePlan(session: ChatGptSession): void {
   if (!chatGptPlanEnabled(session)) throw new LlmError('ChatGPT plan usage is disabled. Sign in again and allow plan usage.', 'INVALID_CREDENTIAL')
 }
@@ -35,12 +85,11 @@ export async function fetchChatGptModels(session: ChatGptSession, fetchFn: Fetch
     signal: signal ?? AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
   })
   if (!response.ok) throw await oauthEndpointError(response, 'ChatGPT models')
-  const payload = await response.json() as { models?: (Parameters<typeof parseCodexModels>[0][number] & { input_modalities?: string[] })[] }
+  const payload = await response.json() as { models?: ChatGptWireModel[] }
   if (!Array.isArray(payload.models)) throw new Error('ChatGPT models endpoint returned no models array')
   return payload.models.filter(entry => entry && entry.visibility === 'list').flatMap((entry) => {
-    const model = parseCodexModels([entry])[0]
-    if (!model) return []
-    return [{ ...model, inputModalities: entry.input_modalities?.includes('image') ? ['text', 'image'] as ('text' | 'image')[] : ['text'] as ('text' | 'image')[] }]
+    const model = parseChatGptModel(entry)
+    return model ? [model] : []
   })
 }
 
@@ -120,7 +169,7 @@ export class ChatGptAdapter extends LlmAdapter {
     const watchdog = idleWatchdog(options.signal, this.options.streamIdleTimeoutMs)
     try {
       const fetchFn = this.options.fetchFn ?? proxiedFetch
-      const messages = await resolveImages(projectCodexMessages(options.messages), this.options.resolveAttachments?.(), watchdog.signal)
+      const messages = await resolveImages(projectToolMessages(options.messages), this.options.resolveAttachments?.(), watchdog.signal)
       const resolved = toResponsesInput(messages, options.system)
       const input = reconcileResponsesToolCalls(resolved.input).map(item => item.type === 'function_call' ? { ...item, namespace: 'dsh' } : item)
       const body = { model: options.model, input, store: false, stream: true,

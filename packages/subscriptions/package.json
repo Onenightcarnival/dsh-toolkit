@@ -1,7 +1,7 @@
 {
   "name": "@onenightcarnival/dsh-subscriptions",
   "version": "0.9.9",
-  "description": "Codex, ChatGPT, Google Antigravity and Grok subscriptions, Codex web search, Grok X search, image and video generation for DeepSeek Harness",
+  "description": "ChatGPT subscription models through Sign in with ChatGPT for DeepSeek Harness",
   "author": "onenightcarnival",
   "license": "MIT",
   "repository": {
@@ -66,9 +66,6 @@
     "@deepseek-ai/dsh-attachment": "0.2.2-rc.5",
     "@deepseek-ai/dsh-home-paths": "0.2.2-rc.5",
     "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-session-query": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-tools": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-web": "0.2.2-rc.5",
     "@deepseek-ai/schemastery": "^3.19.0",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
@@ -79,8 +76,5 @@
     "typescript": "~5.7.2",
     "jsdom": "^26.1.0",
     "@deepseek-ai/dsh-error": "0.2.2-rc.5"
-  },
-  "dependencies": {
-    "@cortexkit/antigravity-auth-core": "2.2.0"
   }
 }

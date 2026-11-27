@@ -6,10 +6,9 @@ Host backend for `@onenightcarnival/dsh-subscriptions`, compiled from local Type
 
 | Path | Responsibility |
 |---|---|
-| `auth/` | OAuth PKCE, callback validation, token storage and refresh |
-| `providers/` | Codex, ChatGPT, Google Antigravity and Grok accounts, model catalogs, quota and request routing |
+| `auth/` | OAuth PKCE, callback validation, ChatGPT registration, token storage and refresh |
+| `providers/` | ChatGPT accounts, model catalogs, account routing and failover |
 | `translate/` | Streaming protocol and model message translation |
-| `tools/` | Web search, X search, image generation and video generation tool registration |
 | `provider-settings.ts` | Provider configuration |
 | `model-defaults.ts` | Default model settings |
 
@@ -17,23 +16,18 @@ Host backend for `@onenightcarnival/dsh-subscriptions`, compiled from local Type
 
 | Boundary | Behavior |
 |---|---|
-| Providers | `codex`, `chatgpt`, `antigravity`, `grok` |
-| Search | `codex_web_search`, `antigravity_web_search`, `grok_x_search` |
-| Images | `codex_image_generate`, `antigravity_image_generate`, `grok_image_generate` |
-| Videos | `grok_video_generate`; saved clips served by the `video` RPC endpoint |
+| Providers | `chatgpt` |
 | OAuth callbacks | Provider redirect URIs, callback-port fallback and state-validated manual callbacks |
 | Credentials | Host storage; browser status excludes tokens |
 
 ## Validation
 
-Changes to authentication, model translation, search or images require subscription tests and host smoke tests. Commands and coverage: [package guide](../../README.md#development).
+Changes to authentication, model translation or account routing require subscription tests and host smoke tests. Commands and coverage: [package guide](../../README.md#development).
 
 ## Source and license
 
 | Source | Revision | Scope |
 |---|---|---|
-| V1ki/dsh-plugin-subscriptions | `d8ab13e91fd6747e419a1f5e965bce42bdfc3ad8` | ChatGPT authentication, model transport, search, images and shared account configuration |
-| V1ki/dsh-plugin-subscriptions | `9930c5ee5e3fa239db9031f47a0f6f30f7ffc443` | Grok authentication, model catalog, usage, X search, image and video generation |
-| LiZhenNet/dsh-antigravity | `94957767c5e247d86cec8833fb1b67f659078af6` | Antigravity protocol reference |
+| V1ki/dsh-plugin-subscriptions | `d8ab13e91fd6747e419a1f5e965bce42bdfc3ad8` | Authentication flow, model transport and shared account configuration |
 
 Upstream changes enter through reviewed source updates. MIT notices reside in [SOURCE_NOTICES.txt](../../SOURCE_NOTICES.txt); the build writes them into `THIRD_PARTY_LICENSES.txt` of the standalone and toolkit artifacts.

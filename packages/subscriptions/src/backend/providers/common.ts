@@ -1,12 +1,11 @@
 /**
  * Plumbing shared by the subscription adapters: HTTP error mapping, a
  * stream idle watchdog, fetch failure classification, OAuth endpoint errors,
- * and the per-provider {@link TokenManager} that owns session freshness.
- * Concurrent refreshes for one provider coalesce behind a single in-flight
- * promise (`inflight`).
+ * the model catalog cache, and the per-account {@link TokenManager} that owns
+ * session freshness. Concurrent refreshes for one account coalesce behind a
+ * single in-flight promise (`inflight`).
  */
 
-import { createHash, randomUUID } from 'node:crypto'
 import {
   CONTEXT_WINDOW_EXCEEDED_CODE,
   isContextWindowExceededError,
@@ -16,8 +15,7 @@ import {
   ReasoningEffortId,
 } from '@deepseek-ai/dsh-llm'
 import type { BuiltinLlmFailureCode } from '@deepseek-ai/dsh-llm'
-import { rateLimitDiagnostics, retryAfterInstant, waitFromReset } from './rate-limit.js'
-import type { RateLimitResetReader } from './rate-limit.js'
+import { retryAfterInstant, waitFromReset } from './rate-limit.js'
 
 /** One configured model catalog entry. */
 export interface ModelEntry {
@@ -71,40 +69,24 @@ export function validateModels(models: readonly ModelEntry[], label: string): Mo
   })
 }
 
-/** Optional per-call hooks {@link httpLlmError} uses to read a rate-limit window. */
-export interface HttpLlmErrorOptions {
-  /**
-   * The calling provider's reader for the instant its rate-limit window
-   * reopens. Consulted on a 429 only, ahead of the generic `retry-after` header.
-   */
-  rateLimitReset?: RateLimitResetReader
-  /** Diagnostic sink for a 429 that disclosed no reset instant this code recognizes. */
-  onWarn?: (message: string) => void
-}
-
 /**
  * Build an LlmError from a non-2xx provider response, mapping the status to a
- * stable code and, for a rate-limited request, the disclosed reset instant to
- * the `providerRetryAfterMs` the retry plugin waits out.
+ * stable code and the `retry-after` header to the `providerRetryAfterMs` the
+ * retry plugin waits out.
  *
  * A 429 classifies as `RATE_LIMIT` by status alone, ahead of the quota-wording check.
  * @param response - the failed response.
  * @param label - diagnostic prefix naming the provider API.
- * @param options - the calling provider's rate-limit reader and warning sink.
  * @returns the classified error.
  */
-export async function httpLlmError(
-  response: Response,
-  label: string,
-  options: HttpLlmErrorOptions = {},
-): Promise<LlmError> {
+export async function httpLlmError(response: Response, label: string): Promise<LlmError> {
   let body = ''
   try {
     body = await response.text()
   } catch {
     // The status alone identifies the failure.
   }
-  // `shown` is truncated for display; the readers parse the whole `body`.
+  // `shown` is truncated for display.
   const html = response.headers.get('content-type')?.includes('text/html') || /^\s*(?:<!doctype\s+html|<html[\s>])/i.test(body)
   const shown = html ? response.statusText || 'Upstream endpoint unavailable' : body.slice(0, 500)
   const message = shown.length > 0
@@ -119,31 +101,11 @@ export async function httpLlmError(
   else if (response.status >= 500) code = 'SERVER'
   else code = `HTTP_${response.status}`
   const now = Date.now()
-  // The provider's reader runs on a 429 only and takes precedence over
-  // `retry-after`; `retry-after` is read on any status.
-  const rateLimited = response.status === 429
-  const reset = rateLimited
-    ? options.rateLimitReset?.(response, body, now) ?? retryAfterInstant(response, now)
-    : retryAfterInstant(response, now)
-  if (reset === undefined && rateLimited) {
-    options.onWarn?.(`${label}: ${rateLimitDiagnostics(response, body)}`)
-  }
+  const reset = retryAfterInstant(response, now)
   return new LlmError(message, code, {
     status: response.status,
     ...reset === undefined ? {} : { providerRetryAfterMs: waitFromReset(reset, now) },
   })
-}
-
-/**
- * Parse a response's `retry-after` header (seconds) into milliseconds.
- * @param response - the failed response.
- * @returns the delay in ms, or undefined when absent/unusable.
- */
-function parseRetryAfterMs(response: Response): number | undefined {
-  const retryAfter = response.headers.get('retry-after')
-  if (retryAfter === null) return undefined
-  const seconds = Number(retryAfter)
-  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined
 }
 
 /** An idle watchdog: aborts its signal when no SSE activity arrives within the timeout. */
@@ -219,15 +181,12 @@ export class OAuthEndpointError extends Error {
   readonly status: number
   /** The provider's OAuth `error` code (e.g. `invalid_grant`), when present. */
   readonly oauthCode: string | undefined
-  /** The endpoint's `retry-after`, in ms, when it sent one; callers retrying usage/models requests honor it. */
-  readonly retryAfterMs: number | undefined
 
-  constructor(message: string, status: number, oauthCode?: string, retryAfterMs?: number) {
+  constructor(message: string, status: number, oauthCode?: string) {
     super(message)
     this.name = 'OAuthEndpointError'
     this.status = status
     this.oauthCode = oauthCode
-    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -259,7 +218,7 @@ export async function oauthEndpointError(response: Response, label: string): Pro
   const message = detail.length > 0
     ? `${label} token endpoint error (HTTP ${String(response.status)}): ${detail}`
     : `${label} token endpoint error (HTTP ${String(response.status)})`
-  return new OAuthEndpointError(message, response.status, oauthCode, parseRetryAfterMs(response))
+  return new OAuthEndpointError(message, response.status, oauthCode)
 }
 
 /** A session fresh enough to serve a request without a refresh. */
@@ -300,23 +259,6 @@ export class TokenManager<S extends TimedSession> {
 
   constructor(private readonly options: TokenManagerOptions<S>) {
     this.options = options
-  }
-
-  /**
-   * Read the stored session without any refresh side effect. Catalog queries
-   * (`listModels`) use this to decide whether the provider is logged in.
-   * @returns the stored session, or `undefined` when logged out.
-   */
-  peek(): Promise<S | undefined> {
-    return this.options.load()
-  }
-
-  /**
-   * Whether a session is currently stored (cheap; never refreshes).
-   * @returns true when logged in.
-   */
-  async hasSession(): Promise<boolean> {
-    return (await this.options.load()) !== undefined
   }
 
   /**
@@ -388,7 +330,7 @@ export class TokenManager<S extends TimedSession> {
 /** Fetch signature adapters accept for discovery calls (injectable for tests). */
 export type FetchFn = typeof fetch
 
-/** Bound on one account catalog fetch or usage poll. */
+/** Bound on one account catalog fetch. */
 export const DISCOVERY_TIMEOUT_MS = 10_000
 
 /**
@@ -416,28 +358,6 @@ export function withTimeout<T>(
   ])
 }
 
-/** One rate-limit window reported by a provider's usage endpoint. */
-export interface UsageWindow {
-  /** Window kind: `session` for the short rolling window, `weekly` for the 7-day one. */
-  kind: 'session' | 'weekly' | 'other'
-  /** Model scope for model-specific windows (e.g. `Opus`), when the provider names one. */
-  scope?: string
-  /** Percent of the window already consumed (0–100). */
-  usedPercent: number
-  /** Epoch milliseconds at which the window resets, when the provider discloses it. */
-  resetsAt?: number
-}
-
-/** Subscription usage of one provider, as served by the `usage` RPC endpoint. */
-export interface ProviderUsage {
-  /** False when the provider has no usage endpoint ; windows are absent then. */
-  supported: boolean
-  /** Usage windows in display order. */
-  windows?: UsageWindow[]
-  /** Plan name the usage endpoint reported, when present. */
-  plan?: string
-}
-
 /** One model discovered from a provider's live model-list endpoint. */
 export interface DiscoveredModel {
   /** Account-specific server-advertised ceiling for local context overrides. */
@@ -449,8 +369,6 @@ export interface DiscoveredModel {
   description?: string
   /** Advertised combined context capacity in tokens. */
   contextWindow?: number
-  /** Server-advertised per-request output token ceiling, when disclosed. */
-  maxOutputTokens?: number
   /** Provider sort hint; lower sorts earlier. */
   priority?: number
   /** Advertised reasoning efforts, when the provider discloses them. */
@@ -460,9 +378,6 @@ export interface DiscoveredModel {
   }
   /** Accepted request modalities the endpoint advertised. */
   inputModalities?: ('text' | 'image')[]
-  /** Codex-specific: the catalog advertises a fast (priority) service tier. */
-  fastTier?: boolean
-
 }
 
 /** Display name for a wire reasoning-effort identifier. */
@@ -477,19 +392,16 @@ export interface ReasoningBlock {
 }
 
 /**
- * Merge a configured reasoning default with the base reasoning block.
- * The result preserves defaultEffort ∈ efforts. Unsupported overrides fall
- * back to the provider default; extendable permits adding an override to a
- * built-in fallback catalog.
+ * Merge a configured reasoning default with the discovered reasoning block.
+ * The result preserves defaultEffort ∈ efforts; an unsupported override falls
+ * back to the provider default.
  * @param configuredDefault - the user-configured default effort id, or undefined.
- * @param base - the discovered/built-in reasoning block, or undefined.
- * @param options - `extendable` marks the base as a fallback that may be extended.
- * @returns the merged block, or undefined when neither side contributes one.
+ * @param base - the discovered reasoning block, or undefined.
+ * @returns the merged block, or undefined when the model discloses none.
  */
 export function mergeReasoning(
   configuredDefault: string | undefined,
   base: ReasoningBlock | undefined,
-  options?: { extendable?: boolean },
 ): DiscoveredModel['reasoning'] | undefined {
   const detached = base === undefined
     ? undefined
@@ -497,47 +409,17 @@ export function mergeReasoning(
       efforts: [...base.efforts],
       ...(base.defaultEffort === undefined ? {} : { defaultEffort: base.defaultEffort }),
     }
-  if (configuredDefault === undefined) return detached
+  if (configuredDefault === undefined || base === undefined) return detached
   const effort = ReasoningEffortId(configuredDefault)
-  if (base === undefined) {
-    // Without a base block, only an extendable (fallback) catalog yields a reasoning block.
-    return options?.extendable === true
-      ? { efforts: [{ id: effort, name: effortDisplayName(effort) }], defaultEffort: effort }
-      : undefined
-  }
-  if (base.efforts.some(entry => entry.id === effort)) {
-    return { efforts: [...base.efforts], defaultEffort: effort }
-  }
-  if (options?.extendable !== true) return detached
-  return {
-    efforts: [...base.efforts, { id: effort, name: effortDisplayName(effort) }],
-    defaultEffort: effort,
-  }
-}
-
-/**
- * First account catalog that lists `model` (callers pass default-first).
- * A failing lookup excludes that account.
- */
-export async function discoverAcrossAccounts(
-  accounts: readonly string[],
-  lookup: (account: string) => Promise<DiscoveredModel | undefined>,
-): Promise<DiscoveredModel | undefined> {
-  for (const account of accounts) {
-    try {
-      const found = await lookup(account)
-      if (found !== undefined) return found
-    } catch {
-      // sit out
-    }
-  }
-  return undefined
+  return base.efforts.some(entry => entry.id === effort)
+    ? { efforts: [...base.efforts], defaultEffort: effort }
+    : detached
 }
 
 /** How long a discovered catalog is trusted before re-fetching. */
 export const DISCOVERY_TTL_MS = 5 * 60_000
 
-/** A durable snapshot of one provider's discovered catalog. */
+/** A durable snapshot of one account's discovered catalog. */
 export interface CatalogSnapshot {
   /** Epoch milliseconds of the successful fetch that produced it. */
   at: number
@@ -555,13 +437,11 @@ export interface CatalogPersistence {
 }
 
 /**
- * Cache for one provider's discovered model catalog. The TTL decides when to
+ * Cache for one account's discovered model catalog. The TTL decides when to
  * refresh; the last-known catalog is retained past it. {@link get} awaits
- * freshness; {@link resolve} serves the last-known catalog while a stale entry
- * refreshes in the background and awaits the fetch only when nothing is known.
- * An optional {@link CatalogPersistence} seeds the last-known state across
- * restarts and receives every successful fetch. A 401 that still fails after a
- * forced token refresh must call {@link invalidate}.
+ * freshness. An optional {@link CatalogPersistence} seeds the last-known state
+ * across restarts and receives every successful fetch. A 401 that still fails
+ * after a forced token refresh must call {@link invalidate}.
  */
 export class ModelCatalogCache {
   private entry: CatalogSnapshot | undefined
@@ -640,31 +520,6 @@ export class ModelCatalogCache {
     return this.cached() ?? this.refresh(fetcher)
   }
 
-  /**
-   * The models for capability resolution. A fresh cache answers directly; a
-   * stale one answers immediately from the last-known catalog while a
-   * background refresh runs; a cold cache awaits one fetch.
-   * @param fetcher - performs the provider's model-list request.
-   * @returns the models, or `undefined` when nothing is known (the caller
-   *   falls back to its static metadata). Never throws.
-   */
-  async resolve(fetcher: () => Promise<DiscoveredModel[]>): Promise<readonly DiscoveredModel[] | undefined> {
-    await this.ensureSeeded()
-    const fresh = this.cached()
-    if (fresh !== undefined) return fresh
-    const known = this.entry?.models
-    if (known !== undefined) {
-      // Stale-while-revalidate: the refresh outcome serves the NEXT resolve.
-      this.refresh(fetcher).catch(() => undefined)
-      return known
-    }
-    try {
-      return await this.refresh(fetcher)
-    } catch {
-      return undefined
-    }
-  }
-
   /** Drop the cached catalog (e.g. after a 401 proved the credential changed). */
   invalidate(): void {
     this.generation += 1
@@ -676,18 +531,9 @@ export class ModelCatalogCache {
 }
 
 /** Whether discovery failed because the stored login is gone. */
-export function isMissingOrInvalidCredential(error: unknown): boolean {
+function isMissingOrInvalidCredential(error: unknown): boolean {
   return error instanceof LlmError
     && (error.code === 'MISSING_CREDENTIAL' || error.code === 'INVALID_CREDENTIAL')
-}
-
-/** Whether discovery stopped because the caller cancelled or the timeout fired. */
-export function isDiscoveryAborted(error: unknown, signal?: AbortSignal): boolean {
-  if (signal?.aborted === true) return true
-  // Abort-shaped errors count as cancellation only when this call had a signal.
-  return signal !== undefined
-    && error instanceof Error
-    && (error.name === 'AbortError' || error.name === 'TimeoutError')
 }
 
 /**
@@ -695,7 +541,7 @@ export function isDiscoveryAborted(error: unknown, signal?: AbortSignal): boolea
  * {@link discoverOrRetryAuth} the rejection followed a forced refresh; the
  * store keeps the session.
  */
-export function isDiscoveryAuthFailure(error: unknown): boolean {
+function isDiscoveryAuthFailure(error: unknown): boolean {
   return (error instanceof OAuthEndpointError && error.status === 401)
     || (error instanceof LlmError && error.code === 'AUTH')
 }
@@ -724,22 +570,4 @@ export async function discoverOrRetryAuth<T>(
       throw retryError
     }
   }
-}
-
-/**
- * Keep Codex's session header stable for a supplied, non-empty session ID.
- * Existing UUIDs are preserved; other IDs use a SHA-256-derived UUIDv8 (a
- * custom deterministic layout). Missing and empty IDs have no session identity and receive a fresh UUIDv4.
- */
-export function deterministicSessionId(sessionId?: string): string {
-  if (sessionId === undefined || sessionId.length === 0) return randomUUID()
-  const str = String(sessionId)
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str)) {
-    return str
-  }
-  const bytes = createHash('sha256').update(str).digest().subarray(0, 16)
-  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x80
-  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80
-  const hex = bytes.toString('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }

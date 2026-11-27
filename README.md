@@ -11,7 +11,7 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | [`@onenightcarnival/dsh-http`](packages/http/README.md) | HTTP API client: targets with host-side credentials, request builder, response viewer, shared history, `http_*` tools | Sidebar "HTTP" |
 | [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI export to Langfuse and other OTLP backends | Settings → Observability |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.md) | Browser bridge: `browser_*` tools driving the user's tabs through the Chrome / Firefox extension | Settings → General → Browser bridge address |
-| [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.md) | Codex, ChatGPT, Google Antigravity and Grok models, Codex search, Grok X search, image and video tools | Sidebar "AI subscriptions" |
+| [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.md) | ChatGPT subscription models through Sign in with ChatGPT | Sidebar "AI subscriptions" |
 | [`@onenightcarnival/dsh-config-center`](packages/config-center/README.md) | MCP and skill management, dedicated uv / Python environment, common settings of built-in plugins | Sidebar → MCP / Skills; Settings → Environment dependencies / Plugins → Common settings |
 | [`@onenightcarnival/dsh-memory`](packages/memory/README.md) | Layered career records, lessons, human corrections, version history and `memory_*` tools | Sidebar "Memory" |
 | [`@onenightcarnival/dsh-gateway`](packages/gateway/README.md) | Local API gateway: OpenAI Chat Completions / Responses and Anthropic Messages endpoints over the configured models, API keys, usage accounting | Sidebar "API gateway" |
@@ -126,7 +126,6 @@ The tool is oxlint; the rule set comes from [`.oxlintrc.json` of deepseek-ai/dee
 |---|---|
 | Host dependencies | dsh provides `@deepseek-ai/*`; package build configurations select other dependencies for inlining |
 | Inlined client library | `@deepseek-ai/dsh-util-crypto` compiles into client bundles; each importing package lists it in devDependencies |
-| Subscription authentication | `@cortexkit/antigravity-auth-core` is a runtime dependency of subscriptions and toolkit |
 | Integrated package | Bundles the nine packages' sources directly; typechecking covers the same sources |
 | Typecheck scope | Each package's `typecheck` covers its TypeScript sources and TypeScript tests; browser-bridge tests use `tests/tsconfig.json` |
 | Indexed access | Each package's `tsconfig.json` enables `noUncheckedIndexedAccess`; index and index-signature reads include `undefined` |

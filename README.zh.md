@@ -11,7 +11,7 @@
 | [`@onenightcarnival/dsh-http`](packages/http/README.zh.md) | HTTP API 请求工具：宿主保管凭证的 API 目标、请求构造器、响应查看器、共享历史，`http_*` 工具 | 侧边栏「HTTP」 |
 | [`@onenightcarnival/dsh-otel`](packages/otel/README.md) | OpenTelemetry GenAI 上报到 Langfuse 等 OTLP 后端 | 设置 → 可观测 |
 | [`@onenightcarnival/dsh-bridge-browser`](packages/browser-bridge/README.zh.md) | 浏览器桥：`browser_*` 工具经 Chrome / Firefox 扩展操作用户的标签页 | 设置 → 通用设置 → 浏览器桥地址 |
-| [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.zh.md) | Codex、ChatGPT、Google Antigravity、Grok 订阅模型及 Codex 搜索、Grok X 搜索、生图与视频工具 | 侧边栏「AI 订阅」 |
+| [`@onenightcarnival/dsh-subscriptions`](packages/subscriptions/README.zh.md) | 通过 Sign in with ChatGPT 使用 ChatGPT 订阅模型 | 侧边栏「AI 订阅」 |
 | [`@onenightcarnival/dsh-config-center`](packages/config-center/README.zh.md) | MCP 与技能管理、专属 uv / Python 环境、内置插件常用设置 | 主侧栏 → MCP / 技能；设置 → 环境依赖 / 内置插件 → 常用设置 |
 | [`@onenightcarnival/dsh-memory`](packages/memory/README.zh.md) | 分层履历、项目经验、人工修正与版本历史，`memory_*` 工具 | 左侧栏「记忆」 |
 | [`@onenightcarnival/dsh-gateway`](packages/gateway/README.zh.md) | 本机 API 网关：以 OpenAI Chat Completions / Responses 与 Anthropic Messages 协议提供已配置模型，API key 与用量统计 | 侧栏「API 网关」 |
@@ -126,7 +126,6 @@ pnpm --filter dsh-browser-extension run build:firefox
 |---|---|
 | 宿主依赖 | `@deepseek-ai/*` 由 dsh 提供；其余依赖按各包构建配置内联 |
 | 客户端内联库 | `@deepseek-ai/dsh-util-crypto` 编译进客户端产物；引用它的包在 devDependencies 中声明 |
-| 订阅认证依赖 | `@cortexkit/antigravity-auth-core` 为 subscriptions 与 toolkit 的运行时依赖 |
 | 集成包 | 直接编译九个子包的源码；类型检查覆盖同一组源码 |
 | 类型检查范围 | 各包的 `typecheck` 覆盖 TypeScript 源码与 TypeScript 测试；browser-bridge 的测试使用 `tests/tsconfig.json` |
 | 下标访问 | 各包的 `tsconfig.json` 启用 `noUncheckedIndexedAccess`；下标与索引签名的读取结果包含 `undefined` |

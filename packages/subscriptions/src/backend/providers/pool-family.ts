@@ -2,8 +2,7 @@
  * Same-subscription account routing: the picker is the union of every
  * account's catalog (deduped by wire id). A model listed by two or more
  * accounts failovers between them; a model listed by only one account is
- * sent to that account. No extra pool identity, no cross-provider
- * aggregation.
+ * sent to that account. No extra pool identity.
  */
 
 import type { LlmModelInfo } from '@deepseek-ai/dsh-llm'

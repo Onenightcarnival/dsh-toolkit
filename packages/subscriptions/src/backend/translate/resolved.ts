@@ -5,8 +5,9 @@
  */
 
 import { LlmError } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, Message } from '@deepseek-ai/dsh-llm'
-import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { ContentBlock, Message, RequestMessage } from '@deepseek-ai/dsh-llm'
+import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
+import { ToolCallId } from '../compat.js'
 
 /** Legacy nested results are retained only inside the wire translation layer. */
 export interface ToolResultBlock {
@@ -18,6 +19,27 @@ export interface ToolResultBlock {
 
 export interface UnresolvedMessage extends Omit<TranslatableMessage, 'content'> {
   content: readonly (ContentBlock | ToolResultBlock)[]
+}
+
+/** Project the harness's first-class tool messages onto user messages carrying one tool-result block. */
+export function projectToolMessages(messages: readonly RequestMessage[]): UnresolvedMessage[] {
+  return messages.map((message) => {
+    if (String(message.role) !== 'tool') return message
+    const current = message as Message & { toolCallId?: string; isError?: boolean }
+    const callId = current.toolCallId
+      ?? (current.source.kind === 'tool' ? String(current.source.callId) : undefined)
+    if (callId === undefined) throw new LlmError('tool result has no call id', 'INVALID_REQUEST')
+    return {
+      role: 'user',
+      source: { kind: 'tool', callId: ToolCallId(callId) },
+      content: [{
+        type: 'tool-result',
+        toolCallId: ToolCallId(callId),
+        content: [...message.content],
+        ...current.isError === undefined ? {} : { isError: current.isError },
+      }],
+    }
+  })
 }
 
 /** An image block with its bytes resolved to inline base64 for the wire. */
@@ -83,31 +105,6 @@ export interface TranslatableMessage {
   source?: Message['source']
 }
 
-/** A route's cap on outgoing image size; stored attachments are never changed. */
-export interface ImageRequestLimit {
-  /** Longest edge in pixels an image may be sent at. */
-  maxEdge: number
-  /** Encoded-byte target before base64 expansion. */
-  maxBytes: number
-}
-
-/**
- * The request projection for one oversized image, or undefined when it fits.
- * The projection carries both the pixel budget (`maxPixels`) and the target
- * edges (`width`/`height`).
- */
-export function imageRequestTarget(
-  ref: { width: number; height: number },
-  limit: ImageRequestLimit,
-): { width: number; height: number; maxPixels: number; maxBytes: number } | undefined {
-  const longEdge = Math.max(ref.width, ref.height)
-  if (!(longEdge > limit.maxEdge)) return undefined
-  const short = (edge: number): number => Math.max(1, Math.floor(edge * limit.maxEdge / longEdge))
-  const width = ref.width >= ref.height ? limit.maxEdge : short(ref.width)
-  const height = ref.width >= ref.height ? short(ref.height) : limit.maxEdge
-  return { width, height, maxPixels: width * height, maxBytes: limit.maxBytes }
-}
-
 /**
  * Resolve image attachment references to inline base64 bytes.
  * Messages without images pass through unchanged; image requests require an
@@ -115,15 +112,12 @@ export function imageRequestTarget(
  * @param messages - the request's conversation messages.
  * @param attachments - the deployment's attachment service, when mounted.
  * @param signal - cancellation for the storage reads.
- * @param limit - the route's outgoing image cap; oversized images are sent
- *   downscaled while the stored attachment and history stay untouched.
  * @returns the same messages with image blocks resolved for the translators.
  */
 export async function resolveImages(
   messages: readonly UnresolvedMessage[],
   attachments: AttachmentStore | undefined,
   signal?: AbortSignal,
-  limit?: ImageRequestLimit,
 ): Promise<readonly TranslatableMessage[]> {
   const hasImage = (block: ContentBlock | ToolResultBlock): boolean => block.type === 'image'
     || (block.type === 'tool-result' && block.content.some(hasImage))
@@ -137,36 +131,16 @@ export async function resolveImages(
       'UNSUPPORTED_CONTENT',
     )
   }
-  const readForRequest = async (ref: ImageAttachmentRef) => {
-    const target = limit === undefined ? undefined : imageRequestTarget(ref, limit)
-    if (target !== undefined) {
-      try {
-        const version = await attachments.readImageRequest(ref, target, signal)
-        return { data: version.data, mediaType: version.mediaType, ref: version.attachment }
-      } catch (error) {
-        // Without a derived request image, the stored bytes are sent.
-        if (signal?.aborted) throw error
-      }
-    }
-    const stored = await attachments.readImage(ref, signal)
-    return { data: stored.data, mediaType: stored.ref.mediaType, ref: stored.ref }
-  }
   const resolveBlock = async (block: ContentBlock | ToolResultBlock): Promise<TranslatableBlock[]> => {
     if (block.type === 'tool-result') {
       return [{ ...block, content: (await Promise.all(block.content.map(resolveBlock))).flat() }]
     }
     if (block.type !== 'image') return [block]
-    const { data, mediaType: sentType, ref } = await readForRequest(block.attachment)
-    const { attachmentId, mediaType, bytes, width, height, name } = ref
+    const stored = await attachments.readImage(block.attachment, signal)
     return [{
       type: 'image',
-      mediaType: sentType,
-      dataBase64: Buffer.from(data).toString('base64'),
-    }, {
-      type: 'text',
-      text: `Image reference (for codex_image_generate.referenceImages): ${JSON.stringify({
-        attachmentId, mediaType, bytes, width, height, ...name === undefined ? {} : { name },
-      })}`,
+      mediaType: stored.ref.mediaType,
+      dataBase64: Buffer.from(stored.data).toString('base64'),
     }]
   }
   return Promise.all(messages.map(async (message): Promise<TranslatableMessage> => ({

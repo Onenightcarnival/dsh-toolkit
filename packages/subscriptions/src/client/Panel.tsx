@@ -1,28 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
-import type { Account, Catalog, Preferences, ProviderId, Status, Usage } from '../protocol.ts'
+import type { Account, Catalog, Preferences, ProviderId, Status } from '../protocol.ts'
 import type { SubscriptionsApi } from './api.ts'
 import { tt } from './locales.ts'
 import { ContextWindowInput } from './ContextWindowInput.tsx'
 import { ProviderLogo } from './ProviderLogo.tsx'
 
 export interface PanelProps { api: SubscriptionsApi; close: () => void }
-type Tab = 'models' | 'tools' | 'usage'
-const TOOL_CARDS = { codex: [
-  { setting: 'web_search', name: 'codex_web_search', title: 'searchTitle', hint: 'searchHint' },
-  { setting: 'image_generate', name: 'codex_image_generate', title: 'imageTitle', hint: 'imageHint' },
-], chatgpt: [], antigravity: [
-  { setting: 'web_search', name: 'antigravity_web_search', title: 'googleSearchTitle', hint: 'googleSearchHint' },
-  { setting: 'image_generate', name: 'antigravity_image_generate', title: 'googleImageTitle', hint: 'googleImageHint' },
-], grok: [
-  { setting: 'image_generate', name: 'grok_image_generate', title: 'grokImageTitle', hint: 'grokImageHint' },
-  { setting: 'video_generate', name: 'grok_video_generate', title: 'grokVideoTitle', hint: 'grokVideoHint' },
-  { setting: 'x_search', name: 'grok_x_search', title: 'xSearchTitle', hint: 'xSearchHint' },
-] } as const
+type Tab = 'models' | 'usage'
 const PROVIDERS = {
-  codex: { name: 'Codex', vendor: 'OpenAI', connect: 'connect', empty: 'emptyTitle', intro: 'intro', callback: 'http://localhost:1455/auth/callback?…' },
   chatgpt: { name: 'ChatGPT', vendor: 'OpenAI', connect: 'connectChatGpt', empty: 'emptyChatGpt', intro: 'introChatGpt', callback: 'http://127.0.0.1:1455/auth/callback?…' },
-  antigravity: { name: 'Antigravity', vendor: 'Google', connect: 'connectGoogle', empty: 'emptyGoogle', intro: 'introGoogle', callback: 'http://localhost:51121/oauth-callback?…' },
-  grok: { name: 'Grok', vendor: 'xAI', connect: 'connectGrok', empty: 'emptyGrok', intro: 'introGrok', callback: 'http://127.0.0.1:56121/callback?…' },
 } as const
 const messageOf = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error)
@@ -39,8 +25,8 @@ function DisconnectDialog({ label, busy, cancel, confirm }: { label: string; bus
 }
 
 export function SubscriptionsPanel({ api, close }: PanelProps): JSX.Element {
-  const [provider, setProvider] = useState<ProviderId>(api.provider ?? 'codex')
-  const scopedApi = useMemo(() => provider === (api.provider ?? 'codex') ? api : api.forProvider(provider), [api, provider])
+  const [provider, setProvider] = useState<ProviderId>(api.provider ?? 'chatgpt')
+  const scopedApi = useMemo(() => provider === (api.provider ?? 'chatgpt') ? api : api.forProvider(provider), [api, provider])
   return <ProviderPanel key={provider} api={scopedApi} close={close} provider={provider} selectProvider={setProvider}/>
 }
 
@@ -49,13 +35,11 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   const [status, setStatus] = useState<Status>()
   const [active, setActive] = useState<string>()
   const [catalog, setCatalog] = useState<Catalog>()
-  const [usage, setUsage] = useState<{ account: string; value: Usage }>()
   const [tab, setTab] = useState<Tab>('models')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [savingPreferences, setSavingPreferences] = useState(false)
   const [catalogBusy, setCatalogBusy] = useState(false)
-  const [usageBusy, setUsageBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [authUrl, setAuthUrl] = useState('')
@@ -65,7 +49,6 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   const lock = useRef(false)
   const retryAction = useRef<() => Promise<unknown>>()
   const catalogSequence = useRef(0)
-  const usageSequence = useRef(0)
   const statusSequence = useRef(0)
   const preferenceWrites = useRef(Promise.resolve())
   const preferenceRevision = useRef(0)
@@ -125,21 +108,6 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
     return () => { stopped = true; clearTimeout(timer) }
   }, [status?.busy, refreshStatus])
 
-  const refreshUsage = useCallback(async (): Promise<void> => {
-    if (!active) return
-    const sequence = ++usageSequence.current
-    setUsageBusy(true)
-    try {
-      const value = await api.usage(active)
-      if (mounted.current && sequence === usageSequence.current) setUsage({ account: active, value })
-    } finally { if (mounted.current && sequence === usageSequence.current) setUsageBusy(false) }
-  }, [api, active])
-  useEffect(() => {
-    ++usageSequence.current
-    setUsage(undefined); setUsageBusy(false)
-    if (tab === 'usage' && active) void refreshUsage().catch((e: unknown) => { if (mounted.current) setError(messageOf(e)) })
-  }, [tab, active, refreshUsage])
-
   const login = (accountKey?: string): void => {
     void run(async () => {
       const { authorizeUrl: url, manualOnly } = await api.login(accountKey)
@@ -179,8 +147,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
   const availableModels = catalog?.models.filter(model => !ownCatalog || ownCatalog.unavailable || ownCatalog.models.some(m => m.id === model.id)) ?? []
   const models = availableModels.filter(m => `${m.name} ${m.id}`.toLowerCase().includes(query.toLowerCase()))
   const settings = catalog?.settings ?? {}
-  const accountLabel = (a: Account): string => settings.accounts?.[a.key]?.alias || (provider === 'chatgpt' && a.account ? `${a.account} · ${a.key.slice(-6)}` : a.account) || profile.name
-  const currentUsage = usage && usage.account === active ? usage.value : undefined
+  const accountLabel = (a: Account): string => settings.accounts?.[a.key]?.alias || (a.account ? `${a.account} · ${a.key.slice(-6)}` : undefined) || profile.name
 
   return <section className="dsh-sub-panel" data-dsh-plugin="subscriptions" data-dsh-part="panel">
     <header className="dsh-sub-header"><h2>{tt('title')}</h2><span className="dsh-sub-saveStatus" role="status">{notice}</span><button onClick={close}>{tt('back')}</button></header>
@@ -199,7 +166,7 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
           {!status && <p className="dsh-sub-hint">{tt('loading')}</p>}
           {status?.accounts.length === 0 && <p className="dsh-sub-hint">{tt('disconnected')}</p>}
           {status?.accounts.map(a => <button key={a.key} className="dsh-sub-account" data-active={a.key === active || undefined} onClick={() => setActive(a.key)}>
-            <strong title={a.account}>{accountLabel(a)}</strong><small>{a.connected === false ? tt('disconnected') : a.plan ?? profile.name}{a.isDefault ? ` · ${tt('default')}` : ''}</small>
+            <strong title={a.account}>{accountLabel(a)}</strong><small>{a.connected === false ? tt('disconnected') : profile.name}{a.isDefault ? ` · ${tt('default')}` : ''}</small>
           </button>)}
         </div>
         <p className="dsh-sub-hint dsh-sub-asideFooter">{tt(profile.intro)}</p>
@@ -212,13 +179,13 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
             <input aria-label={tt('manual')} value={manual} onChange={e => setManual(e.target.value)} placeholder={profile.callback} autoComplete="off" spellCheck={false}/><button disabled={busy || !manual.trim()}>{tt('submit')}</button>
           </form></details>
         </div>}
-        {!account || account.connected === false ? <div className="dsh-sub-empty"><span className="dsh-sub-emptyLogo" aria-hidden="true"><ProviderLogo provider={provider}/></span><h3>{tt(profile.empty)}</h3><p>{tt(provider === 'chatgpt' ? 'chatGptConsentHint' : 'emptyHint')}</p><button className="dsh-sub-primary" disabled={busy || status?.busy || !status} onClick={() => login(account?.key)}>{tt(profile.connect)}</button></div> : <>
-          <div className="dsh-sub-accountHeader"><div><h3>{accountLabel(account)}</h3><span className="dsh-sub-status">● {tt(account.planEnabled === false ? 'planDisabled' : 'connected')}</span><span className="dsh-sub-hint"> · {account.plan ?? profile.name}</span></div><div className="dsh-sub-actions">
-            {provider === 'chatgpt' && <button disabled={busy || status?.busy} onClick={() => login(account.key)}>{tt('reconnect')}</button>}
+        {!account || account.connected === false ? <div className="dsh-sub-empty"><span className="dsh-sub-emptyLogo" aria-hidden="true"><ProviderLogo provider={provider}/></span><h3>{tt(profile.empty)}</h3><p>{tt('chatGptConsentHint')}</p><button className="dsh-sub-primary" disabled={busy || status?.busy || !status} onClick={() => login(account?.key)}>{tt(profile.connect)}</button></div> : <>
+          <div className="dsh-sub-accountHeader"><div><h3>{accountLabel(account)}</h3><span className="dsh-sub-status">● {tt(account.planEnabled === false ? 'planDisabled' : 'connected')}</span><span className="dsh-sub-hint"> · {profile.name}</span></div><div className="dsh-sub-actions">
+            <button disabled={busy || status?.busy} onClick={() => login(account.key)}>{tt('reconnect')}</button>
             {!account.isDefault && <button disabled={busy} onClick={() => { void run(async () => { await api.setDefault(account.key); await refreshStatus() }) }}>{tt('setDefault')}</button>}
             <button disabled={busy} onClick={() => setDisconnect(account)}>{tt('disconnect')}</button>
           </div></div>
-          <div className="dsh-sub-tabs" role="tablist" aria-label={profile.name}>{(['models', 'tools', 'usage'] as const).filter(value => value !== 'tools' || provider !== 'chatgpt').map(value => <button key={value} role="tab" id={`sub-tab-${value}`} aria-selected={tab === value} aria-controls={`sub-panel-${value}`} onClick={() => setTab(value)}>{tt(value)}{value === 'models' && catalog ? ` ${availableModels.length}` : ''}</button>)}</div>
+          <div className="dsh-sub-tabs" role="tablist" aria-label={profile.name}>{(['models', 'usage'] as const).map(value => <button key={value} role="tab" id={`sub-tab-${value}`} aria-selected={tab === value} aria-controls={`sub-panel-${value}`} onClick={() => setTab(value)}>{tt(value)}{value === 'models' && catalog ? ` ${availableModels.length}` : ''}</button>)}</div>
           <div className="dsh-sub-tabBody" role="tabpanel" id={`sub-panel-${tab}`} aria-labelledby={`sub-tab-${tab}`}>
             {tab === 'models' && <>
               <div className="dsh-sub-toolbar"><input aria-label={tt('search')} placeholder={tt('search')} value={query} onChange={e => setQuery(e.target.value)}/><button disabled={busy || catalogBusy || savingPreferences} onClick={() => { void run(() => refreshCatalog(true)) }}>{catalogBusy ? tt('loading') : tt('refresh')}</button></div>
@@ -257,31 +224,10 @@ function ProviderPanel({ api, close, provider, selectProvider }: PanelProps & { 
                 </td></tr>)}
               </tbody></table>{models.length === 0 && <p className="dsh-sub-tableEmpty">{catalogBusy ? tt('loading') : query ? tt('noMatches') : tt('noModels')}</p>}</div>
             </>}
-            {tab === 'tools' && <>
-              {TOOL_CARDS[provider].map(tool => <div className="dsh-sub-tool" key={tool.name}>
-                <div><h4>{tt(tool.title)}</h4><p>{tt(tool.hint)}</p><code>{tool.name}</code></div>
-                <label className="dsh-sub-toggle">
-                  <input type="checkbox" aria-label={tt(tool.title)} disabled={busy || !catalog || catalogBusy}
-                    checked={settings.tools?.[tool.setting] !== false}
-                    onChange={(e) => {
-                      const checked = e.target.checked
-                      save(previous => ({ ...previous, tools: { ...previous.tools, [tool.setting]: checked } }))
-                    }}/>
-                  <span className="dsh-sub-switch" aria-hidden="true"/>
-                </label>
-              </div>)}
-              <p className="dsh-sub-hint">{tt('toolPolicy')}</p>
-            </>}
             {tab === 'usage' && <>
-              <div className="dsh-sub-toolbar"><p className="dsh-sub-hint">{tt(provider === 'chatgpt' ? 'chatGptUsageHint' : 'usageHint')}</p><button disabled={usageBusy || busy} onClick={() => { void run(refreshUsage) }}>{usageBusy ? tt('loading') : tt('refresh')}</button></div>
-              {provider === 'chatgpt' && <p><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">{tt('manageUsage')}</a></p>}
-              {currentUsage?.plan && <p>{tt('plan')} · {currentUsage.plan}</p>}
-              {!currentUsage && <p className="dsh-sub-tableEmpty">{usageBusy ? tt('loading') : tt('unknownUsage')}</p>}
-              {currentUsage && (!currentUsage.supported || !currentUsage.windows?.length) && <p className="dsh-sub-tableEmpty">{tt(provider === 'chatgpt' ? 'chatGptUsageUnavailable' : 'unsupportedUsage')}</p>}
-              {currentUsage?.supported && currentUsage.windows?.map((window, index) => <div className="dsh-sub-usage" key={index}><div><strong>{tt(window.kind)}{window.scope ? ` · ${window.scope}` : ''}</strong><span>{Number.isFinite(window.usedPercent) ? `${window.usedPercent.toFixed(0)}% ${tt('used')}` : tt('unknown')}</span></div>
-                {Number.isFinite(window.usedPercent) && <progress max={100} value={Math.max(0, Math.min(100, window.usedPercent))} aria-label={tt(window.kind)}/>}
-                <small>{tt('resets')} · {window.resetsAt ? new Date(window.resetsAt).toLocaleString() : tt('unknown')}</small>
-              </div>)}
+              <p className="dsh-sub-hint">{tt('chatGptUsageHint')}</p>
+              <p><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">{tt('manageUsage')}</a></p>
+              <p className="dsh-sub-tableEmpty">{tt('chatGptUsageUnavailable')}</p>
             </>}
           </div>
         </>}

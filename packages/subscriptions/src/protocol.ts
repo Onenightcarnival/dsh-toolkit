@@ -1,5 +1,5 @@
 /** Credential-free views of the subscription RPC. */
-export type ProviderId = 'codex' | 'chatgpt' | 'antigravity' | 'grok'
+export type ProviderId = 'chatgpt'
 export interface Rpc {
   call(channel: string, method: string, payload: unknown): Promise<
     { ok: true; value: unknown } | { ok: false; error: { message: string } }
@@ -8,7 +8,6 @@ export interface Rpc {
 export interface Account {
   key: string
   account?: string
-  plan?: string
   isDefault: boolean
   connected?: boolean
   planEnabled?: boolean
@@ -19,7 +18,6 @@ export interface Login { authorizeUrl: string; manualOnly?: boolean }
 export interface Preferences {
   visibleModels?: string[]
   contextWindows?: Record<string, number>
-  tools?: { web_search?: boolean; image_generate?: boolean; x_search?: boolean; video_generate?: boolean }
   accounts?: Record<string, { alias?: string; poolEnabled?: boolean; independentEntry?: boolean; poolModels?: string[] }>
 }
 export interface Model {
@@ -35,11 +33,5 @@ export interface Catalog {
   provider: ProviderId
   settings: Preferences
   models: Model[]
-  tools: string[]
   accounts: { key: string; label: string; models: { id: string; name: string }[]; unavailable?: boolean }[]
-}
-export interface Usage {
-  supported: boolean
-  plan?: string
-  windows?: { kind: 'session' | 'weekly' | 'other'; scope?: string; usedPercent: number; resetsAt?: number }[]
 }

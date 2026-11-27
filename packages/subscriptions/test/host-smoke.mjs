@@ -28,8 +28,8 @@ try {
     try { const [code] = await once(install, 'exit'); assert.equal(code, 0, installLog) }
     finally { clearTimeout(timeout) }
     const config = bundle
-      ? { rdb: false, s3: false, otel: false, browser: false, subscriptions: mode === 'disabled' ? false : { codexClientVersion: '0.153.4' } }
-      : { codexClientVersion: '0.153.4' }
+      ? { rdb: false, s3: false, otel: false, browser: false, subscriptions: mode === 'disabled' ? false : {} }
+      : {}
     await writeFile(patch, `- id: ${module}\n  config: ${JSON.stringify(config)}\n`)
     const child = spawn(process.execPath, [cli, 'web', '--patch', patch, '--no-open', '--port', '0'], {
       cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'],
@@ -72,21 +72,14 @@ try {
       }
       if (mode === 'disabled') assert.equal((await rpc('status')).status, 404)
       else {
-        assert.deepEqual((await rpc('status')).providers.codex.accounts, [])
-        assert.deepEqual((await rpc('status')).providers.antigravity.accounts, [])
-        assert.deepEqual((await rpc('status')).providers.chatgpt.accounts, [])
-        assert.deepEqual((await rpc('status')).providers.grok.accounts, [])
-        assert.deepEqual((await rpc('providerSettings', { provider: 'grok' })).tools, ['image_generate', 'video_generate', 'x_search'])
-        assert.deepEqual((await rpc('providerSettings', { provider: 'chatgpt' })).tools, [])
+        const status = await rpc('status')
+        assert.deepEqual(Object.keys(status.providers), ['chatgpt'])
+        assert.deepEqual(status.providers.chatgpt.accounts, [])
         const login = await rpc('login', { provider: 'chatgpt' })
         assert.equal(new URL(login.authorizeUrl).searchParams.get('client_id'), 'dynamic_agent_client')
         await rpc('cancel', { provider: 'chatgpt' })
-        await rpc('setProviderSettings', { provider: 'codex', settings: { tools: { web_search: false, image_generate: false } } })
-        assert.deepEqual((await rpc('providerSettings', { provider: 'codex' })).settings.tools, { web_search: false, image_generate: false })
-        await rpc('setProviderSettings', { provider: 'antigravity', settings: { contextWindows: { 'gemini-fixture': 1000000 } } })
-        const google = await rpc('providerSettings', { provider: 'antigravity' })
-        assert.equal(google.settings.contextWindows['gemini-fixture'], 1000000)
-        assert.deepEqual(google.tools, ['image_generate', 'web_search'])
+        await rpc('setProviderSettings', { provider: 'chatgpt', settings: { contextWindows: { 'gpt-fixture': 1000000 } } })
+        assert.deepEqual((await rpc('providerSettings', { provider: 'chatgpt' })).settings, { contextWindows: { 'gpt-fixture': 1000000 } })
       }
       console.log(`${mode}: real web host, authentication, RPC and module switch passed`)
     } finally {

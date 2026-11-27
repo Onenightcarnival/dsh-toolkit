@@ -1,12 +1,9 @@
-/** Codex, ChatGPT, Antigravity and Grok subscription providers. */
+/** ChatGPT subscription provider. */
 
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { withChatGptLock } from './auth/chatgpt-lock.js'
 import { ChatGptTokenManager } from './providers/chatgpt-tokens.js'
 import { ChatGptAdapter } from './providers/chatgpt.js'
 import { ChatGptPlanNotEnabledError, chatGptFlow, prepareChatGptRegistration, readChatGptRegistrations, exchangeChatGptCode, refreshChatGpt, isChatGptPermanentRefreshError, revokeChatGpt, chatGptPlanEnabled, type ChatGptRegistration } from './auth/chatgpt.js'
-import { getAccountSession, type ChatGptSession } from './auth/store.js'
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -16,21 +13,16 @@ import type {
   LlmModelInfo,
   LlmResolvedModelInfo,
 } from '@deepseek-ai/dsh-llm'
-// Type-only: activates the `ctx.tools` Context merge for the inject block.
-import type {} from '@deepseek-ai/dsh-tools'
-import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import { OAuthFlowManager, type OAuthAttempt } from './auth/oauth-flow.js'
 import { BadRequest, registerAuthRpc } from './auth/rpc.js'
 import type {
+  AccountStatus,
   AuthController,
-  ImageBytesResult,
   ModelDefaultsCatalog,
   ModelDefaultsController,
   ModelDefaultView,
   ProviderStatus,
-  SpeedController,
-  SpeedTier,
-  VideoBytesResult,
 } from './auth/rpc.js'
 import {
   defaultEffortOf,
@@ -40,62 +32,32 @@ import {
 import {
   accountKeyOf,
   deleteAccountSession,
+  getAccountSession,
   listAccounts,
   saveAccountSession,
   setDefaultAccount,
   PROVIDER_IDS,
 } from './auth/store.js'
 import type {
-  CodexSession,
   ProviderId,
   StoredSession,
 } from './auth/store.js'
 import { DISCOVERY_TIMEOUT_MS, validateModels, withTimeout } from './providers/common.js'
-import type { ModelEntry, ProviderUsage } from './providers/common.js'
-import { AccountTokenManager } from './providers/accounts.js'
-import type { AccountAwareAdapter } from './providers/accounts.js'
-import { DEFAULT_RATE_LIMIT_MAX_WAIT_MS, resolveRateLimitWait } from './providers/rate-limit.js'
-import type { RateLimitConfig } from './providers/rate-limit.js'
-import { accountCatalogStore, catalogStore } from './providers/catalog-store.js'
-import type { CliVersion, NpmCliVersionCache } from './providers/npm-cli-version.js'
-import { CodexClientVersionCache } from './providers/codex-client-version.js'
-import { CodexWebSearchProvider } from './providers/codex-search.js'
+import type { ModelEntry } from './providers/common.js'
+import type { AccountAwareAdapter, AccountTokenManager } from './providers/accounts.js'
+import { accountCatalogStore } from './providers/catalog-store.js'
 import { PoolAdapter } from './providers/pool.js'
-import { AccountPreferencesAdapter, accountAllowsPool, accountModelId, parseAccountModelId } from './providers/account-preferences.js'
+import { AccountPreferencesAdapter, accountAllowsPool, parseAccountModelId } from './providers/account-preferences.js'
 export type { AccountPreferences, ProviderPreferences } from './provider-settings.js'
-import { ImageAccountPool } from './providers/image-pool.js'
-import { registerWithAlias } from './tools/registration.js'
 import { buildAccountPools, poolKey } from './providers/pool-family.js'
 import type { PoolDefinition, PoolMemberRef } from './providers/pool-family.js'
 import { PoolHealthRegistry } from './providers/pool-health.js'
-import { PoolUsageTracker } from './providers/pool-usage.js'
-import {
-  CodexAdapter,
-  codexFlow,
-  CODEX_PREEMPT_MS,
-  codexProfileClaims,
-  exchangeCodexCode,
-  fetchCodexUsage,
-  isCodexPermanentRefreshError,
-  refreshCodex,
-} from './providers/codex.js'
-import { createImageGenerateTool } from './tools/image-generate.js'
-import { AntigravityToolClient, ANTIGRAVITY_IMAGE_MODEL } from './providers/antigravity-tools.js'
-import { createCodexWebSearchTool, createWebSearchTool } from './tools/web-search.js'
-import { AntigravityAdapter, antigravityFlow, exchangeAntigravityCode, refreshAntigravity, isAntigravityPermanentRefreshError, fetchAntigravityUsage, ANTIGRAVITY_PREEMPT_MS } from './providers/antigravity.js'
-import type { AntigravityRuntimeConfig } from './providers/antigravity.js'
-import { resolveAntigravityOAuthConfig, preserveAntigravityClient, type AntigravityOAuthConfig } from './auth/antigravity-client.js'
-import type { AntigravitySession, GrokSession } from './auth/store.js'
-import { GrokAdapter, grokFlow, GROK_PREEMPT_MS, grokTierName, exchangeGrokCode, fetchGrokUsage, isGrokPermanentRefreshError, refreshGrok } from './providers/grok.js'
-import { createXSearchTool } from './tools/x-search.js'
-import { createVideoGenerateTool, videosDirectory } from './tools/video-generate.js'
-import { ensureConnectAttemptTimeout, proxiedFetch, proxyGetConfig, proxySetConfig, proxyTestConnection, restoreConnectAttemptTimeout } from './http.js'
-import { ProviderSettingsStore, PROVIDER_TOOLS, validatePreferences } from './provider-settings.js'
+import { ensureConnectAttemptTimeout, proxyGetConfig, proxySetConfig, proxyTestConnection, restoreConnectAttemptTimeout } from './http.js'
+import { ProviderSettingsStore, validatePreferences } from './provider-settings.js'
 
-export type { ModelEntry, ProviderUsage, UsageWindow } from './providers/common.js'
-export type { RateLimitConfig, RateLimitWait } from './providers/rate-limit.js'
+export type { ModelEntry } from './providers/common.js'
 export type { ProviderStatus } from './auth/rpc.js'
-export type { CodexSession, ProviderId } from './auth/store.js'
+export type { ProviderId } from './auth/store.js'
 
 export const name = 'dsh-plugin-subscriptions'
 export const inject = ['llm']
@@ -103,48 +65,32 @@ export const inject = ['llm']
 /** Default maximum provider idle time while one stream read is outstanding. */
 export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000
 
-/** Bound on one pool quota poll. */
-export const POOL_USAGE_TIMEOUT_MS = DISCOVERY_TIMEOUT_MS
-export { withTimeout } from './providers/common.js'
-
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
-  /** Codex /models client_version override; does not change account entitlements. */
-  codexClientVersion?: string
-  antigravity?: AntigravityRuntimeConfig & Partial<AntigravityOAuthConfig>
   /** Provider routes to register; defaults to every supported provider. */
   providers?: ProviderId[]
   /** Maximum provider idle time while one stream read is outstanding (default five minutes). */
   streamIdleTimeoutMs?: number
-  /** Whether and how long a route waits out a closed rate-limit window. */
-  rateLimit?: RateLimitConfig
-  /** Advisory model catalogs overriding the built-in defaults, per provider. */
+  /** Model metadata overrides, per provider. */
   models?: {
     chatgpt?: ModelEntry[]
-    codex?: ModelEntry[]
-    antigravity?: ModelEntry[]
-    grok?: ModelEntry[]
   }
   /** Same-subscription account pools (and optional extra tier models). */
   pool?: {
     /** Enable account pooling (default true; needs ≥2 accounts of one provider). */
     enabled?: boolean
-    /** Member selection: plain priority failover, or quota-aware urgency scheduling. */
-    strategy?: 'priority' | 'quota_aware'
-    /** A challenger must out-score the sticky member by this factor to take over (default 2). */
-    switchMargin?: number
     /** Auto-pool every catalog model across a provider's logged-in accounts (default true). */
     autoAccounts?: boolean
     /** @deprecated Use {@link autoAccounts}. */
     autoFamilies?: boolean
-    /** Explicit account lists for one catalog model (same provider); replaces the auto pool. */
+    /** Explicit account lists for one catalog model; replaces the auto pool. */
     families?: Record<string, PoolMemberRef[]>
     /** Extra picker entries with heterogeneous fallbacks, listed under the first member's provider. */
     tiers?: Record<string, PoolMemberRef[]>
   }
 }
 
-const providerIdSchema = z.union(['codex', 'chatgpt', 'antigravity', 'grok'])
+const providerIdSchema = z.union(['chatgpt'])
 const modelEntrySchema: z<ModelEntry> = z.object({
   id: z.string().required(),
   name: z.string(),
@@ -160,24 +106,13 @@ const poolMemberSchema: z<PoolMemberRef> = z.object({
 })
 
 export const Config: z<Config> = z.object({
-  providers: z.array(providerIdSchema).default(['codex', 'chatgpt', 'antigravity', 'grok']),
-  antigravity: z.object({ clientId: z.string(), clientSecret: z.string(), baseURL: z.string(), userAgent: z.string(), projectId: z.string(), onboard: z.boolean() }),
-  codexClientVersion: z.string(),
+  providers: z.array(providerIdSchema).default(['chatgpt']),
   streamIdleTimeoutMs: z.number().min(1).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
-  rateLimit: z.object({
-    wait: z.boolean().default(true),
-    maxWaitMs: z.number().min(1).default(DEFAULT_RATE_LIMIT_MAX_WAIT_MS),
-  }),
   models: z.object({
     chatgpt: z.array(modelEntrySchema),
-    codex: z.array(modelEntrySchema),
-    antigravity: z.array(modelEntrySchema),
-    grok: z.array(modelEntrySchema),
   }),
   pool: z.object({
     enabled: z.boolean().default(true),
-    strategy: z.union(['priority', 'quota_aware']).default('quota_aware'),
-    switchMargin: z.number().min(1).default(2),
     autoAccounts: z.boolean().default(true),
     autoFamilies: z.boolean(),
     families: z.dict(z.array(poolMemberSchema)),
@@ -185,69 +120,25 @@ export const Config: z<Config> = z.object({
   }),
 })
 
-/** Built-in catalogs used when the config does not override a provider's models. */
-const DEFAULT_MODELS: Record<ProviderId, ModelEntry[]> = {
-  chatgpt: [],
-  antigravity: [],
-  codex: [
-    { id: 'gpt-5.1-codex', name: 'GPT-5.1 Codex' },
-    { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini' },
-    { id: 'gpt-5.1', name: 'GPT-5.1' },
-  ],
-  grok: [
-    { id: 'grok-4', name: 'Grok 4' },
-    { id: 'grok-4-fast-reasoning', name: 'Grok 4 Fast Reasoning' },
-    { id: 'grok-code-fast-1', name: 'Grok Code Fast 1' },
-  ],
-}
-
-/** Validate and detach the model catalog for every provider. */
-function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry[]> {  const resolve = (provider: ProviderId): ModelEntry[] => {
-  // Empty and absent lists both select the built-in catalog (schemastery injects `[]` for omitted arrays).
-  const configured = models?.[provider]
-  const entries = configured !== undefined && configured.length > 0 ? configured : DEFAULT_MODELS[provider]
-  return validateModels(entries, `${name}: models.${provider}`)
-}
-return {
-  chatgpt: resolve('chatgpt'),
-  codex: resolve('codex'),
-  antigravity: resolve('antigravity'),
-  grok: resolve('grok'),
-}
+/** Validate and detach the configured model metadata for every provider. */
+function resolveCatalog(models: Config['models']): Record<ProviderId, ModelEntry[]> {
+  const resolve = (provider: ProviderId): ModelEntry[] => validateModels(models?.[provider] ?? [], `${name}: models.${provider}`)
+  return {
+    chatgpt: resolve('chatgpt'),
+  }
 }
 
 /** The display account of a stored session, for the status endpoint. */
 function accountOf(provider: ProviderId, session: StoredSession | undefined): string | undefined {
   if (session === undefined) return undefined
   switch (provider) {
-    case 'chatgpt': return (session as ChatGptSession).emailAddress ?? (session as ChatGptSession).subject
-    case 'antigravity': return (session as AntigravitySession).account ?? (session as AntigravitySession).projectId
-    case 'grok': return (session as GrokSession).account
-    case 'codex': {
-      const codex = session as CodexSession
-      // Sessions without persisted identity claims decode the email from the id token.
-      return codex.emailAddress ?? codexProfileClaims(codex.idToken).emailAddress ?? codex.accountId
-    }
+    case 'chatgpt': return session.emailAddress ?? session.subject
   }
 }
-
-/** The plan name a stored session carries, when the provider told us. */
-function planOf(provider: ProviderId, session: StoredSession): string | undefined {
-  switch (provider) {
-    case 'antigravity': return (session as AntigravitySession).plan
-    case 'codex': return (session as CodexSession).planType
-    case 'grok': return grokTierName((session as GrokSession).accessToken)
-    default: return undefined
-  }
-}
-
-/** Per-provider per-account usage lookup; providers without a usage endpoint are absent. */
-type UsageFetchers = Partial<Record<ProviderId, (account: string, signal: AbortSignal) => Promise<ProviderUsage>>>
 
 /**
  * Auth operations behind the `/subscriptions-auth` RPC channel: start/complete
- * OAuth attempts in the background, feed pasted codes, cancel, log out, and
- * answer usage lookups.
+ * OAuth attempts in the background, feed pasted codes, cancel and log out.
  *
  * @internal Exported for tests only; not part of the plugin's public surface.
  */
@@ -286,75 +177,39 @@ export class SubscriptionsAuthController implements AuthController {
   constructor(
     private readonly flows: OAuthFlowManager,
     private readonly onAuthChanged: (provider: ProviderId, account?: string) => void,
-    private readonly resolveAttachments: () => AttachmentStore | undefined,
-    private readonly usageFetchers: UsageFetchers = {},
-    private readonly poolUsage?: PoolUsageTracker,
-    private readonly clientVersions: Partial<Record<ProviderId, () => Promise<CliVersion | undefined>>> = {},
-    private readonly antigravityConfig: Config['antigravity'] = {},
   ) {}
-
-  usage(provider: ProviderId, account: string, signal: AbortSignal, force = false): Promise<ProviderUsage> {
-    const fetcher = this.usageFetchers[provider]
-    if (fetcher === undefined) return Promise.resolve({ supported: false })
-    if (this.poolUsage === undefined) return fetcher(account, signal)
-    return this.poolUsage.snapshotFor(provider, account, force)
-  }
-
-  async readImage(ref: ImageAttachmentRef, signal: AbortSignal): Promise<ImageBytesResult> {
-    const attachments = this.resolveAttachments()
-    if (attachments === undefined) {
-      throw new Error('no attachment service is mounted; generated-image bytes are unavailable')
-    }
-    const stored = await attachments.readImage(ref, signal)
-    return { mediaType: stored.ref.mediaType, dataBase64: Buffer.from(stored.data).toString('base64') }
-  }
-
-  async readVideo(name: string, signal: AbortSignal): Promise<VideoBytesResult> {
-    // The RPC layer admits bare .mp4 names only; the file lives in the plugin's videos directory.
-    const data = await readFile(join(videosDirectory(), name), { signal })
-    return { mediaType: 'video/mp4', dataBase64: data.toString('base64') }
-  }
 
   async status(provider: ProviderId): Promise<ProviderStatus> {
     const entries = await listAccounts(provider)
     // `detail` carries only errors.
     const detail = this.lastError.get(provider)
-    const clientVersion = await this.clientVersions[provider]?.()
     return {
       busy: this.flows.isBusy(provider) || this.finalizing.has(provider),
       manualOnly: this.flows.pending(provider)?.manualOnly ?? false,
-      accounts: entries.map<import('./auth/rpc.js').AccountStatus>(({ key, session }, index) => {
+      accounts: entries.map<AccountStatus>(({ key, session }, index) => {
         const account = accountOf(provider, session)
-        const plan = planOf(provider, session)
         return {
           key,
           isDefault: index === 0,
           expiresAt: session.expiresAt,
-          ...(provider === 'chatgpt' ? { connected: true, planEnabled: chatGptPlanEnabled(session as ChatGptSession) } : {}),
+          connected: true,
+          planEnabled: chatGptPlanEnabled(session),
           ...account === undefined ? {} : { account },
-          ...plan === undefined ? {} : { plan },
         }
-      }).concat(provider === 'chatgpt' ? Object.values((await readChatGptRegistrations()).accounts)
+      }).concat(Object.values((await readChatGptRegistrations()).accounts)
         .filter(entry => !entries.some(account => account.key === entry.clientId))
         .map(entry => ({ key: entry.clientId, account: entry.emailAddress ?? entry.clientId, isDefault: false,
-          connected: false, planEnabled: entry.planEnabled, expiresAt: undefined })) : []),
+          connected: false, planEnabled: entry.planEnabled, expiresAt: undefined }))),
       ...detail === undefined ? {} : { detail },
-      ...clientVersion === undefined ? {} : { clientVersion },
     }
   }
 
   async login(provider: ProviderId, account?: string): Promise<{ authorizeUrl: string; manualOnly: boolean }> {
-    const oauth = provider === 'antigravity' ? resolveAntigravityOAuthConfig(this.antigravityConfig) : undefined
-    if (oauth) await preserveAntigravityClient(oauth)
-    const registration = provider === 'chatgpt' ? await prepareChatGptRegistration(account) : undefined
-    const previous = registration && account ? await getAccountSession('chatgpt', account) : undefined
-    if (registration && previous && !chatGptPlanEnabled(previous)) registration.planEnabled = false
-    const spec = registration ? chatGptFlow(registration, previous?.idToken)
-      : oauth ? antigravityFlow(oauth)
-        : provider === 'grok' ? await grokFlow()
-          : codexFlow
-    const attempt = await this.flows.start(provider, spec)
-    if (registration) this.registrations.set(attempt, registration)
+    const registration = await prepareChatGptRegistration(account)
+    const previous = account ? await getAccountSession(provider, account) : undefined
+    if (previous && !chatGptPlanEnabled(previous)) registration.planEnabled = false
+    const attempt = await this.flows.start(provider, chatGptFlow(registration, previous?.idToken))
+    this.registrations.set(attempt, registration)
     // The claim is taken after `start()` succeeds; a rejected start leaves the running attempt's claim intact.
     this.beginFinalizing(provider)
     this.completions.set(provider, this.complete(provider, attempt, this.claim(provider)))
@@ -381,14 +236,11 @@ export class SubscriptionsAuthController implements AuthController {
     try {
       const code = await attempt.waitCode()
       const session = await this.exchange(provider, code, attempt)
-      // A superseded claim drops the result. The check and the store call run
-      // in one synchronous stretch; the store queues its write synchronously.
+      // A superseded claim drops the result; the write re-checks the claim inside the session lock.
       if (this.claims.get(provider) !== claim) return
-      if (provider === 'chatgpt') {
-        await withChatGptLock('sessions', async () => {
-          if (this.claims.get(provider) === claim) await this.persist(provider, session)
-        })
-      } else await this.persist(provider, session)
+      await withChatGptLock('sessions', async () => {
+        if (this.claims.get(provider) === claim) await this.persist(provider, session)
+      })
       if (this.claims.get(provider) !== claim) return
       this.lastError.delete(provider)
       this.onAuthChanged(provider, accountKeyOf(provider, session))
@@ -397,10 +249,10 @@ export class SubscriptionsAuthController implements AuthController {
       if (this.claims.get(provider) !== claim) return
       if (error instanceof ChatGptPlanNotEnabledError) {
         await withChatGptLock('sessions', async () => {
-          if (this.claims.get(provider) === claim) await deleteAccountSession('chatgpt', error.clientId)
+          if (this.claims.get(provider) === claim) await deleteAccountSession(provider, error.clientId)
         })
         if (this.claims.get(provider) !== claim) return
-        this.onAuthChanged('chatgpt', error.clientId)
+        this.onAuthChanged(provider, error.clientId)
       }
       // Cancellation is not surfaced as a failure.
       if (!(error instanceof Error && error.message === 'login cancelled')) {
@@ -414,22 +266,18 @@ export class SubscriptionsAuthController implements AuthController {
   /** Token exchange for one OAuth code; `protected` so tests can stand in for the provider endpoint. */
   protected exchange(provider: ProviderId, code: string, attempt: OAuthAttempt): Promise<StoredSession> {
     switch (provider) {
-      case 'antigravity': return exchangeAntigravityCode(code, attempt.pkce.verifier, attempt.redirectUri, resolveAntigravityOAuthConfig(this.antigravityConfig), this.antigravityConfig)
       case 'chatgpt': {
         const registration = this.registrations.get(attempt)
         if (registration === undefined) throw new Error('ChatGPT sign-in attempt has no client registration')
         return exchangeChatGptCode(code, attempt, registration)
       }
-      case 'grok': return exchangeGrokCode(code, attempt.pkce.verifier, attempt.redirectUri, attempt.pkce.challenge)
-      case 'codex':
-        return exchangeCodexCode(code, attempt.pkce.verifier, attempt.redirectUri)
     }
   }
 
   private persist(provider: ProviderId, session: StoredSession): Promise<void> {
     // Keyed by the account's stable identity: re-logging the same account
     // updates in place, a different account appends.
-    return saveAccountSession(provider, accountKeyOf(provider, session), session as never)
+    return saveAccountSession(provider, accountKeyOf(provider, session), session)
   }
 
   /**
@@ -460,14 +308,11 @@ export class SubscriptionsAuthController implements AuthController {
     this.claim(provider)
     this.flows.pending(provider)?.cancel()
     let revocationFailed = false
-    if (provider === 'chatgpt') {
-      await withChatGptLock('sessions', async () => {
-        const session = await getAccountSession('chatgpt', account)
-        if (session) { try { await revokeChatGpt(session) } catch { revocationFailed = true } }
-        await deleteAccountSession(provider, account)
-      })
-    }
-    if (provider !== 'chatgpt') await deleteAccountSession(provider, account)
+    await withChatGptLock('sessions', async () => {
+      const session = await getAccountSession(provider, account)
+      if (session) { try { await revokeChatGpt(session) } catch { revocationFailed = true } }
+      await deleteAccountSession(provider, account)
+    })
     this.lastError.delete(provider)
     if (revocationFailed) this.lastError.set(provider, 'Signed out locally. Remote revocation was not confirmed; disconnect the app in ChatGPT settings.')
     this.onAuthChanged(provider, account)
@@ -480,48 +325,16 @@ export class SubscriptionsAuthController implements AuthController {
 
 }
 
-/** How long the Settings status waits on a CLI version refresh before showing the last one. */
-const STATUS_VERSION_WAIT_MS = 1000
-
-/**
- * Read the CLI version presented by the route. The first lookup awaits its
- * 5-second deadline; subsequent refreshes wait up to waitMs and return the
- * latest cached result.
- */
-export function presentedVersion(
-  cache: Pick<NpmCliVersionCache, 'resolve' | 'current'>,
-  waitMs = STATUS_VERSION_WAIT_MS,
-): () => Promise<CliVersion | undefined> {
-  return async () => {
-    if (cache.current() === undefined) {
-      await cache.resolve()
-      return cache.current()
-    }
-    let timer: ReturnType<typeof setTimeout> | undefined
-    await Promise.race([
-      cache.resolve(),
-      new Promise<void>((resolve) => { timer = setTimeout(resolve, waitMs) }),
-    ]).finally(() => { clearTimeout(timer) })
-    return cache.current()
-  }
-}
-
 export function apply(ctx: Context, config: Config): void {
   const previousAttemptTimeout = ensureConnectAttemptTimeout()
   ctx.effect(() => () => { restoreConnectAttemptTimeout(previousAttemptTimeout) }, 'dsh-plugin-subscriptions: connect attempt timeout')
   const preferences = new ProviderSettingsStore()
-  const codexVersion = new CodexClientVersionCache()
   const providers = [...new Set(config.providers ?? [...PROVIDER_IDS])]
   const streamIdleTimeoutMs = config.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS
   if (!Number.isFinite(streamIdleTimeoutMs) || streamIdleTimeoutMs <= 0) {
     throw new Error(`${name}: streamIdleTimeoutMs must be a positive finite number`)
   }
-  const rateLimit = resolveRateLimitWait(config.rateLimit, `${name}: rateLimit`)
   const catalog = resolveCatalog(config.models)
-  // A non-empty configured catalog disables live discovery for that provider.
-  const overridden = new Set<ProviderId>(
-    PROVIDER_IDS.filter(provider => (config.models?.[provider]?.length ?? 0) > 0),
-  )
   const flows = new OAuthFlowManager()
   const onWarn = (message: string): void => {
     ctx.logger.warn(`dsh-plugin-subscriptions: ${message}`)
@@ -538,36 +351,16 @@ export function apply(ctx: Context, config: Config): void {
   const accountTokens = new Map<ProviderId, AccountTokenManager<StoredSession>>()
   // Pool state, assigned when the pool route registers below.
   let poolHealth: PoolHealthRegistry | undefined
-  let poolUsage: PoolUsageTracker | undefined
   let poolAdapter: PoolAdapter | undefined
-  const imagePool = new ImageAccountPool({
-    // oxlint-disable-next-line typescript/no-deprecated -- The former option name stays honored.
-    enabled: config.pool?.enabled !== false && (config.pool?.autoAccounts ?? config.pool?.autoFamilies ?? true),
-    onWarn,
-  })
   const authChanged = (provider: ProviderId, account?: string): void => {
-    if (provider === 'codex' || provider === 'grok') imagePool.clear(provider, account)
     adapters.get(provider)?.clearAccountCatalog(account)
     poolHealth?.clear(provider, account)
-    poolUsage?.invalidate(provider, account)
     poolAdapter?.invalidate()
     // Re-announce every route; pool membership follows the accounts.
     for (const [route, handle] of handles) handle.replace([route])
   }
   // Model default overrides load in the background; a load failure leaves them empty.
   void loadModelDefaults()
-  // Token managers are also the tools' credential source.
-  let codexTokens: AccountTokenManager<CodexSession> | undefined
-  let antigravityTokens: AccountTokenManager<AntigravitySession> | undefined
-  let grokTokens: AccountTokenManager<GrokSession> | undefined
-  // Usage lookups resolve the session through the refresh-aware path.
-  const usageFetchers: UsageFetchers = {}
-  // Speed toggle state: per session, in memory; each request checks the model's discovered fast-tier support.
-  const speedBySession = new Map<string, SpeedTier>()
-  let codexAdapter: CodexAdapter | undefined
-  let antigravityAdapter: AntigravityAdapter | undefined
-  let chatgptAdapter: ChatGptAdapter | undefined
-  let grokAdapter: GrokAdapter | undefined
   const memberAdapters = new Map<ProviderId, AccountAwareAdapter>()
   const register = (provider: ProviderId, adapter: AccountAwareAdapter): AdapterRegistrationHandle => {
     const route = new AccountPreferencesAdapter({
@@ -589,100 +382,8 @@ export function apply(ctx: Context, config: Config): void {
         const adapter = new ChatGptAdapter({ tokens, models: catalog.chatgpt, streamIdleTimeoutMs,
           resolveAttachments, accountCatalogStore: account => accountCatalogStore(provider, account),
           defaultEffortOf: model => defaultEffortOf(provider, model),
-          contextWindowOf: model => preferences.contextWindow(model, provider), pool: () => poolAdapter,
+          contextWindowOf: model => preferences.contextWindow(provider, model), pool: () => poolAdapter,
         })
-        chatgptAdapter = adapter
-        adapters.set(provider, adapter)
-        handles.set(provider, register(provider, adapter))
-        break
-      }
-      case 'antigravity': {
-        const tokens = new AccountTokenManager<AntigravitySession>({
-          provider, displayName: 'Google Antigravity',
-          makeOptions: () => ({
-            preemptMs: ANTIGRAVITY_PREEMPT_MS,
-            refresh: session => refreshAntigravity(session, resolveAntigravityOAuthConfig(config.antigravity)),
-            isPermanent: isAntigravityPermanentRefreshError,
-          }),
-          onAccountRemoved: account => authChanged(provider, account),
-        })
-        antigravityTokens = tokens
-        accountTokens.set(provider, tokens)
-        usageFetchers.antigravity = async (account, signal) => fetchAntigravityUsage(await tokens.session(account), config.antigravity, proxiedFetch, signal)
-        const adapter = new AntigravityAdapter({
-          models: catalog.antigravity, streamIdleTimeoutMs, rateLimit, tokens,
-          discovery: !overridden.has(provider), runtime: config.antigravity,
-          onWarn, resolveAttachments, catalogStore: catalogStore(provider),
-          accountCatalogStore: account => accountCatalogStore(provider, account),
-          defaultEffortOf: model => defaultEffortOf(provider, model),
-          contextWindowOf: model => preferences.contextWindow(model, provider),
-          pool: () => poolAdapter,
-        })
-        antigravityAdapter = adapter
-        adapters.set(provider, adapter)
-        handles.set(provider, register(provider, adapter))
-        break
-      }
-      case 'codex': {
-        const tokens = new AccountTokenManager<CodexSession>({
-          provider: 'codex',
-          displayName: 'Codex',
-          makeOptions: () => ({
-            preemptMs: CODEX_PREEMPT_MS,
-            refresh: refreshCodex,
-            isPermanent: isCodexPermanentRefreshError,
-          }),
-          onAccountRemoved: (account) => { authChanged('codex', account) },
-        })
-        codexTokens = tokens
-        accountTokens.set('codex', tokens)
-        usageFetchers.codex = async (account, signal) =>
-          fetchCodexUsage(await tokens.session(account), proxiedFetch, signal)
-        const adapter: CodexAdapter = new CodexAdapter({
-          ...config.codexClientVersion === undefined ? {} : { clientVersion: config.codexClientVersion },
-          resolveClientVersion: () => codexVersion.resolve(),
-          models: catalog.codex,
-          streamIdleTimeoutMs,
-          rateLimit,
-          tokens,
-          discovery: !overridden.has('codex'),
-          onWarn,
-          resolveAttachments,
-          // Durable catalog: capability metadata survives restarts.
-          catalogStore: catalogStore('codex'),
-          accountCatalogStore: account => accountCatalogStore('codex', account),
-          defaultEffortOf: (model: string) => defaultEffortOf('codex', model),
-          contextWindowOf: model => preferences.contextWindow(model),
-          pool: () => poolAdapter,
-          speedFor: (sessionId: string | undefined, model: string): boolean | Promise<boolean> =>
-            sessionId !== undefined
-            && speedBySession.get(sessionId) === 'fast'
-            && adapter.supportsFastTier(model),
-        })
-        codexAdapter = adapter
-        adapters.set('codex', adapter)
-        handles.set('codex', register('codex', adapter))
-        break
-      }
-      case 'grok': {
-        const tokens = new AccountTokenManager<GrokSession>({
-          provider, displayName: 'Grok',
-          makeOptions: () => ({ preemptMs: GROK_PREEMPT_MS, refresh: refreshGrok, isPermanent: isGrokPermanentRefreshError }),
-          onAccountRemoved: account => authChanged(provider, account),
-        })
-        grokTokens = tokens
-        accountTokens.set(provider, tokens)
-        usageFetchers.grok = async (account, signal) => fetchGrokUsage(await tokens.session(account), proxiedFetch, signal)
-        const adapter = new GrokAdapter({
-          models: catalog.grok, streamIdleTimeoutMs, rateLimit, tokens,
-          discovery: !overridden.has(provider), onWarn, resolveAttachments,
-          catalogStore: catalogStore(provider),
-          accountCatalogStore: account => accountCatalogStore(provider, account),
-          defaultEffortOf: model => defaultEffortOf(provider, model),
-          contextWindowOf: model => preferences.contextWindow(model, provider),
-          pool: () => poolAdapter,
-        })
-        grokAdapter = adapter
         adapters.set(provider, adapter)
         handles.set(provider, register(provider, adapter))
         break
@@ -696,28 +397,7 @@ export function apply(ctx: Context, config: Config): void {
   // oxlint-disable-next-line typescript/no-deprecated -- The former option name stays honored.
   const autoAccounts = poolConfig?.autoAccounts ?? poolConfig?.autoFamilies ?? true
   if (poolConfig?.enabled !== false && adapters.size >= 1) {
-    // Every usage poll has a hard timeout; a timed-out poll scores zero urgency.
-    const fetcherFor = (provider: ProviderId, account: string): (() => Promise<ProviderUsage>) | undefined => {
-      switch (provider) {
-        case 'antigravity': {
-          const fetchUsage = usageFetchers.antigravity
-          return fetchUsage === undefined ? undefined : () => fetchUsage(account, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
-        }
-        case 'grok': {
-          const tokens = grokTokens
-          return tokens === undefined ? undefined : async () =>
-            fetchGrokUsage(await tokens.session(account), proxiedFetch, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
-        }
-        case 'codex': {
-          const tokens = codexTokens
-          return tokens === undefined ? undefined : async () =>
-            fetchCodexUsage(await tokens.session(account), proxiedFetch, AbortSignal.timeout(POOL_USAGE_TIMEOUT_MS))
-        }
-        default: return undefined
-      }
-    }
     poolHealth = new PoolHealthRegistry()
-    poolUsage = new PoolUsageTracker(fetcherFor)
     const families = async (): Promise<Map<string, PoolDefinition>> => {
       const pools = new Map<string, PoolDefinition>()
       if (autoAccounts) {
@@ -730,7 +410,7 @@ export function apply(ctx: Context, config: Config): void {
             const catalogs = (await Promise.all(accounts.map(async (account) => {
               const models = await withTimeout(
                 signal => adapter.listOwnModels(provider, account, signal),
-                POOL_USAGE_TIMEOUT_MS,
+                DISCOVERY_TIMEOUT_MS,
               )
               const settings = preferences.get(provider).accounts
               const policy = settings && Object.hasOwn(settings, account) ? settings[account] : undefined
@@ -746,23 +426,14 @@ export function apply(ctx: Context, config: Config): void {
       for (const [id, members] of Object.entries(poolConfig?.families ?? {})) {
         const first = members[0]
         if (first === undefined) continue
-        const owner = first.provider
-        const kept = members.filter(member => member.provider === owner)
-        if (kept.length < members.length) {
-          onWarn(`pool "${id}": cross-provider members are ignored; only ${owner} accounts are pooled`)
-        }
-        pools.set(poolKey(owner, id), { members: kept })
+        pools.set(poolKey(first.provider, id), { members })
       }
       return pools
     }
     poolAdapter = new PoolAdapter({
       adapters: Object.fromEntries(memberAdapters),
       health: poolHealth,
-      usage: poolUsage,
-      strategy: poolConfig?.strategy ?? 'quota_aware',
-      switchMargin: poolConfig?.switchMargin ?? 2,
       defaultAccount: provider => accountTokens.get(provider)?.defaultAccount() ?? Promise.resolve(undefined),
-      resolveAccount: (provider, account) => accountTokens.get(provider)?.resolveAccount(account) ?? Promise.resolve(account),
       families,
       tiers: poolConfig?.tiers ?? {},
       onWarn,
@@ -777,33 +448,11 @@ export function apply(ctx: Context, config: Config): void {
     adapter.listModels = async route => (await list(route)).filter(model => preferences.visible(provider, model.id))
   }
 
-  const speed: SpeedController = {
-    async speed(sessionId) {
-      const fastModels = await codexAdapter?.fastCapableModels() ?? []
-      const accountPreferences = preferences.get('codex').accounts
-      for (const { key } of await codexTokens?.list() ?? []) {
-        if (!accountPreferences || !Object.hasOwn(accountPreferences, key) || accountPreferences[key]?.independentEntry !== true) continue
-        for (const model of [...fastModels]) {
-          if (parseAccountModelId(model)) continue
-          if (await codexAdapter?.supportsFastTier(model, key)) fastModels.push(accountModelId(key, model))
-        }
-      }
-      return {
-        tier: speedBySession.get(sessionId) ?? 'standard',
-        fastModels,
-      }
-    },
-    async setSpeed(sessionId, tier) {
-      if (tier === 'standard') speedBySession.delete(sessionId)
-      else speedBySession.set(sessionId, tier)
-    },
-  }
   // Model default-effort catalog: effort levels come from the live model info, the same source as the session model picker.
   const modelDefaults: ModelDefaultsController = {
     async catalog(force = false): Promise<ModelDefaultsCatalog[]> {
       if (force) {
-        codexVersion.invalidate()
-        // Retain health and usage while refreshing account discovery caches.
+        // Retain pool health while refreshing account discovery caches.
         for (const adapter of adapters.values()) adapter.clearAccountCatalog()
         poolAdapter?.invalidate()
         for (const [route, handle] of handles) handle.replace([route])
@@ -867,17 +516,7 @@ export function apply(ctx: Context, config: Config): void {
       handles.get(provider)?.replace([provider])
     },
   }
-  const configuredCodexVersion = config.codexClientVersion
-  registerAuthRpc(ctx, new SubscriptionsAuthController(
-    flows, authChanged, resolveAttachments, usageFetchers, poolUsage,
-    {
-      ...providers.includes('codex') ? {
-        codex: configuredCodexVersion === undefined
-          ? presentedVersion(codexVersion)
-          : async () => ({ version: configuredCodexVersion, source: 'config' as const }),
-      } : {},
-    }, config.antigravity,
-  ), speed, {
+  registerAuthRpc(ctx, new SubscriptionsAuthController(flows, authChanged), {
     get: () => proxyGetConfig(),
     set: input => proxySetConfig(input),
     test: payload => proxyTestConnection(payload.url, payload.proxy),
@@ -887,7 +526,6 @@ export function apply(ctx: Context, config: Config): void {
       const adapter = adapters.get(provider)
       if (!adapter) throw new BadRequest(`provider ${provider} is not configured`)
       if (force) {
-        if (provider === 'codex') codexVersion.invalidate()
         adapter.clearAccountCatalog()
         poolAdapter?.invalidate()
         handles.get(provider)?.replace([provider])
@@ -904,13 +542,10 @@ export function apply(ctx: Context, config: Config): void {
       const tierIds = new Set((await poolAdapter?.modelsForProvider(provider).catch(() => []) ?? []).map(model => model.id))
       const rows = await Promise.all(models.map(async (model) => {
         const contexts: { default: number; max?: number }[] = []
-        const contextAdapter = provider === 'codex' ? codexAdapter : provider === 'chatgpt' ? chatgptAdapter : provider === 'grok' ? grokAdapter : antigravityAdapter
-        if (contextAdapter) {
-          for (const account of accountCatalogs) {
-            if (account.models?.some(entry => entry.id === model.id)) {
-              const limits = await contextAdapter.contextLimits(model.id, account.account).catch(() => undefined)
-              if (limits) contexts.push(limits)
-            }
+        for (const account of accountCatalogs) {
+          if (account.models?.some(entry => entry.id === model.id)) {
+            const limits = await adapter.contextLimits(model.id, account.account).catch(() => undefined)
+            if (limits) contexts.push(limits)
           }
         }
         // A model with unavailable capabilities can still be hidden or restored.
@@ -929,7 +564,7 @@ export function apply(ctx: Context, config: Config): void {
         }
       }))
       return {
-        provider, settings: preferences.get(provider), models: rows, tools: PROVIDER_TOOLS[provider],
+        provider, settings: preferences.get(provider), models: rows,
         accounts: accounts.map(({ key, session }) => {
           const catalog = accountCatalogs.find(entry => entry.account === key)?.models
           return { key, label: accountOf(provider, session) ?? key, models: (catalog ?? []).map(({ id, name }) => ({ id, name })), ...(catalog === undefined ? { unavailable: true } : {}) }
@@ -939,62 +574,12 @@ export function apply(ctx: Context, config: Config): void {
     async set(provider, settings) {
       if (!adapters.has(provider)) throw new BadRequest(`provider ${provider} is not configured`)
       let validated
-      try { validated = validatePreferences(provider, settings) } catch (error) {
+      try { validated = validatePreferences(settings) } catch (error) {
         throw new BadRequest(error instanceof Error ? error.message : String(error))
       }
       await preferences.set(provider, validated)
       poolAdapter?.invalidate()
       for (const [route, handle] of handles) handle.replace([route])
     },
-  })
-
-  ctx.inject(['tools'], (toolsCtx) => {
-    const search = codexTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createCodexWebSearchTool(new CodexWebSearchProvider({
-      tokens: codexTokens,
-      enabled: () => preferences.toolEnabled('codex', 'web_search'),
-      fetchFn: proxiedFetch,
-    })))
-    const image = codexTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createImageGenerateTool({
-      imagePool, codexTokens, resolveAttachments,
-      resolveLlm: () => ctx.get('llm'),
-      providerEnabled: (provider, createdAt) => preferences.toolEnabled(provider, 'image_generate', createdAt),
-    }))
-    const googleClient = antigravityTokens ? new AntigravityToolClient({
-      tokens: antigravityTokens, runtime: config.antigravity,
-      defaultEffort: () => defaultEffortOf('antigravity', ANTIGRAVITY_IMAGE_MODEL),
-    }) : undefined
-    const googleSearch = antigravityTokens ? registerWithAlias(toolsCtx.tools, createWebSearchTool(new AntigravityToolClient({
-      tokens: antigravityTokens, runtime: config.antigravity,
-      enabled: () => preferences.toolEnabled('antigravity', 'web_search'),
-    }), { name: 'antigravity_web_search', label: 'Antigravity', subscription: 'Google Antigravity' })) : undefined
-    const googleImage = googleClient ? registerWithAlias(toolsCtx.tools, createImageGenerateTool({
-      antigravity: { generate: (args, references, signal) => googleClient.images(args, references, signal) },
-      resolveAttachments, resolveLlm: () => ctx.get('llm'),
-      providerEnabled: (provider, createdAt) => preferences.toolEnabled(provider, 'image_generate', createdAt),
-    })) : undefined
-    const xSearch = grokTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createXSearchTool({
-      tokens: grokTokens, fetchFn: proxiedFetch,
-      enabled: () => preferences.toolEnabled('grok', 'x_search'),
-    }))
-    const grokImage = grokTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createImageGenerateTool({
-      grok: { tokens: grokTokens }, imagePool, resolveAttachments, resolveLlm: () => ctx.get('llm'),
-      providerEnabled: (provider, createdAt) => preferences.toolEnabled(provider, 'image_generate', createdAt),
-    }))
-    const grokVideo = grokTokens === undefined ? undefined : registerWithAlias(toolsCtx.tools, createVideoGenerateTool({
-      tokens: grokTokens, fetchFn: proxiedFetch,
-      enabled: createdAt => preferences.toolEnabled('grok', 'video_generate', createdAt),
-    }))
-    toolsCtx.on('agent/created', ({ agent }) => {
-      const deny: string[] = []
-      if (search && !preferences.toolEnabled('codex', 'web_search')) deny.push(search.name)
-      if (image && !preferences.toolEnabled('codex', 'image_generate', agent.session.header.createdAt)) deny.push(image.name)
-      if (googleSearch && !preferences.toolEnabled('antigravity', 'web_search')) deny.push(googleSearch.name)
-      if (googleImage && !preferences.toolEnabled('antigravity', 'image_generate', agent.session.header.createdAt)) deny.push(googleImage.name)
-      if (xSearch && !preferences.toolEnabled('grok', 'x_search')) deny.push(xSearch.name)
-      if (grokImage && !preferences.toolEnabled('grok', 'image_generate', agent.session.header.createdAt)) deny.push(grokImage.name)
-      if (grokVideo && !preferences.toolEnabled('grok', 'video_generate', agent.session.header.createdAt)) deny.push(grokVideo.name)
-      if (deny.length) agent.ctx.tools.restrict({ deny })
-      return undefined
-    })
   })
 }

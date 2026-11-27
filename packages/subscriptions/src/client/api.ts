@@ -1,10 +1,10 @@
-import type { Catalog, Login, Preferences, ProviderId, Rpc, Status, Usage } from '../protocol.ts'
+import type { Catalog, Login, Preferences, ProviderId, Rpc, Status } from '../protocol.ts'
 
 /** Authorization server named in URL validation errors. */
-const AUTHORIZATION_LABEL: Record<ProviderId, string> = { codex: 'ChatGPT', chatgpt: 'ChatGPT', antigravity: 'Antigravity', grok: 'Grok' }
+const AUTHORIZATION_LABEL: Record<ProviderId, string> = { chatgpt: 'ChatGPT' }
 
 export class SubscriptionsApi {
-  constructor(private readonly rpc: Rpc, readonly provider: ProviderId = 'codex') {}
+  constructor(private readonly rpc: Rpc, readonly provider: ProviderId = 'chatgpt') {}
   forProvider(provider: ProviderId): SubscriptionsApi { return new SubscriptionsApi(this.rpc, provider) }
   async call<T>(method: string, payload: unknown = {}): Promise<T> {
     const result = await this.rpc.call('/api', `subscriptions-auth.${method}`, payload)
@@ -18,11 +18,7 @@ export class SubscriptionsApi {
   async login(account?: string): Promise<Login> {
     const value = await this.call<Login>('login', { provider: this.provider, ...(account === undefined ? {} : { account }) })
     const url = new URL(value.authorizeUrl)
-    const valid = this.provider === 'codex'
-      ? url.origin === 'https://auth.openai.com' && url.pathname === '/oauth/authorize'
-      : this.provider === 'chatgpt' ? url.origin === 'https://auth.openai.com' && url.pathname === '/api/accounts/authorize'
-        : this.provider === 'grok' ? url.protocol === 'https:' && (url.hostname === 'x.ai' || url.hostname.endsWith('.x.ai'))
-          : url.origin === 'https://accounts.google.com' && url.pathname === '/o/oauth2/v2/auth'
+    const valid = url.origin === 'https://auth.openai.com' && url.pathname === '/api/accounts/authorize'
     if (!valid || url.username || url.password) throw new Error(`Invalid ${AUTHORIZATION_LABEL[this.provider]} authorization URL`)
     return { authorizeUrl: url.href, manualOnly: value.manualOnly === true }
   }
@@ -35,5 +31,4 @@ export class SubscriptionsApi {
   effort(model: string, effort: string | undefined): Promise<unknown> {
     return this.call('setModelDefault', { provider: this.provider, model, effort })
   }
-  usage(account: string): Promise<Usage> { return this.call('usage', { provider: this.provider, account, force: true }) }
 }

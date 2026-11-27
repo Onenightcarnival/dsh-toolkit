@@ -2,6 +2,6 @@ import { fileURLToPath } from 'node:url'
 import { buildClient, buildHost, writeNotices } from '../../scripts/build-plugin.mjs'
 
 const dir = fileURLToPath(new URL('.', import.meta.url))
-await buildHost({ dir, entry: 'src/index.ts', inlined: ['undici'], external: ['@cortexkit/antigravity-auth-core'] })
+await buildHost({ dir, entry: 'src/index.ts', inlined: ['undici'] })
 await buildClient({ dir, entry: 'src/client/index.tsx' })
 writeNotices({ dir })
